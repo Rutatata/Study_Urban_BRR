@@ -137,7 +137,7 @@ namespace Tobe.View
                     sw.Restart();
                     while (k < n)
                     {
-                        float t = Mathf.Min(k / outFps, srcDur);
+                        float t = Mathf.Min(k / outFps, srcDur - 1e-3f);   // exactly at the end Unity wraps a looping clip back to frame 0
                         rig.Sample(src, t);
                         rig.handler.GetHumanPose(ref pose);
                         for (int j = 0; j < mc; j++) { float v = pose.muscles[j]; mus[k * mc + j] = float.IsNaN(v) || float.IsInfinity(v) ? 0f : v; }
@@ -311,7 +311,7 @@ namespace Tobe.View
                             sw.Restart();
                             while (k < n)
                             {
-                                float t = Mathf.Min(k / outFps, srcDur);
+                                float t = Mathf.Min(k / outFps, srcDur - 0.02f / srcFps);   // exactly at the end the legacy clip wraps back to frame 0
                                 ctx.Animation.SampleAnimation(ctx.Root, t);
                                 handler.GetHumanPose(ref pose);
                                 for (int j = 0; j < mc; j++) { float v = pose.muscles[j]; mus[k * mc + j] = float.IsNaN(v) || float.IsInfinity(v) ? 0f : v; }
@@ -458,18 +458,25 @@ namespace Tobe.View
             }
             else { a = 0; b = n; }
 
-            // 3) remove horizontal travel (position comes from the network, not from the clip): linear trend over the segment
-            Vector3 travelBody = en.loop ? (b < n ? bp[b] : bp[n - 1]) - bp[a] : bp[n - 1] - bp[0];
-            float segFrames = en.loop ? (b < n ? b - a : n - 1 - a) : n - 1;
-            Vector3 trend = segFrames > 0 ? new Vector3(travelBody.x, 0f, travelBody.z) / segFrames : Vector3.zero;
-            for (int i = 0; i < n; i++) { bp[i] -= trend * (i - a); }
+            // 3) remove horizontal travel: the position comes from the simulation, the clip must play "in place" (otherwise the body runs
+            //    ahead of the character and snaps back at every loop wrap = the visible teleport).
+            //    Loops: least-squares linear trend over the cycle (robust, unlike two end points). One-shots (jumps, dive, celebrate ...):
+            //    all horizontal travel relative to the first frame is removed, like Mixamo "In Place".
+            int segEnd = en.loop ? Mathf.Min(b, n) : n;
+            Vector2 slope = PlanarSlope(bp, a, segEnd);              // body units per frame
+            if (en.loop)
+            {
+                var trend = new Vector3(slope.x, 0f, slope.y);
+                for (int i = 0; i < n; i++) bp[i] -= trend * (i - a);
+            }
+            else
+            {
+                Vector3 p0 = bp[0];
+                for (int i = 0; i < n; i++) { bp[i].x = p0.x; bp[i].z = p0.z; }
+            }
 
-            // 4) root velocity from the hip trajectory (world metres in a 1 m-hip skeleton -> character scale)
-            Vector3 hd; float dur;
-            if (en.loop && b - a >= 2 && b < n) { hd = hips[b] - hips[a]; dur = (b - a) / fps; }
-            else if (en.loop && b - a >= 2) { hd = hips[n - 1] - hips[a]; dur = (n - 1 - a) / fps; }
-            else { hd = hips[n - 1] - hips[0]; dur = (n - 1) / fps; }
-            Vector2 rv = dur > 0.05f ? new Vector2(hd.x, hd.z) * (HipScale / dur) : Vector2.zero;
+            // 4) root velocity from the body trajectory (bodyPosition is in units of the 1 m-hip skeleton -> character scale)
+            Vector2 rv = en.loop && segEnd - a >= 3 ? slope * (fps * HipScale) : Vector2.zero;
             float spd = rv.magnitude;
             if (spd < 0.1f && en.jsonSpeed > 0.1f && loco) { spd = en.jsonSpeed; rv = new Vector2(0f, spd); }
             if (!loco && en.loop) { rv = Vector2.zero; spd = 0f; }   // idle/ready/celebrate stay in place
@@ -521,6 +528,23 @@ namespace Tobe.View
             // 6) jump analysis on the baked hip height
             AnalyseJump(clip);
             return clip;
+        }
+
+        /// <summary>Least-squares slope (per frame) of the horizontal body position over frames [a, end).</summary>
+        static Vector2 PlanarSlope(Vector3[] p, int a, int end)
+        {
+            int m = end - a;
+            if (m < 3) return Vector2.zero;
+            float mt = (m - 1) * 0.5f, sxx = 0f; Vector2 mean = Vector2.zero, sxy = Vector2.zero;
+            for (int i = 0; i < m; i++) mean += new Vector2(p[a + i].x, p[a + i].z);
+            mean /= m;
+            for (int i = 0; i < m; i++)
+            {
+                float dt = i - mt;
+                sxx += dt * dt;
+                sxy += dt * (new Vector2(p[a + i].x, p[a + i].z) - mean);
+            }
+            return sxx > 1e-6f ? sxy / sxx : Vector2.zero;
         }
 
         /// <summary>Finds one stride cycle: from one "left upper leg most forward" peak to the next, choosing the pair whose poses match best.</summary>
