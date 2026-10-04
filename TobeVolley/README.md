@@ -8,7 +8,7 @@ PC-игра на Unity 6 (URP): 3D, камера от третьего лица,
 1. Установи **Unity 6.3 LTS (6000.3.x)** (6000.0 тоже подойдёт: Unity сама подберёт версию URP) через Unity Hub с модулем *Windows Build Support*.
 2. Unity Hub → *Add project from disk* → папка `TobeVolley`. Hub может предложить версию редактора: соглашайся на свою 6000.0.x.
 3. При первом открытии Unity скачает пакеты: URP, Netcode for GameObjects, Multiplayer Services,
-   Input System и UniVRM (с GitHub). Затем скрипт `Tobe/Setup Project` сам создаст URP-ассет,
+   Input System; UniVRM уже лежит внутри проекта (Packages/com.vrmc.*), Git не нужен. Затем скрипт `Tobe/Setup Project` сам создаст URP-ассет,
    сцену `Assets/_Tobe/Scenes/Main.unity`, Build Settings и Player Settings.
    Если Unity попросит перезапуск из-за Input System, соглашайся.
 4. Открой сцену `Main` и нажми **Play** → **ТРЕНИРОВКА С БОТАМИ**. Работает без интернета и без аккаунтов.
