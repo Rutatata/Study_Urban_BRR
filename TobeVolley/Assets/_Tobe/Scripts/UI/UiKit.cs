@@ -34,70 +34,6 @@ namespace Tobe.UI
         };
     }
 
-    /// <summary>Parallelogram / gradient quad. slant &gt; 0 shifts the top edge to the right.</summary>
-    public class SlantGraphic : MaskableGraphic
-    {
-        public float slant;
-        public Color colorL = Color.white, colorR = Color.white;
-
-        public void Set(float slantPx, Color l, Color r)
-        {
-            slant = slantPx; colorL = l; colorR = r; SetVerticesDirty();
-        }
-
-        protected override void OnPopulateMesh(VertexHelper vh)
-        {
-            vh.Clear();
-            Rect r = GetPixelAdjustedRect();
-            float s = slant;
-            float a = Mathf.Min(Mathf.Abs(s), r.width * 0.5f);
-            float sp = s > 0 ? a : 0f, sn = s < 0 ? a : 0f;
-            Vector3 topL = new Vector3(r.xMin + sp, r.yMax), topR = new Vector3(r.xMax - sn, r.yMax);
-            Vector3 botL = new Vector3(r.xMin + sn, r.yMin), botR = new Vector3(r.xMax - sp, r.yMin);
-            Color32 cl = colorL * color, cr = colorR * color;
-            vh.AddVert(botL, cl, Vector2.zero);
-            vh.AddVert(topL, cl, Vector2.up);
-            vh.AddVert(topR, cr, Vector2.one);
-            vh.AddVert(botR, cr, Vector2.right);
-            vh.AddTriangle(0, 1, 2);
-            vh.AddTriangle(2, 3, 0);
-        }
-    }
-
-    public class CircleGraphic : MaskableGraphic
-    {
-        protected override void OnPopulateMesh(VertexHelper vh)
-        {
-            vh.Clear();
-            Rect r = GetPixelAdjustedRect();
-            Vector2 c = r.center; float rx = r.width * 0.5f, ry = r.height * 0.5f;
-            const int N = 28;
-            Color32 col = color;
-            vh.AddVert(new Vector3(c.x, c.y), col, new Vector2(0.5f, 0.5f));
-            for (int i = 0; i <= N; i++)
-            {
-                float a = i / (float)N * Mathf.PI * 2f;
-                vh.AddVert(new Vector3(c.x + Mathf.Cos(a) * rx, c.y + Mathf.Sin(a) * ry), col, new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
-            }
-            for (int i = 1; i <= N; i++) vh.AddTriangle(0, i + 1, i);
-        }
-    }
-
-    public sealed class HoverFx : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
-    {
-        public float hoverScale = 1.04f;
-        bool hover;
-        public void OnPointerEnter(PointerEventData e) { hover = true; }
-        public void OnPointerExit(PointerEventData e) { hover = false; }
-        void OnDisable() { hover = false; transform.localScale = Vector3.one; }
-        void Update()
-        {
-            float t = hover ? hoverScale : 1f;
-            float s = Mathf.MoveTowards(transform.localScale.x, t, Time.unscaledDeltaTime * 0.8f);
-            transform.localScale = new Vector3(s, s, 1f);
-        }
-    }
-
     public sealed class Bar
     {
         public RectTransform Root;
@@ -108,36 +44,6 @@ namespace Tobe.UI
             Fill.gameObject.SetActive(t > 0.015f);
             var rt = Fill.rectTransform;
             rt.anchorMax = new Vector2(t, 1f);
-        }
-    }
-
-    public abstract class UiScreen : MonoBehaviour
-    {
-        public RectTransform Rt { get; private set; }
-        public bool Visible { get; private set; }
-
-        public static T Create<T>(Transform parent, string name) where T : UiScreen
-        {
-            var rt = UiKit.NewRect(name, parent);
-            UiKit.Stretch(rt);
-            var s = rt.gameObject.AddComponent<T>();
-            s.Rt = rt;
-            s.Build();
-            s.Visible = false;
-            rt.gameObject.SetActive(false);
-            return s;
-        }
-
-        protected abstract void Build();
-        protected virtual void OnShown() { }
-        protected virtual void OnHidden() { }
-
-        public void Show(bool on)
-        {
-            if (on == Visible) return;
-            Visible = on;
-            gameObject.SetActive(on);
-            if (on) OnShown(); else OnHidden();
         }
     }
 
@@ -248,6 +154,7 @@ namespace Tobe.UI
         public static SlantGraphic Slant(Transform parent, string name, Color c, float slant, bool raycast = false)
         {
             var rt = NewRect(name, parent);
+            rt.gameObject.AddComponent<CanvasRenderer>();
             var g = rt.gameObject.AddComponent<SlantGraphic>();
             g.color = c; g.slant = slant; g.raycastTarget = raycast;
             return g;
@@ -264,6 +171,7 @@ namespace Tobe.UI
         public static CircleGraphic Circle(Transform parent, string name, Color c)
         {
             var rt = NewRect(name, parent);
+            rt.gameObject.AddComponent<CanvasRenderer>();
             var g = rt.gameObject.AddComponent<CircleGraphic>();
             g.color = c; g.raycastTarget = false;
             return g;
