@@ -6,6 +6,8 @@ namespace Tobe.UI
 {
     public sealed class HudScreen : UiScreen
     {
+        protected override Vector2 SlideIn { get { return Vector2.zero; } }
+
         sealed class Pop
         {
             public Text text; public float born, life; public bool big;
@@ -27,11 +29,14 @@ namespace Tobe.UI
         // local panel
         RectTransform localPanel;
         Text localName, localStyle, localPrompt;
-        Bar staminaBar, energyBar;
+        SegBarGraphic staminaBar, energyBar;
+        RectTransform energyRt, qChip;
 
-        // prompt
+        // prompt (key chip + text)
+        RectTransform promptRoot, chipLkm, chipSpace;
         Text promptText;
         string promptShown = "";
+        RectTransform promptChipShown;
 
         // popups
         RectTransform popRoot;
@@ -48,9 +53,14 @@ namespace Tobe.UI
 
         // point banner
         RectTransform pointRoot;
-        Text pointTitle, pointReason;
-        SlantGraphic pointAccent;
+        Text pointTitle, pointReason, pointScore;
+        SlantGraphic pointAccent, pointStripe;
         float pointT = -1f;
+        int pointTeam;
+
+        // letterbox for the cut-in
+        RectTransform barTop, barBot;
+        SlantGraphic band2;
 
         // hint
         RectTransform hintRoot;
@@ -63,10 +73,7 @@ namespace Tobe.UI
             BuildLocalPanel();
             BuildCrosshair();
 
-            var pr = UiKit.Label(Rt, "", 60, Color.white, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic, true);
-            UiKit.At(pr.rectTransform, UiKit.BC, new Vector2(0, 230), new Vector2(1200, 100));
-            pr.horizontalOverflow = HorizontalWrapMode.Overflow;
-            promptText = pr;
+            BuildPrompt();
 
             popRoot = UiKit.NewRect("Popups", Rt);
             UiKit.Stretch(popRoot);
@@ -78,51 +85,81 @@ namespace Tobe.UI
 
         void BuildScoreboard()
         {
+            // one compact scorebug: [name][score][ДО N][score][name], all parallelograms leaning the same way
+            const float Y = -22f, H = 66f, SL = 18f;
             for (int t = 0; t < 2; t++)
             {
                 float sign = t == 0 ? -1f : 1f;
                 Color tc = TeamLook.Trim[t];
-                var np = UiKit.MakePanel(Rt, "TeamPanel" + t, new Vector2(300, 56), t == 0 ? 22f : -22f, new Color(0.06f, 0.04f, 0.16f, 0.92f), tc);
-                UiKit.AtP(np.rectTransform, UiKit.TC, UiKit.C, new Vector2(sign * 270f, -48f), new Vector2(300, 56));
-                teamName[t] = UiKit.Label(np.transform, TeamLook.Names[t], 32, tc, TextAnchor.MiddleCenter, FontStyle.Bold);
+                var np = UiKit.MakePanel(Rt, "TeamPanel" + t, new Vector2(290, 50), SL, new Color(0.04f, 0.05f, 0.08f, 0.9f));
+                UiKit.AtP(np.rectTransform, UiKit.TC, UiKit.TC, new Vector2(sign * 288f, Y - 8f), new Vector2(290, 50));
+                var st = UiKit.AddAccent(np.transform, tc, SL, 7f);
+                if (t == 1) { st.rectTransform.anchorMin = new Vector2(1, 0); st.rectTransform.anchorMax = new Vector2(1, 1); st.rectTransform.pivot = new Vector2(1, 0.5f); }
+                teamName[t] = UiKit.Label(np.transform, TeamLook.Names[t], 28, Color.white, t == 0 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, FontStyle.BoldAndItalic, false, true);
+                UiKit.Pad(teamName[t].rectTransform, t == 0 ? 36 : 20, 0, t == 0 ? 20 : 36, 0);
+                teamName[t].horizontalOverflow = HorizontalWrapMode.Overflow;
 
-                var sp = UiKit.MakePanel(Rt, "ScorePanel" + t, new Vector2(112, 92), t == 0 ? 22f : -22f, new Color(0.02f, 0.02f, 0.08f, 0.95f), tc);
-                UiKit.AtP(sp.rectTransform, UiKit.TC, UiKit.C, new Vector2(sign * 60f, -56f), new Vector2(112, 92));
+                var sp = UiKit.Slant(Rt, "ScorePanel" + t, tc, SL);
+                sp.SetV(new Color(1.15f, 1.15f, 1.15f, 1f), new Color(0.82f, 0.82f, 0.82f, 1f));
+                UiKit.AddShadow(sp.gameObject, 6f, 0.5f);
+                UiKit.AtP(sp.rectTransform, UiKit.TC, UiKit.C, new Vector2(sign * 98f, Y - H * 0.5f), new Vector2(90, H));
                 scoreRt[t] = sp.rectTransform;
-                scoreText[t] = UiKit.Label(sp.transform, "0", 70, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold, true);
+                scoreText[t] = UiKit.Label(sp.transform, "0", 56, t == 0 ? new Color(0.04f, 0.04f, 0.06f) : Color.white, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic, false, true);
+                scoreText[t].horizontalOverflow = HorizontalWrapMode.Overflow;
+                foreach (var sh in scoreText[t].GetComponents<Shadow>()) Destroy(sh);
 
                 var ball = UiKit.Circle(Rt, "Serve" + t, UiKit.Gold);
-                UiKit.AtP(ball.rectTransform, UiKit.TC, UiKit.C, new Vector2(sign * 450f, -48f), new Vector2(28, 28));
+                UiKit.AtP(ball.rectTransform, UiKit.TC, UiKit.C, new Vector2(sign * 164f, Y - 33f), new Vector2(18, 18));
                 UiKit.AddOutline(ball.gameObject, Color.black, 2f);
                 serveBall[t] = ball;
             }
-            targetText = UiKit.Label(Rt, "до 15", 24, UiKit.Cyan, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UiKit.AtP(targetText.rectTransform, UiKit.TC, UiKit.TC, new Vector2(0, -104), new Vector2(200, 30));
+            var mid = UiKit.MakePanel(Rt, "Mid", new Vector2(100, 44), SL, new Color(0.02f, 0.025f, 0.04f, 0.95f));
+            UiKit.AtP(mid.rectTransform, UiKit.TC, UiKit.C, new Vector2(0, Y - 33f), new Vector2(100, 44));
+            targetText = UiKit.Label(mid.transform, "ДО 15", 22, UiKit.Gold, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic, false, true);
+            targetText.horizontalOverflow = HorizontalWrapMode.Overflow;
         }
 
         void BuildLocalPanel()
         {
-            var p = UiKit.MakePanel(Rt, "LocalPanel", new Vector2(560, 190), 26f, new Color(0.06f, 0.04f, 0.16f, 0.9f), UiKit.Orange);
-            UiKit.At(p.rectTransform, UiKit.BL, new Vector2(40, 40), new Vector2(560, 190));
+            var p = UiKit.MakePanel(Rt, "LocalPanel", new Vector2(520, 150), 22f, new Color(0.04f, 0.05f, 0.08f, 0.88f), UiKit.Orange);
+            UiKit.At(p.rectTransform, UiKit.BL, new Vector2(40, 40), new Vector2(520, 150));
             localPanel = p.rectTransform;
-            localName = UiKit.Label(p.transform, "", 34, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UiKit.At(localName.rectTransform, UiKit.TL, new Vector2(40, -10), new Vector2(330, 44));
+            localName = UiKit.Label(p.transform, "", 30, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, false, true);
+            UiKit.At(localName.rectTransform, UiKit.TL, new Vector2(46, -8), new Vector2(300, 38));
             localName.horizontalOverflow = HorizontalWrapMode.Overflow;
-            localStyle = UiKit.Label(p.transform, "", 24, UiKit.Gold, TextAnchor.MiddleRight, FontStyle.Bold);
-            UiKit.At(localStyle.rectTransform, UiKit.TR, new Vector2(-40, -14), new Vector2(190, 36));
+            localStyle = UiKit.Label(p.transform, "", 20, UiKit.Gold, TextAnchor.MiddleRight, FontStyle.BoldAndItalic, false, true);
+            UiKit.At(localStyle.rectTransform, UiKit.TR, new Vector2(-30, -12), new Vector2(190, 30));
             localStyle.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-            var sl = UiKit.Label(p.transform, "ВЫНОСЛИВОСТЬ", 16, UiKit.Dim, TextAnchor.MiddleLeft);
-            UiKit.At(sl.rectTransform, UiKit.TL, new Vector2(40, -62), new Vector2(200, 20));
-            staminaBar = UiKit.MakeBar(p.transform, new Vector2(470, 20), UiKit.Cyan, 8f);
-            UiKit.At(staminaBar.Root, UiKit.TL, new Vector2(40, -82), new Vector2(470, 20));
-            var el = UiKit.Label(p.transform, "ЭНЕРГИЯ", 16, UiKit.Dim, TextAnchor.MiddleLeft);
-            UiKit.At(el.rectTransform, UiKit.TL, new Vector2(40, -108), new Vector2(200, 20));
-            energyBar = UiKit.MakeBar(p.transform, new Vector2(470, 24), UiKit.Orange, 8f);
-            UiKit.At(energyBar.Root, UiKit.TL, new Vector2(40, -128), new Vector2(470, 24));
-            localPrompt = UiKit.Label(p.transform, "", 24, UiKit.Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UiKit.At(localPrompt.rectTransform, UiKit.BL, new Vector2(40, 6), new Vector2(480, 30));
+            var sl = UiKit.Label(p.transform, "ВЫНОС", 15, UiKit.Dim, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, false, true);
+            UiKit.At(sl.rectTransform, UiKit.TL, new Vector2(46, -50), new Vector2(90, 20));
+            staminaBar = UiKit.SegBar(p.transform, new Vector2(370, 16), UiKit.Cyan, 14, 9f, 3f);
+            UiKit.At(staminaBar.rectTransform, UiKit.TL, new Vector2(130, -52), new Vector2(370, 16));
+            var el = UiKit.Label(p.transform, "ЭНЕРГИЯ", 15, UiKit.Dim, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, false, true);
+            UiKit.At(el.rectTransform, UiKit.TL, new Vector2(46, -76), new Vector2(90, 20));
+            energyBar = UiKit.SegBar(p.transform, new Vector2(370, 22), UiKit.Orange, 12, 11f, 4f);
+            UiKit.At(energyBar.rectTransform, UiKit.TL, new Vector2(130, -76), new Vector2(370, 22));
+            energyRt = energyBar.rectTransform;
+
+            qChip = UiKit.KeyChip(p.transform, "Q", 34, UiKit.Orange);
+            UiKit.AtP(qChip, UiKit.BL, UiKit.BL, new Vector2(46, 12), qChip.sizeDelta);
+            localPrompt = UiKit.Label(p.transform, "", 22, UiKit.Gold, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, false, true);
+            UiKit.At(localPrompt.rectTransform, UiKit.BL, new Vector2(100, 12), new Vector2(400, 34));
             localPrompt.horizontalOverflow = HorizontalWrapMode.Overflow;
+        }
+
+        void BuildPrompt()
+        {
+            promptRoot = UiKit.NewRect("Prompt", Rt);
+            UiKit.At(promptRoot, UiKit.BC, new Vector2(0, 235), new Vector2(10, 70));
+            chipLkm = UiKit.KeyChip(promptRoot, "ЛКМ", 62, UiKit.Orange);
+            chipSpace = UiKit.KeyChip(promptRoot, "ПРОБЕЛ", 62, UiKit.Orange);
+            foreach (var c in new[] { chipLkm, chipSpace }) { c.anchorMin = c.anchorMax = new Vector2(0.5f, 0.5f); c.pivot = new Vector2(0, 0.5f); c.gameObject.SetActive(false); }
+            promptText = UiKit.Label(promptRoot, "", 60, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true, true);
+            var pr = promptText.rectTransform;
+            pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f); pr.pivot = new Vector2(0, 0.5f); pr.sizeDelta = new Vector2(900, 80);
+            promptText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            promptRoot.gameObject.SetActive(false);
         }
 
         void BuildCrosshair()
@@ -147,16 +184,28 @@ namespace Tobe.UI
         void BuildPointBanner()
         {
             pointRoot = UiKit.NewRect("PointBanner", Rt);
-            UiKit.At(pointRoot, UiKit.C, new Vector2(0, 300), new Vector2(1200, 170));
-            var bg = UiKit.MakePanel(pointRoot, "Bg", new Vector2(1200, 170), 40f, new Color(0.03f, 0.02f, 0.1f, 0.92f), Color.white);
+            UiKit.At(pointRoot, UiKit.C, new Vector2(0, 300), new Vector2(1100, 150));
+            var bg = UiKit.MakePanel(pointRoot, "Bg", new Vector2(1100, 150), 36f, new Color(0.03f, 0.035f, 0.06f, 0.94f));
             UiKit.Stretch(bg.rectTransform);
-            pointAccent = UiKit.Slant(pointRoot, "Accent", UiKit.Orange, 40f);
-            UiKit.At(pointAccent.rectTransform, UiKit.ML, new Vector2(0, 0), new Vector2(40, 170));
-            pointTitle = UiKit.Label(pointRoot, "ОЧКО", 30, UiKit.Gold, TextAnchor.UpperCenter, FontStyle.Bold);
-            UiKit.Pad(pointTitle.rectTransform, 0, 12, 0, 0);
-            pointReason = UiKit.Label(pointRoot, "", 84, Color.white, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic, true);
-            UiKit.Pad(pointReason.rectTransform, 60, 30, 60, 0);
-            pointReason.resizeTextForBestFit = true; pointReason.resizeTextMinSize = 36; pointReason.resizeTextMaxSize = 84;
+            pointRoot.gameObject.AddComponent<RectMask2D>();
+            var lines = UiKit.SpeedLines(pointRoot, "Lines", new Color(1, 1, 1, 0.16f), 14, 0.6f);
+            lines.thickness = 2f;
+            pointAccent = UiKit.Slant(pointRoot, "Accent", UiKit.Orange, 36f);
+            pointAccent.slantClamp = 0.99f;
+            pointAccent.rectTransform.anchorMin = new Vector2(0, 0); pointAccent.rectTransform.anchorMax = new Vector2(0, 1);
+            pointAccent.rectTransform.pivot = new Vector2(0, 0.5f); pointAccent.rectTransform.anchoredPosition = Vector2.zero;
+            pointAccent.rectTransform.sizeDelta = new Vector2(36 + 14, 0);
+            pointStripe = UiKit.Slant(pointRoot, "Stripe", UiKit.Orange, 0f);
+            pointStripe.Set(0f, UiKit.WithA(UiKit.Orange, 0.45f), UiKit.WithA(UiKit.Orange, 0f));
+            UiKit.At(pointStripe.rectTransform, UiKit.BL, new Vector2(50, 0), new Vector2(700, 6));
+            pointTitle = UiKit.Label(pointRoot, "ОЧКО", 24, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.BoldAndItalic, false, true);
+            UiKit.Pad(pointTitle.rectTransform, 80, 14, 300, 0);
+            pointReason = UiKit.Label(pointRoot, "", 78, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true);
+            UiKit.Pad(pointReason.rectTransform, 80, 36, 300, 8);
+            pointReason.resizeTextForBestFit = true; pointReason.resizeTextMinSize = 32; pointReason.resizeTextMaxSize = 78;
+            pointScore = UiKit.Label(pointRoot, "0 : 0", 76, Color.white, TextAnchor.MiddleRight, FontStyle.BoldAndItalic, true);
+            UiKit.Pad(pointScore.rectTransform, 700, 10, 70, 10);
+            pointScore.horizontalOverflow = HorizontalWrapMode.Overflow;
             pointRoot.gameObject.SetActive(false);
         }
 
@@ -166,6 +215,15 @@ namespace Tobe.UI
             UiKit.Stretch(cutRoot);
             cutDim = UiKit.Box(cutRoot, "Dim", new Color(0.02f, 0f, 0.06f, 0.6f));
             UiKit.Stretch(cutDim.rectTransform);
+
+            barTop = UiKit.Box(cutRoot, "BarTop", new Color(0, 0, 0, 0.92f)).rectTransform;
+            barTop.anchorMin = new Vector2(0, 1); barTop.anchorMax = new Vector2(1, 1); barTop.pivot = new Vector2(0.5f, 1); barTop.sizeDelta = new Vector2(0, 110);
+            barBot = UiKit.Box(cutRoot, "BarBot", new Color(0, 0, 0, 0.92f)).rectTransform;
+            barBot.anchorMin = new Vector2(0, 0); barBot.anchorMax = new Vector2(1, 0); barBot.pivot = new Vector2(0.5f, 0); barBot.sizeDelta = new Vector2(0, 110);
+
+            band2 = UiKit.Slant(cutRoot, "Band2", new Color(0.02f, 0.02f, 0.05f, 0.85f), 0f);
+            UiKit.At(band2.rectTransform, UiKit.C, new Vector2(0, -14), new Vector2(2600, 400));
+            band2.rectTransform.localRotation = Quaternion.Euler(0, 0, -3f);
 
             band = UiKit.Slant(cutRoot, "Band", Color.white, 0f);
             bandRt = band.rectTransform;
@@ -198,7 +256,7 @@ namespace Tobe.UI
 
         void BuildHint()
         {
-            var p = UiKit.MakePanel(Rt, "Hint", new Vector2(700, 150), 20f, new Color(0.03f, 0.02f, 0.1f, 0.8f), UiKit.Cyan);
+            var p = UiKit.MakePanel(Rt, "Hint", new Vector2(700, 150), 20f, new Color(0.04f, 0.05f, 0.08f, 0.82f), UiKit.Cyan);
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(700, 150));
             hintRoot = p.rectTransform;
             hintText = UiKit.Label(p.transform,
@@ -278,11 +336,15 @@ namespace Tobe.UI
         void StartPoint(GameEvent e)
         {
             int team = Mathf.Clamp(e.intArg, 0, 1);
+            pointTeam = team;
             Color tc = TeamLook.Trim[team];
             pointReason.text = string.IsNullOrEmpty(e.text) ? "ОЧКО!" : e.text.ToUpperInvariant();
-            pointReason.color = tc;
+            pointReason.color = Color.white;
             pointTitle.text = "ОЧКО · " + TeamLook.Names[team];
+            pointTitle.color = tc;
             pointAccent.color = tc;
+            pointStripe.Set(0f, UiKit.WithA(tc, 0.5f), UiKit.WithA(tc, 0f));
+            pointScore.color = tc;
             pointT = 0f;
             pointRoot.gameObject.SetActive(true);
         }
@@ -312,11 +374,11 @@ namespace Tobe.UI
                 scoreRt[t].localScale = new Vector3(k, k, 1f);
                 serveBall[t].gameObject.SetActive(v.servingTeam == t);
             }
-            targetText.text = "до " + v.targetScore;
+            targetText.text = "ДО " + v.targetScore;
             PlayerSnap lp;
             int lt = v.TryGetLocal(out lp) ? lp.team : -1;
             for (int t = 0; t < 2; t++)
-                teamName[t].text = t == lt ? TeamLook.Names[t] + " ★" : TeamLook.Names[t];
+                teamName[t].text = t == lt ? TeamLook.Names[t] + "  · ВЫ" : TeamLook.Names[t];
         }
 
         void UpdateLocal(MatchView v)
@@ -330,23 +392,23 @@ namespace Tobe.UI
             localStyle.color = Color.Lerp(st.c1, Color.white, 0.3f);
 
             float stam = Mathf.Clamp01(p.stamina / 100f);
-            staminaBar.Set(stam);
-            staminaBar.Fill.color = stam < 0.25f ? UiKit.Danger : UiKit.Cyan;
+            staminaBar.Value = stam;
+            staminaBar.color = stam < 0.25f ? UiKit.Danger : UiKit.Cyan;
 
             float en = Mathf.Clamp01(p.energy / 100f);
-            energyBar.Set(en);
+            energyBar.Value = en;
             float t = Time.unscaledTime;
             bool full = p.energy >= 99.5f;
             if (full)
             {
-                energyBar.Fill.color = Color.HSVToRGB(Mathf.Repeat(t * 0.9f, 1f), 0.75f, 1f);
-                float pulse = 1f + 0.06f * Mathf.Sin(t * 12f);
-                energyBar.Root.localScale = new Vector3(1f, pulse, 1f);
+                energyBar.color = Color.HSVToRGB(Mathf.Repeat(t * 0.9f, 1f), 0.7f, 1f);
+                float pulse = 1f + 0.08f * Mathf.Sin(t * 12f);
+                energyRt.localScale = new Vector3(1f, pulse, 1f);
             }
             else
             {
-                energyBar.Fill.color = Color.Lerp(UiKit.Orange, UiKit.Gold, en);
-                energyBar.Root.localScale = Vector3.one;
+                energyBar.color = Color.Lerp(UiKit.Orange, UiKit.Gold, en);
+                energyRt.localScale = Vector3.one;
             }
 
             if (p.armed)
@@ -356,14 +418,15 @@ namespace Tobe.UI
             }
             else
             {
-                localPrompt.text = "Q — " + st.finisherName;
-                localPrompt.color = full ? Color.Lerp(UiKit.Cyan, Color.white, 0.5f + 0.5f * Mathf.Sin(t * 8f)) : new Color(1, 1, 1, 0.5f);
+                localPrompt.text = st.finisherName;
+                localPrompt.color = full ? Color.Lerp(UiKit.Cyan, Color.white, 0.5f + 0.5f * Mathf.Sin(t * 8f)) : new Color(1, 1, 1, 0.55f);
             }
         }
 
         void UpdatePrompt(MatchView v)
         {
             string s = "";
+            RectTransform chip = null;
             Color c = Color.white;
             PlayerSnap lp;
             if (v.TryGetLocal(out lp) && v.plans != null)
@@ -374,11 +437,11 @@ namespace Tobe.UI
                     if (pl.kind == PlanKind.None || pl.playerId != v.localPlayerId) continue;
                     switch (pl.kind)
                     {
-                        case PlanKind.Receive: s = "ПРИЁМ! (ЛКМ)"; c = UiKit.Cyan; break;
-                        case PlanKind.Set: s = "ПАС! (ЛКМ — в сторону прицела)"; c = UiKit.Gold; break;
+                        case PlanKind.Receive: s = "ПРИЁМ!"; chip = chipLkm; c = UiKit.Cyan; break;
+                        case PlanKind.Set: s = "ПАС — В СТОРОНУ ПРИЦЕЛА"; chip = chipLkm; c = UiKit.Gold; break;
                         case PlanKind.Attack:
-                            if (lp.air) { s = "БЕЙ! (ЛКМ)"; c = UiKit.Orange; }
-                            else if (pl.timeLeft < 0.55f) { s = "ПРЫГАЙ! (Пробел)"; c = UiKit.Orange; }
+                            if (lp.air) { s = "БЕЙ!"; chip = chipLkm; c = UiKit.Orange; }
+                            else if (pl.timeLeft < 0.55f) { s = "ПРЫГАЙ!"; chip = chipSpace; c = UiKit.Orange; }
                             else { s = "АТАКА!"; c = new Color(1f, 0.8f, 0.5f); }
                             break;
                         case PlanKind.Over: s = "ПЕРЕБРОСЬ!"; c = UiKit.Cyan; break;
@@ -386,13 +449,23 @@ namespace Tobe.UI
                     if (s.Length > 0) break;
                 }
             }
-            if (s != promptShown) { promptShown = s; promptText.text = s; }
+            if (s != promptShown || chip != promptChipShown)
+            {
+                promptShown = s; promptChipShown = chip; promptText.text = s;
+                chipLkm.gameObject.SetActive(chip == chipLkm);
+                chipSpace.gameObject.SetActive(chip == chipSpace);
+                float tw = promptText.preferredWidth;
+                float cw = chip != null ? chip.sizeDelta.x + 18f : 0f;
+                float x0 = -(cw + tw) * 0.5f;
+                if (chip != null) chip.anchoredPosition = new Vector2(x0, 0f);
+                promptText.rectTransform.anchoredPosition = new Vector2(x0 + cw, 0f);
+            }
             promptText.color = c;
-            promptText.gameObject.SetActive(s.Length > 0);
+            promptRoot.gameObject.SetActive(s.Length > 0);
             if (s.Length > 0)
             {
-                float k = 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 10f);
-                promptText.rectTransform.localScale = new Vector3(k, k, 1f);
+                float k = 1f + 0.05f * Mathf.Sin(Time.unscaledTime * 10f);
+                promptRoot.localScale = new Vector3(k, k, 1f);
             }
         }
 
@@ -436,13 +509,20 @@ namespace Tobe.UI
             if (pointT < 0f) return;
             pointT += dt;
             if (pointT >= PointLen) { pointT = -1f; pointRoot.gameObject.SetActive(false); return; }
-            float slide = Mathf.Clamp01(pointT / 0.25f);
-            float x = (1f - UiKit.EaseOutBack(slide)) * 1400f;
+            float slide = Mathf.Clamp01(pointT / 0.28f);
+            float dir = pointTeam == 0 ? -1f : 1f;
+            float x = (1f - UiKit.EaseOutBack(slide)) * 1500f * dir;
+            if (pointT > PointLen - 0.3f) x = (1f - (PointLen - pointT) / 0.3f) * 400f * -dir;
             float a = pointT > PointLen - 0.3f ? (PointLen - pointT) / 0.3f : 1f;
             pointRoot.anchoredPosition = new Vector2(x, 300f);
             var cg = pointRoot.GetComponent<CanvasGroup>();
             if (cg == null) cg = pointRoot.gameObject.AddComponent<CanvasGroup>();
             cg.alpha = a;
+            var v = GameHub.View;
+            int s0 = v.score != null && v.score.Length > 1 ? v.score[0] : 0, s1 = v.score != null && v.score.Length > 1 ? v.score[1] : 0;
+            pointScore.text = s0 + " : " + s1;
+            float pk = pointT < 0.5f ? 1f + 0.18f * (1f - pointT / 0.5f) : 1f;
+            pointScore.rectTransform.localScale = new Vector3(pk, pk, 1f);
         }
 
         void UpdateCutin(float dt)
@@ -451,6 +531,9 @@ namespace Tobe.UI
             cutT += dt;
             float k = cutT / CutinLen;
             if (k >= 1f) { cutT = -1f; cutRoot.gameObject.SetActive(false); return; }
+            float lb = Mathf.Clamp01(Mathf.Min(k / 0.1f, (1f - k) / 0.1f));
+            barTop.sizeDelta = new Vector2(0, 110f * lb); barBot.sizeDelta = new Vector2(0, 110f * lb);
+            band2.rectTransform.anchoredPosition = new Vector2(Mathf.Lerp(900f, 0f, Mathf.Clamp01(k / 0.2f)), -14f);
             float slide = k < 0.15f ? 1f - k / 0.15f : 0f;
             bandRt.anchoredPosition = new Vector2(-slide * slide * 2800f, 0f);
             cutDim.color = new Color(0.02f, 0f, 0.06f, 0.6f * Mathf.Clamp01(k / 0.08f));

@@ -50,7 +50,7 @@ namespace Tobe.UI
             {
                 bool win = v.winner == lp.team;
                 title.text = win ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
-                band.Set(0f, win ? UiKit.Orange : new Color(0.25f, 0.2f, 0.6f), win ? UiKit.Gold : new Color(0.1f, 0.5f, 0.9f));
+                band.Set(0f, win ? UiKit.Orange : new Color(0.16f, 0.2f, 0.3f), win ? UiKit.Gold : new Color(0.1f, 0.6f, 0.62f));
                 subText.text = TeamLook.Names[Mathf.Clamp(lp.team, 0, 1)];
             }
             else

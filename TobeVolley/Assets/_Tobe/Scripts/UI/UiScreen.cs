@@ -10,6 +10,10 @@ namespace Tobe.UI
     {
         public RectTransform Rt { get; private set; }
         public bool Visible { get; private set; }
+        ScreenFx fx;
+
+        /// <summary>Slide-in offset in canvas pixels (zero = pure fade).</summary>
+        protected virtual Vector2 SlideIn { get { return new Vector2(-56f, 0f); } }
 
         public static T Create<T>(Transform parent, string name) where T : UiScreen
         {
@@ -17,6 +21,8 @@ namespace Tobe.UI
             UiKit.Stretch(rt);
             var s = rt.gameObject.AddComponent<T>();
             s.Rt = rt;
+            s.fx = rt.gameObject.AddComponent<ScreenFx>();
+            s.fx.slide = s.SlideIn;
             s.Build();
             s.Visible = false;
             rt.gameObject.SetActive(false);
@@ -31,8 +37,18 @@ namespace Tobe.UI
         {
             if (on == Visible) return;
             Visible = on;
-            gameObject.SetActive(on);
-            if (on) OnShown(); else OnHidden();
+            if (on)
+            {
+                gameObject.SetActive(true);
+                if (fx != null) fx.PlayIn();
+                OnShown();
+            }
+            else
+            {
+                OnHidden();
+                if (fx != null && gameObject.activeInHierarchy) fx.PlayOut(() => { if (this != null && !Visible) gameObject.SetActive(false); });
+                else gameObject.SetActive(false);
+            }
         }
     }
 }

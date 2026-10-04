@@ -9,39 +9,52 @@ namespace Tobe.UI
         Button btn3, btn6, btnFind;
         InputField codeInput;
         Text statusText, errorText, profileText, privateCodeText;
-        RectTransform spinner, privatePanel, controlsPanel, bgStripe1, bgStripe2;
+        RectTransform profileCard, profileIcon, spinner, privatePanel, controlsPanel, bgStripe1, bgStripe2;
         string errorMsg = "";
 
         protected override void Build()
         {
             try { teamSize = PlayerPrefs.GetInt("tobe.size", 6) == 3 ? 3 : 6; } catch (System.Exception) { }
 
-            // background
-            var bg = UiKit.Box(Rt, "Bg", UiKit.Navy);
-            UiKit.Stretch(bg.rectTransform);
-            var s1 = UiKit.Slant(Rt, "Stripe1", new Color(0.35f, 0.15f, 0.75f, 0.35f), 260f);
-            UiKit.At(s1.rectTransform, UiKit.C, new Vector2(500, 0), new Vector2(900, 1500));
-            bgStripe1 = s1.rectTransform;
-            var s2 = UiKit.Slant(Rt, "Stripe2", new Color(UiKit.Orange.r, UiKit.Orange.g, UiKit.Orange.b, 0.28f), 260f);
-            UiKit.At(s2.rectTransform, UiKit.C, new Vector2(120, 0), new Vector2(140, 1500));
+            // background: keep the live arena visible, only shade the left column + top/bottom edges
+            var shade = UiKit.Slant(Rt, "Shade", new Color(0.02f, 0.025f, 0.04f, 0.93f), 0f);
+            shade.Set(0f, new Color(1, 1, 1, 1f), new Color(1, 1, 1, 0f));
+            shade.rectTransform.anchorMin = new Vector2(0, 0); shade.rectTransform.anchorMax = new Vector2(0, 1);
+            shade.rectTransform.pivot = new Vector2(0, 0.5f); shade.rectTransform.anchoredPosition = Vector2.zero; shade.rectTransform.sizeDelta = new Vector2(1250, 0);
+            var top = UiKit.Slant(Rt, "Top", new Color(0.02f, 0.025f, 0.04f, 0.75f), 0f);
+            top.SetV(Color.white, new Color(1, 1, 1, 0f));
+            top.rectTransform.anchorMin = new Vector2(0, 1); top.rectTransform.anchorMax = new Vector2(1, 1); top.rectTransform.pivot = new Vector2(0.5f, 1);
+            top.rectTransform.anchoredPosition = Vector2.zero; top.rectTransform.sizeDelta = new Vector2(0, 200);
+            var bot = UiKit.Slant(Rt, "Bottom", new Color(0.02f, 0.025f, 0.04f, 0.8f), 0f);
+            bot.SetV(new Color(1, 1, 1, 0f), Color.white);
+            bot.rectTransform.anchorMin = new Vector2(0, 0); bot.rectTransform.anchorMax = new Vector2(1, 0); bot.rectTransform.pivot = new Vector2(0.5f, 0);
+            bot.rectTransform.anchoredPosition = Vector2.zero; bot.rectTransform.sizeDelta = new Vector2(0, 220);
+            var lines = UiKit.SpeedLines(Rt, "Speed", new Color(1f, 0.6f, 0.2f, 0.22f), 20, 0.18f);
+            lines.rectTransform.anchorMin = new Vector2(0, 0); lines.rectTransform.anchorMax = new Vector2(0, 1);
+            lines.rectTransform.pivot = new Vector2(0, 0.5f); lines.rectTransform.anchoredPosition = Vector2.zero; lines.rectTransform.sizeDelta = new Vector2(1100, 0);
+            var s2 = UiKit.Slant(Rt, "Stripe2", UiKit.Orange, 0f);
+            UiKit.At(s2.rectTransform, UiKit.ML, new Vector2(790, 0), new Vector2(22, 1800));
+            s2.rectTransform.localRotation = Quaternion.Euler(0, 0, 7f);
             bgStripe2 = s2.rectTransform;
-            var s3 = UiKit.Slant(Rt, "Stripe3", new Color(UiKit.Cyan.r, UiKit.Cyan.g, UiKit.Cyan.b, 0.25f), 260f);
-            UiKit.At(s3.rectTransform, UiKit.C, new Vector2(300, 0), new Vector2(40, 1500));
+            var s3 = UiKit.Slant(Rt, "Stripe3", UiKit.Cyan, 0f);
+            UiKit.At(s3.rectTransform, UiKit.ML, new Vector2(836, 0), new Vector2(8, 1800));
+            s3.rectTransform.localRotation = Quaternion.Euler(0, 0, 7f);
+            bgStripe1 = s3.rectTransform;
 
             // logo
-            var kanji = UiKit.Label(Rt, "飛べ!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true);
+            var kanji = UiKit.Label(Rt, "飛べ!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true, true);
             UiKit.At(kanji.rectTransform, UiKit.TL, new Vector2(110, -40), new Vector2(900, 230));
             kanji.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var title = UiKit.Label(Rt, "TOBE VOLLEY", 84, Color.white, TextAnchor.UpperLeft, FontStyle.BoldAndItalic, true);
+            var title = UiKit.Label(Rt, "TOBE VOLLEY", 92, Color.white, TextAnchor.UpperLeft, FontStyle.BoldAndItalic, true, true);
             UiKit.At(title.rectTransform, UiKit.TL, new Vector2(118, -250), new Vector2(900, 100));
             title.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var sub = UiKit.Label(Rt, "аниме-волейбол · онлайн-матчи 3×3 и 6×6", 30, UiKit.Cyan, TextAnchor.UpperLeft, FontStyle.Italic);
+            var sub = UiKit.Label(Rt, "аниме-волейбол · онлайн-матчи 3×3 и 6×6", 28, UiKit.Cyan, TextAnchor.UpperLeft, FontStyle.BoldAndItalic);
             UiKit.At(sub.rectTransform, UiKit.TL, new Vector2(122, -345), new Vector2(900, 44));
             sub.horizontalOverflow = HorizontalWrapMode.Overflow;
 
             // buttons
             float x = 110, y = -410, h = 64, gap = 10;
-            btnFind = UiKit.MakeButton(Rt, "НАЙТИ МАТЧ", new Vector2(400, h), UiKit.Orange, OnFind, 32);
+            btnFind = UiKit.MakeButton(Rt, "НАЙТИ МАТЧ", new Vector2(400, h), UiKit.Orange, OnFind, 36);
             UiKit.At(btnFind.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(400, h));
             btn3 = UiKit.MakeButton(Rt, "3×3", new Vector2(80, h), UiKit.Purple, () => SetSize(3), 28);
             UiKit.At(btn3.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 410, y), new Vector2(80, h));
@@ -85,14 +98,17 @@ namespace Tobe.UI
             errorText = UiKit.Label(Rt, "", 24, UiKit.Danger, TextAnchor.LowerLeft, FontStyle.Bold);
             UiKit.At(errorText.rectTransform, UiKit.BL, new Vector2(110, 95), new Vector2(1000, 80));
 
-            // profile card (right)
-            var card = UiKit.MakePanel(Rt, "ProfileCard", new Vector2(600, 260), 30f, UiKit.Panel, UiKit.Orange);
-            UiKit.At(card.rectTransform, UiKit.MR, new Vector2(-150, -40), new Vector2(600, 260));
-            var cap = UiKit.Label(card.transform, "ТВОЙ ИГРОК", 24, UiKit.Cyan, TextAnchor.UpperLeft);
-            UiKit.Pad(cap.rectTransform, 50, 20, 20, 0);
-            profileText = UiKit.Label(card.transform, "", 40, Color.white, TextAnchor.MiddleLeft);
-            UiKit.Pad(profileText.rectTransform, 50, 55, 20, 20);
-            profileText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            // profile card (right): glass, home-team accent
+            var card = UiKit.MakePanel(Rt, "ProfileCard", new Vector2(600, 230), 30f, UiKit.Panel, UiKit.Orange);
+            UiKit.At(card.rectTransform, UiKit.MR, new Vector2(-110, -40), new Vector2(600, 230));
+            profileCard = card.rectTransform;
+            var cap = UiKit.Label(card.transform, "ТВОЙ ИГРОК", 22, UiKit.Cyan, TextAnchor.UpperLeft, FontStyle.BoldAndItalic);
+            UiKit.Pad(cap.rectTransform, 60, 20, 20, 0);
+            profileText = UiKit.Label(card.transform, "", 44, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true);
+            UiKit.Pad(profileText.rectTransform, 170, 55, 20, 70);
+            profileText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var edit = UiKit.MakeButton(card.transform, "ИЗМЕНИТЬ ПЕРСОНАЖА", new Vector2(360, 50), UiKit.Purple, () => UiRoot.Instance.OpenCharacter(), 22, 14f);
+            UiKit.At(edit.GetComponent<RectTransform>(), UiKit.BL, new Vector2(60, 22), new Vector2(360, 50));
 
             // private code panel (right, hidden)
             var pp = UiKit.MakePanel(Rt, "PrivatePanel", new Vector2(600, 260), 30f, UiKit.Panel, UiKit.Gold);
@@ -108,7 +124,7 @@ namespace Tobe.UI
             privatePanel.gameObject.SetActive(false);
 
             // controls overlay
-            var ov = UiKit.Box(Rt, "ControlsOverlay", new Color(0, 0, 0, 0.7f), true);
+            var ov = UiKit.Box(Rt, "ControlsOverlay", new Color(0, 0, 0, 0.72f), true);
             UiKit.Stretch(ov.rectTransform);
             controlsPanel = ov.rectTransform;
             var cpn = UiKit.MakePanel(ov.transform, "Panel", new Vector2(1100, 760), 30f, UiKit.Panel, UiKit.Cyan);
@@ -148,7 +164,10 @@ namespace Tobe.UI
         {
             var p = GameHub.LocalProfile;
             var st = Styles.Get(p.style);
-            profileText.text = p.nick + "  #" + p.number + "\n<size=28><color=#FFD23F>" + st.name + "</color></size>";
+            profileText.text = p.nick + "  #" + p.number + "\n<size=28><color=#FFD23F>" + st.name.ToUpperInvariant() + "</color></size>";
+            if (profileIcon != null) Destroy(profileIcon.gameObject);
+            profileIcon = UiKit.StyleIcon(profileCard, p.style, 96);
+            UiKit.At(profileIcon, UiKit.TL, new Vector2(56, -76), new Vector2(96, 96));
         }
 
         void SetError(string m) { errorMsg = m; }
@@ -215,8 +234,8 @@ namespace Tobe.UI
             errorText.text = errorMsg;
             if (btnFind != null) btnFind.interactable = !busy;
             float t = Time.unscaledTime;
-            bgStripe1.anchoredPosition = new Vector2(500 + Mathf.Sin(t * 0.3f) * 30f, 0);
-            bgStripe2.anchoredPosition = new Vector2(120 + Mathf.Sin(t * 0.4f + 1f) * 20f, 0);
+            bgStripe1.anchoredPosition = new Vector2(836 + Mathf.Sin(t * 0.3f) * 12f, 0);
+            bgStripe2.anchoredPosition = new Vector2(790 + Mathf.Sin(t * 0.4f + 1f) * 14f, 0);
         }
     }
 }

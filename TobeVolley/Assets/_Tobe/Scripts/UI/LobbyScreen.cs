@@ -21,10 +21,9 @@ namespace Tobe.UI
 
         protected override void Build()
         {
-            var bg = UiKit.Box(Rt, "Bg", UiKit.Navy, true);
+            var bg = UiKit.Box(Rt, "Bg", new Color(0.02f, 0.025f, 0.04f, 0.84f), true);
             UiKit.Stretch(bg.rectTransform);
-            var s1 = UiKit.Slant(Rt, "S1", new Color(0.35f, 0.15f, 0.75f, 0.3f), 260f);
-            UiKit.At(s1.rectTransform, UiKit.C, new Vector2(0, 0), new Vector2(500, 1500));
+            UiKit.SpeedLines(Rt, "Speed", new Color(1f, 0.6f, 0.2f, 0.14f), 20, 0.12f);
 
             var title = UiKit.Label(Rt, "ЛОББИ", 64, UiKit.Gold, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true);
             UiKit.At(title.rectTransform, UiKit.TL, new Vector2(80, -20), new Vector2(600, 100));
