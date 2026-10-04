@@ -80,6 +80,14 @@ namespace Tobe
         public static readonly Color[] Shirt = { new Color(0.08f, 0.08f, 0.1f), new Color(0.95f, 0.95f, 0.97f) };
         public static readonly Color[] Trim = { new Color(1f, 0.5f, 0.05f), new Color(0.1f, 0.7f, 0.7f) };
         public static readonly Color[] Shorts = { new Color(0.08f, 0.08f, 0.1f), new Color(0.1f, 0.35f, 0.45f) };
+        public static readonly Color[] SkinTones =
+        {
+            new Color(1f, 0.87f, 0.77f), new Color(0.98f, 0.8f, 0.68f), new Color(0.9f, 0.7f, 0.55f), new Color(0.76f, 0.55f, 0.4f), new Color(0.55f, 0.38f, 0.27f),
+        };
+        public static readonly Color[] EyeColors =
+        {
+            new Color(0.35f, 0.22f, 0.12f), new Color(0.15f, 0.15f, 0.2f), new Color(0.2f, 0.45f, 0.85f), new Color(0.85f, 0.55f, 0.1f), new Color(0.25f, 0.6f, 0.35f), new Color(0.6f, 0.2f, 0.25f),
+        };
         public static readonly Color[] HairPresets =
         {
             new Color(1f, 0.5f, 0.1f), new Color(0.08f, 0.08f, 0.1f), new Color(0.95f, 0.85f, 0.45f), new Color(0.75f, 0.75f, 0.8f),
@@ -96,7 +104,17 @@ namespace Tobe
         public byte model;      // index into available character models
         public byte hair;       // index into TeamLook.HairPresets
         public byte number;     // jersey number 1..99
+        // --- appearance (character editor) ---
+        public byte skin;       // index into TeamLook.SkinTones
+        public byte height;     // 0..255 -> body scale 0.92..1.08
+        public byte build;      // 0..255 -> slim..athletic (shoulder/limb thickness)
+        public byte eyes;       // index into TeamLook.EyeColors
+        public byte gear;       // bitmask of Gear flags
+        public float HeightScale => 0.92f + height / 255f * 0.16f;
     }
+
+    [Flags]
+    public enum Gear : byte { None = 0, KneePads = 1, Headband = 2, Wristbands = 4, Glasses = 8, ArmSleeve = 16, AnkleTape = 32 }
 
     /// <summary>Per-player state the server replicates to every client.</summary>
     public struct PlayerSnap
@@ -201,7 +219,7 @@ namespace Tobe
         public static float CameraYaw;
         /// <summary>True while a UI screen owns the mouse (menus); gameplay input is ignored.</summary>
         public static bool UiBlocking = true;
-        public static PlayerProfile LocalProfile = new PlayerProfile { nick = "Игрок", style = PlayStyle.Middle, model = 0, hair = 0, number = 10 };
+        public static PlayerProfile LocalProfile = new PlayerProfile { nick = "Игрок", style = PlayStyle.Middle, model = 0, hair = 0, number = 10, skin = 1, height = 128, build = 140, eyes = 0, gear = (byte)(Gear.KneePads | Gear.Wristbands) };
         /// <summary>Names of character model files found in StreamingAssets/Characters (filled by CharacterLibrary).</summary>
         public static string[] ModelNames = new string[0];
     }

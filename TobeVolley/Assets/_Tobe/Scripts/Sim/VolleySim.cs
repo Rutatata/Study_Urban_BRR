@@ -109,7 +109,15 @@ namespace Tobe.Sim
         public static PlayerProfile BotProfile(int teamSize, int team, int slot)
         {
             int k = (team * 6 + slot) % BotNames.Length;
-            return new PlayerProfile { nick = BotNames[k], style = BotStyleFor(teamSize, slot), model = (byte)((team * 3 + slot) % 7), hair = (byte)((slot * 3 + team) % TeamLook.HairPresets.Length), number = (byte)(1 + (slot * 3 + team * 5) % 15) };
+            var rng = new System.Random(team * 101 + slot * 17 + teamSize);
+            return new PlayerProfile
+            {
+                nick = BotNames[k], style = BotStyleFor(teamSize, slot), model = (byte)((team * 3 + slot) % 7),
+                hair = (byte)((slot * 3 + team) % TeamLook.HairPresets.Length), number = (byte)(1 + (slot * 3 + team * 5) % 15),
+                skin = (byte)rng.Next(TeamLook.SkinTones.Length), height = (byte)rng.Next(40, 230), build = (byte)rng.Next(60, 230),
+                eyes = (byte)rng.Next(TeamLook.EyeColors.Length),
+                gear = (byte)(Gear.KneePads | (rng.Next(2) == 0 ? Gear.Headband : 0) | (rng.Next(2) == 0 ? Gear.Wristbands : 0) | (rng.Next(4) == 0 ? Gear.ArmSleeve : 0) | (rng.Next(6) == 0 ? Gear.Glasses : 0)),
+            };
         }
 
         public void StartMatch(int firstServer)
@@ -260,7 +268,7 @@ namespace Tobe.Sim
             {
                 if (p.team != team || p == setter || p.profile.style == PlayStyle.Libero || p.stunT > 0) continue;
                 if (!p.isBot && p.callT > 0) caller = p;
-                float sc = p.st.spike * 0.6f + (IsFront(p) ? 3 : 0) + Rnd(0, 5) + (!p.isBot ? 2.5f : 0);
+                float sc = p.st.spike * 0.6f + (IsFront(p) ? 3 : 0) + Rnd(0, 5) + (!p.isBot ? (IsFront(p) ? 4.5f : 3f) : 0);
                 // players far from where they'd attack (e.g. the receiver deep in the court) can't get there in time
                 float dn = Court.DistFromNet(team, p.pos.z), want = IsFront(p) ? 2.6f : 4.2f;
                 sc -= Mathf.Max(0, dn - want) * 2.5f + (p.air || p.recT > 0 ? 6 : 0);
@@ -453,9 +461,10 @@ namespace Tobe.Sim
             {
                 var hand = new Vector3(p.pos.x, p.pos.y + p.reach, p.pos.z + Court.Fwd(p.team) * 0.15f);
                 float d = Vector3.Distance(b, hand);
-                return d < 0.85f ? new Reach { ok = true, air = true, d = d, rad = 0.85f } : default;
+                float ar = p.isBot ? 0.85f : 1.0f;
+                return d < ar ? new Reach { ok = true, air = true, d = d, rad = ar } : default;
             }
-            float hd = Hyp(p.pos.x - b.x, p.pos.z - b.z), rad = p.diveT > 0 ? 1.6f : 1.0f;
+            float hd = Hyp(p.pos.x - b.x, p.pos.z - b.z), rad = (p.diveT > 0 ? 1.6f : 1.0f) * (p.isBot ? 1f : 1.15f);
             if (hd < rad && b.y > 0.12f && b.y < p.reach + 0.35f && (p.diveT <= 0 || b.y < 1f)) return new Reach { ok = true, d = hd, rad = rad };
             return default;
         }
@@ -568,7 +577,7 @@ namespace Tobe.Sim
                 u.serveCharging = true; u.serveHold = 0; u.SetPose(PoseId.ServeToss, 1f);
                 return;
             }
-            if (phase == MatchPhase.Rally) u.hitBuf = 0.28f;
+            if (phase == MatchPhase.Rally) u.hitBuf = 0.35f;
         }
         void OnHumanRelease(SimPlayer u)
         {

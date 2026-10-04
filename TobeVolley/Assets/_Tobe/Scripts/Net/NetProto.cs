@@ -32,10 +32,12 @@ namespace Tobe.Net
         public static void W(this BinaryWriter w, PlayerProfile p)
         {
             w.Write(p.nick ?? ""); w.Write((byte)p.style); w.Write(p.model); w.Write(p.hair); w.Write(p.number);
+            w.Write(p.skin); w.Write(p.height); w.Write(p.build); w.Write(p.eyes); w.Write(p.gear);
         }
         public static PlayerProfile Profile(this BinaryReader r)
         {
-            var p = new PlayerProfile { nick = r.ReadString(), style = (PlayStyle)r.ReadByte(), model = r.ReadByte(), hair = r.ReadByte(), number = r.ReadByte() };
+            var p = new PlayerProfile { nick = r.ReadString(), style = (PlayStyle)r.ReadByte(), model = r.ReadByte(), hair = r.ReadByte(), number = r.ReadByte(),
+                skin = r.ReadByte(), height = r.ReadByte(), build = r.ReadByte(), eyes = r.ReadByte(), gear = r.ReadByte() };
             if (p.nick.Length > 16) p.nick = p.nick.Substring(0, 16);
             if ((int)p.style > 4) p.style = PlayStyle.Outside;
             return p;
