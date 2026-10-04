@@ -77,9 +77,9 @@ namespace Tobe
     public static class TeamLook
     {
         public static readonly string[] Names = { "КАРАСУ", "АОБА" };
-        public static readonly Color[] Shirt = { new Color(0.08f, 0.08f, 0.1f), new Color(0.95f, 0.95f, 0.97f) };
+        public static readonly Color[] Shirt = { new Color(0.14f, 0.14f, 0.17f), new Color(0.95f, 0.95f, 0.97f) };
         public static readonly Color[] Trim = { new Color(1f, 0.5f, 0.05f), new Color(0.1f, 0.7f, 0.7f) };
-        public static readonly Color[] Shorts = { new Color(0.08f, 0.08f, 0.1f), new Color(0.1f, 0.35f, 0.45f) };
+        public static readonly Color[] Shorts = { new Color(0.14f, 0.14f, 0.17f), new Color(0.1f, 0.35f, 0.45f) };
         public static readonly Color[] SkinTones =
         {
             new Color(1f, 0.87f, 0.77f), new Color(0.98f, 0.8f, 0.68f), new Color(0.9f, 0.7f, 0.55f), new Color(0.76f, 0.55f, 0.4f), new Color(0.55f, 0.38f, 0.27f),

@@ -64,7 +64,9 @@ namespace Tobe.View
             if (n.Contains("hair")) return Part.Hair;
             if (n.Contains("skin") || n.Contains("face") || n.Contains("body_00") || n.Equals("skin")) return Part.Skin;
             if (n.Contains("bottom") || n.Contains("skirt") || n.Contains("pants") || n.Contains("shorts")) return Part.Shorts;
-            if (n.Contains("tops") || n.Contains("cloth") || n.Contains("shirt") || n.Contains("onepiece") || n.Contains("jacket") || n.Contains("body")) return Part.Shirt;
+            // «huku» по-японски «одежда» (Seed-san). Голое «body» сюда НЕ входит: у orion / seedsan это всё тело одной текстурой
+            // (голова, кожа, одежда), и перекраска в цвет формы делала персонажа целиком чёрным силуэтом.
+            if (n.Contains("tops") || n.Contains("cloth") || n.Contains("shirt") || n.Contains("onepiece") || n.Contains("jacket") || n.Contains("huku")) return Part.Shirt;
             return Part.None;
         }
 
@@ -151,6 +153,12 @@ namespace Tobe.View
                     c.ParametricRimColorFactorSrgb = part == Part.EyeOther || part == Part.Iris ? Color.black : new Color(0.26f, 0.32f, 0.5f);
                     c.ParametricRimFresnelPowerFactor = 4.5f;
                     c.ParametricRimLiftFactor = 0.1f;
+                    if ((part == Part.Shirt || part == Part.Shorts || part == Part.Hair) && lum < 0.25f)
+                    {   // тёмная ткань / волосы: яркий контур по краю силуэта, как в аниме, иначе чёрная форма сливается с полом и трибунами
+                        c.ParametricRimColorFactorSrgb = new Color(0.55f, 0.52f, 0.62f);
+                        c.ParametricRimFresnelPowerFactor = 3.2f;
+                        c.ParametricRimLiftFactor = 0.16f;
+                    }
                     c.RimLightingMixFactor = 0.75f;
                     bool opaque = c.AlphaMode == MToon10AlphaMode.Opaque || part == Part.Hair;
                     bool outline = opaque && part != Part.EyeOther && part != Part.Iris;

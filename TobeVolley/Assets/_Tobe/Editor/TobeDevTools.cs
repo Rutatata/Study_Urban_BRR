@@ -30,6 +30,35 @@ namespace Tobe.EditorTools
             Debug.Log(am == null ? "[Tobe] AudioManager ещё не создан (войдите в Play)." : "[Tobe] Звуки:\n" + am.Describe());
         }
 
+        [MenuItem("Tobe/Dev/Игроки: модели и материалы")]
+        static void DumpPlayers()
+        {
+            var sb = new System.Text.StringBuilder();
+            var v = GameHub.View;
+            foreach (var p in v.players)
+            {
+                string mname = p.profile.model < GameHub.ModelNames.Length ? GameHub.ModelNames[p.profile.model] : "?";
+                sb.AppendLine($"Игрок {p.id} «{p.profile.nick}» команда {p.team} модель {p.profile.model} ({mname}) кожа {p.profile.skin} волосы {p.profile.hair} позиция {p.pos.x:F2} {p.pos.y:F2} {p.pos.z:F2} поворот {p.yaw:F0}");
+                var go = GameObject.Find("Player_" + p.id);
+                if (go == null) { sb.AppendLine("  объект не найден"); continue; }
+                foreach (var r in go.GetComponentsInChildren<Renderer>())
+                {
+                    if (r is ParticleSystemRenderer || !r.enabled) continue;
+                    foreach (var m in r.sharedMaterials)
+                    {
+                        if (m == null) continue;
+                        Texture tex = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : (m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null);
+                        Color col = m.HasProperty("_Color") ? m.GetColor("_Color") : (m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.magenta);
+                        Color shade = m.HasProperty("_ShadeColor") ? m.GetColor("_ShadeColor") : Color.clear;
+                        sb.AppendLine($"  {r.name} / {m.name}: шейдер {m.shader.name}, текстура {(tex != null ? tex.name : "НЕТ")}, цвет {col}, тень {shade}");
+                    }
+                }
+            }
+            string path = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Logs", "players.txt"));
+            System.IO.File.WriteAllText(path, sb.ToString());
+            Debug.Log("[Tobe] Игроки записаны в " + path);
+        }
+
         [MenuItem("Tobe/Dev/Dump Motion Clips")]
         static void DumpClips()
         {
