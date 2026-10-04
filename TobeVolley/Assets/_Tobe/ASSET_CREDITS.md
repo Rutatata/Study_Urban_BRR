@@ -26,5 +26,29 @@ These are generic placeholder-quality picks (not volleyball-specific); replace w
 ## Generated (original, released CC0 by the project)
 whistle.wav, cheer.wav, crowd_loop.wav: synthesized procedurally (sine trill / filtered noise). Placeholders; no attribution needed.
 
-## Animations
-None added.
+
+## Generated additions (original, released CC0 by the project)
+squeak.wav, drum.wav, ui_whoosh.wav, crowd_gasp.wav: synthesized procedurally (numpy). Placeholders; no attribution needed.
+
+## Motion capture (Assets/StreamingAssets/Motions/)
+"The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217."
+CMU Graphics Lab Motion Capture Database, terms: "free for all uses" (research and commercial). BVH conversion by Bruce Hahne (cgspeed.com, 2010 Motionbuilder-friendly release; READMEFIRST.txt confirms free use incl. commercial), obtained from the GitHub mirror https://github.com/una-dinosauria/cmu-mocap.
+Processing: trimmed, heading normalised to +Z, decimated 120 -> 30 fps, finger joints removed, loops cut at best-matching frame with a short end crossfade. Units: 1 BVH unit = 0.0564 m (CMU 0.45 inch-scale).
+| Clip | Source (CMU subject_trial) | CMU description |
+|---|---|---|
+| idle | 77_02 | standing |
+| ready | 77_03 | ready stance |
+| walk | 35_01 | walk |
+| run | 35_18 | run/jog |
+| sprint | 16_45 | run/jog |
+| sidestep | 113_17 | walk sideways |
+| jump_vertical, land | 16_03 | high jump |
+| jump_approach | 124_06 | basketball lay up |
+| jump_block | 124_05 | basketball jump shot |
+| jump_run | 127_21 | run jump stop run |
+| dive | 127_23 | run dive over roll run |
+| celebrate | 142_09 | joy |
+| sad | 79_71 | sad |
+| throw_overhead | 124_01 | baseball pitch |
+| high_five | 20_11 | high-five, walk (subject A) |
+Rejected: Bandai Namco motion dataset (CC BY-NC-ND).

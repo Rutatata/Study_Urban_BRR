@@ -1,0 +1,258 @@
+[
+ {
+  "name": "idle",
+  "file": "idle.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 65,
+  "speed": 0.01,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.96,
+  "source": "CMU subject77_trial2",
+  "srcFrames120": [
+   24,
+   284
+  ],
+  "desc": "Relaxed standing, slight sway (CMU \"standing\")"
+ },
+ {
+  "name": "ready",
+  "file": "ready.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 62,
+  "speed": 0.01,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.89,
+  "source": "CMU subject77_trial3",
+  "srcFrames120": [
+   566,
+   814
+  ],
+  "desc": "Low careful ready stance (CMU \"ready stance\")"
+ },
+ {
+  "name": "walk",
+  "file": "walk.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 34,
+  "speed": 1.25,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 1.01,
+  "source": "CMU subject35_trial1",
+  "srcFrames120": [
+   106,
+   242
+  ],
+  "desc": "Walk cycle"
+ },
+ {
+  "name": "run",
+  "file": "run.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 23,
+  "speed": 3.0,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 1.0,
+  "source": "CMU subject35_trial18",
+  "srcFrames120": [
+   72,
+   164
+  ],
+  "desc": "Run/jog cycle ~3.1 m/s"
+ },
+ {
+  "name": "sprint",
+  "file": "sprint.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 21,
+  "speed": 3.79,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.98,
+  "source": "CMU subject16_trial45",
+  "srcFrames120": [
+   32,
+   116
+  ],
+  "desc": "Fast run cycle ~4 m/s"
+ },
+ {
+  "name": "sidestep",
+  "file": "sidestep.bvh",
+  "loop": true,
+  "fps": 30,
+  "frames": 52,
+  "speed": 0.63,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.92,
+  "source": "CMU subject113_trial17",
+  "srcFrames120": [
+   490,
+   700
+  ],
+  "desc": "Sideways walk/shuffle to character left"
+ },
+ {
+  "name": "jump_vertical",
+  "file": "jump_vertical.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 58,
+  "speed": 0.06,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.99,
+  "source": "CMU subject16_trial3",
+  "srcFrames120": [
+   84,
+   312
+  ],
+  "desc": "Two-foot standing high jump: crouch, takeoff, apex, landing"
+ },
+ {
+  "name": "jump_approach",
+  "file": "jump_approach.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 64,
+  "speed": 1.82,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.86,
+  "source": "CMU subject124_trial6",
+  "srcFrames120": [
+   250,
+   505
+  ],
+  "desc": "Approach steps then one-handed overhead jump (basketball lay-up); usable as spike approach"
+ },
+ {
+  "name": "jump_block",
+  "file": "jump_block.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 51,
+  "speed": 0.73,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.95,
+  "source": "CMU subject124_trial5",
+  "srcFrames120": [
+   300,
+   500
+  ],
+  "desc": "Standing jump with both arms raised overhead (basketball jump shot); usable as block/set jump"
+ },
+ {
+  "name": "jump_run",
+  "file": "jump_run.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 60,
+  "speed": 2.12,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.95,
+  "source": "CMU subject127_trial21",
+  "srcFrames120": [
+   12,
+   250
+  ],
+  "desc": "Running takeoff, jump, landing and decel"
+ },
+ {
+  "name": "land",
+  "file": "land.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 25,
+  "speed": 0.1,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 1.0,
+  "source": "CMU subject16_trial3",
+  "srcFrames120": [
+   216,
+   312
+  ],
+  "desc": "Descent from apex, landing absorb, recover"
+ },
+ {
+  "name": "dive",
+  "file": "dive.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 51,
+  "speed": 2.28,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.68,
+  "source": "CMU subject127_trial23",
+  "srcFrames120": [
+   24,
+   225
+  ],
+  "desc": "Run, dive to ground, roll, get up"
+ },
+ {
+  "name": "celebrate",
+  "file": "celebrate.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 61,
+  "speed": 1.23,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.96,
+  "source": "CMU subject142_trial9",
+  "srcFrames120": [
+   1440,
+   1680
+  ],
+  "desc": "Joy: arms raised overhead with bounce"
+ },
+ {
+  "name": "sad",
+  "file": "sad.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 121,
+  "speed": 0.02,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 1.05,
+  "source": "CMU subject79_trial71",
+  "srcFrames120": [
+   120,
+   600
+  ],
+  "desc": "Dejected, head down"
+ },
+ {
+  "name": "throw_overhead",
+  "file": "throw_overhead.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 51,
+  "speed": 0.59,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 0.86,
+  "source": "CMU subject124_trial1",
+  "srcFrames120": [
+   340,
+   540
+  ],
+  "desc": "Overhand throw (baseball pitch); usable as serve/spike arm swing"
+ },
+ {
+  "name": "high_five",
+  "file": "high_five.bvh",
+  "loop": false,
+  "fps": 30,
+  "frames": 56,
+  "speed": 0.94,
+  "unitScale": 0.0564,
+  "hipsHeightMeters": 1.0,
+  "source": "CMU subject20_trial11",
+  "srcFrames120": [
+   12,
+   233
+  ],
+  "desc": "Walk and high-five (subject A)"
+ }
+]
