@@ -12,6 +12,7 @@ using UnityEngine;
 
 namespace Tobe.Net
 {
+    [DefaultExecutionOrder(-200)]   // update state (and smoothing) before any view reads it
     public sealed class NetSession : MonoBehaviour
     {
         NetworkManager nm;

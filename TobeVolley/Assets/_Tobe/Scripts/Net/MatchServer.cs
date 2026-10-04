@@ -142,6 +142,7 @@ namespace Tobe.Net
             if (rosterDirty) { rosterDirty = false; SendRoster(); }
             FlushEvents();
             if (snapAcc >= SnapInterval) { snapAcc = 0; SendSnapshot(); }
+            else if (LocalDelivery != null) { Export(); LocalDelivery(Msg.Snap, Ser.Snapshot(exportView)); }
             if (sim.phase == MatchPhase.End && sim.events.Count > 2000) sim.events.Clear();
         }
 

@@ -48,7 +48,10 @@ namespace Tobe.Net
             var v = GameHub.View;
             switch (msg)
             {
-                case Msg.Snap: Ser.ReadSnapshot(data, v); break;
+                case Msg.Snap:
+                    Ser.ReadSnapshot(data, v);
+                    CaptureSnapshot(v);
+                    break;
                 case Msg.Roster:
                     int before = v.localPlayerId;
                     Ser.ReadRoster(data, v);
@@ -85,11 +88,12 @@ namespace Tobe.Net
             // snap to the server position on (re)spawn, at every serve setup, while serving, or if we drifted far away
             bool serving = v.phase == MatchPhase.Serve && v.serverPlayerId == me.id;
             bool newServe = v.phase == MatchPhase.Serve && lastPhase != MatchPhase.Serve;
-            if (!hasPos || newServe || serving && (Ser.LocalServerPos - pos).sqrMagnitude > 0.04f || (Ser.LocalServerPos - pos).sqrMagnitude > 16f && v.phase != MatchPhase.Lobby)
+            if (!hasPos || newServe || serving && Mathf.Abs(Ser.LocalServerPos.z - pos.z) > 0.2f || (Ser.LocalServerPos - pos).sqrMagnitude > 16f && v.phase != MatchPhase.Lobby)
             { pos = Ser.LocalServerPos; vel = Vector3.zero; air = false; hasPos = true; }
             lastPhase = v.phase;
 
             float timeScale = 1f - Mathf.Clamp01(v.slowMo);
+            SmoothRemotes(v, dt, timeScale);
             Simulate(me, dt * timeScale, serving);
             WriteLocal(v, me.id);
 
@@ -102,6 +106,49 @@ namespace Tobe.Net
                 var data = Ser.Input(cmd);
                 if (localServer != null) localServer.OnInput(nm.LocalClientId, data);
                 else NetIO.Send(nm, Msg.Input, NetworkManager.ServerClientId, data, NetworkDelivery.UnreliableSequenced);
+            }
+        }
+
+        // ---------- smoothing: snapshots arrive at 30-60 Hz; render remote players and the ball continuously ----------
+        struct Remote { public Vector3 pos, vel, render; public float yaw, renderYaw, t; public bool init; }
+        readonly System.Collections.Generic.Dictionary<byte, Remote> remotes = new System.Collections.Generic.Dictionary<byte, Remote>();
+        Vector3 ballPos, ballVel, ballRender; float ballT; bool ballInit;
+        void CaptureSnapshot(MatchView v)
+        {
+            float now = Time.unscaledTime;
+            foreach (var p in v.players)
+            {
+                if (p.id == v.localPlayerId) continue;
+                remotes.TryGetValue(p.id, out var r);
+                r.pos = p.pos; r.vel = p.vel; r.yaw = p.yaw; r.t = now;
+                if (!r.init || (r.render - p.pos).sqrMagnitude > 9f) { r.render = p.pos; r.renderYaw = p.yaw; r.init = true; }
+                remotes[p.id] = r;
+            }
+            ballPos = v.ball.pos; ballVel = v.ball.vel; ballT = now;
+            if (!ballInit || v.ball.held || !v.ball.live || (ballRender - ballPos).sqrMagnitude > 4f) { ballRender = ballPos; ballInit = true; }
+        }
+        void SmoothRemotes(MatchView v, float dt, float timeScale)
+        {
+            float now = Time.unscaledTime, k = 1f - Mathf.Exp(-18f * dt);
+            for (int i = 0; i < v.players.Length; i++)
+            {
+                ref var p = ref v.players[i];
+                if (p.id == v.localPlayerId || !remotes.TryGetValue(p.id, out var r)) continue;
+                float age = Mathf.Min(now - r.t, 0.12f) * timeScale;
+                var predicted = r.pos + new Vector3(r.vel.x, 0, r.vel.z) * age;
+                if (p.air) predicted.y = Mathf.Max(0, r.pos.y + r.vel.y * age - 0.5f * Court.PlayerGravity * age * age);
+                r.render = Vector3.Lerp(r.render, predicted, k);
+                r.renderYaw = Mathf.LerpAngle(r.renderYaw, r.yaw, k);
+                remotes[p.id] = r;
+                p.pos = r.render; p.yaw = r.renderYaw;
+            }
+            if (ballInit && v.ball.live && !v.ball.held)
+            {   // ballistic extrapolation from the latest snapshot, eased so corrections never pop
+                float age = Mathf.Min(now - ballT, 0.15f) * timeScale;
+                var predicted = ballPos + ballVel * age + 0.5f * age * age * new Vector3(0, -Court.BallGravity, 0);
+                predicted.y = Mathf.Max(Court.BallRadius, predicted.y);
+                ballRender = Vector3.Lerp(ballRender, predicted, 1f - Mathf.Exp(-35f * dt));
+                v.ball.pos = ballRender;
             }
         }
 
@@ -161,7 +208,7 @@ namespace Tobe.Net
             // never cross (or touch) the net: stay on your own side, inside the hall
             pos.z = team == 0 ? Mathf.Clamp(pos.z, -4, Court.NetZ - 0.35f) : Mathf.Clamp(pos.z, Court.NetZ + 0.35f, Court.Length + 4);
             pos.x = Mathf.Clamp(pos.x, -3, Court.Width + 3);
-            if (serving) pos.z = Ser.LocalServerPos.z;
+            if (serving) { pos.z = Ser.LocalServerPos.z; pos.x = Mathf.Clamp(pos.x, 0.3f, Court.Width - 0.3f); }
         }
         void TryJump(PlayerSnap me)
         {

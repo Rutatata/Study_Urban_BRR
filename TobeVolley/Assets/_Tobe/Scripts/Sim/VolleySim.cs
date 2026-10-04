@@ -582,7 +582,9 @@ namespace Tobe.Sim
             }
             u.lastCmd = c;
             // client-authoritative movement with sanity limits
-            bool locked = u.stunT > 0 || (phase == MatchPhase.Serve && u == server);
+            bool serving = phase == MatchPhase.Serve && u == server;
+            if (serving) u.pos.x = Mathf.Clamp(c.clientPos.x, 0.3f, Court.Width - 0.3f);
+            bool locked = u.stunT > 0 || serving;
             if (!locked)
             {
                 var np = c.clientPos;
