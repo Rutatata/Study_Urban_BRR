@@ -125,7 +125,7 @@ namespace Tobe
         public Vector3 pos, vel;
         public float yaw;              // degrees, 0 = facing +Z
         public PoseId pose;
-        public float poseT;            // seconds since pose started (for animation)
+        public float poseT;            // remaining hold time of a one-shot pose (counts down; 0 for continuous poses)
         public bool air, armed, calling;
         public float energy;           // 0..100
         public float stamina;          // 0..100

@@ -1,11 +1,13 @@
 // Per-character animation driver. Pipeline every frame (LateUpdate, before VRM spring bones):
-//   1. base layer   : baked mocap muscles (MotionLibrary) blended by speed / air / landing / full-body actions
-//                     -> HumanPoseHandler.SetHumanPose (works with ControlRigGenerationOption.None)
-//   2. action layer : volleyball key poses (bump, set, spike, block, serve...) authored as bone-direction overrides on
-//                     arms / legs / torso with anticipation -> contact -> follow-through timing (driven by poseT)
-//   3. secondary    : lean into acceleration, breathing, head tracks the ball, blink / expressions, eyes via VRM LookAt
-//   4. foot plant   : the lowest body point is pinned to the ground plane (the simulation owns the root position)
+//   1. base layer   : baked muscles (MotionLibrary: Unity Humanoid clips from Resources/Anim > CMU mocap) blended by mode / speed / air / landing
+//   2. volleyball   : procedural footwork (GaitSolver + two-bone leg IK) in a low ready stance - the body keeps FACING the ball / net and
+//                     shuffles, back-pedals or takes short steps; it only turns and runs for long distances (LocoBrain)
+//   3. action layer : receive platform / set hands / block hands, spike, serve ... as humanoid clips (upper body or full body, timed by
+//                     poseT) or authored key poses (VolleyKeys) when there is no clip
+//   4. secondary    : lean into acceleration, breathing, head tracks the ball, blink / expressions, eyes via VRM LookAt
+//   5. foot plant   : lowest body point pinned to the floor through a critically damped spring (no snapping)
 //
+// Everything is time based (1 - exp(-k dt)) so it looks the same at 60 and 144 fps.
 // Execution order: this script runs at -50, Vrm10Instance.LateUpdate at 11000 and FastSpringBoneService at 11010, so hair /
 // cloth jiggle simulates on top of the pose we just wrote. The model's Animator stays disabled (we are the only writer).
 using System;
@@ -18,13 +20,15 @@ namespace Tobe.View
     public sealed class PlayerAnimator : MonoBehaviour
     {
         // ------------------------------------------------------------------ inputs (PlayerView.Tick)
-        PoseId pose; float poseT; bool air; Vector3 worldVel; Vector3 localVel; float visYaw;
+        PoseId pose; float poseT; bool air; Vector3 worldVel, worldPos; float visYaw; int myId = -1, myTeam;
 
         public void Feed(in PlayerSnap s, Vector3 localVelocity, float visualYaw)
         {
-            pose = s.pose; poseT = s.poseT; air = s.air; worldVel = s.vel; localVel = localVelocity; visYaw = visualYaw;
+            pose = s.pose; poseT = s.poseT; air = s.air; worldVel = s.vel; worldPos = s.pos; visYaw = visualYaw; myId = s.id; myTeam = s.team;
         }
 
+        /// <summary>World yaw (deg) the body is facing right now (differs from the view yaw while facing the ball during shuffles).</summary>
+        public float BodyYaw => bodyYaw;
         /// <summary>True when the model is a valid humanoid and the animator did not hit repeated errors.</summary>
         public bool Usable => initialised && !failed;
         public static bool CanAnimate(GameObject model)
@@ -56,26 +60,40 @@ namespace Tobe.View
         int errCount;
         float seed;
 
+        B ftR, ftL;
+        float restAnkleY, hipHalf;            // root-local, measured in the bind pose
+        float sc = 1f, legLocal = 0.9f, l1w = 0.45f, l2w = 0.45f;   // current scale, leg length (local units), thigh / shin length (world)
+
         // ------------------------------------------------------------------ clips (resolved when motions are loaded)
         MotionClip cIdle, cReady, cWalk, cRun, cSprint, cSide, cJumpV, cJumpA, cJumpB, cJumpR, cLand, cDive, cCelebrate, cSad;
+        MotionClip cShL, cShR, cBack, cBump, cSet, cSpike, cBlock, cServeF, cServeJ;
         MotionClip[] movers = new MotionClip[0];
         bool clipsResolved;
+        bool clipStance, clipGait;            // a Humanoid "ready" / "shuffle" clip exists -> it replaces the procedural stance / footwork
 
         // ------------------------------------------------------------------ state
-        PoseId lastPose = (PoseId)255;
-        Vector2 smVel, prevSmVel, smAcc;
-        float speed, stanceW, phase, sidePhase, tIdle, tReady;
+        PoseId lastPose = (PoseId)255; int lastClass = -1;
+        // PlayerSnap.poseT is a hold COUNTDOWN in the simulation (and 0 for most poses), not an elapsed time: keep our own pose clock.
+        float poseAge, prevPoseT; PoseId prevPoseId = (PoseId)255;
+        readonly LocoBrain brain = new LocoBrain();
+        readonly GaitSolver gait = new GaitSolver();
+        Spring1 plant;
+        Vector2 vwSm, vwSlow, accW, vBody;
+        float speed, phase, rateSm = 1f, sidePhase, tIdle, tReady, gaitPhase;
+        float gaitW, legIkW, bodyYaw, bodyOff, gaze, yawRate, prevBodyYaw;
+        bool stanceCtx, forceRun;
+        float recvW, setW, blockW2, approachW, approachMul = 1f;
         bool prevAir, hadAir;
         float blockW, airW, airU, maxVy, lastVy, landT = 99f, landImpact;
         MotionClip airClip;
-        float fullW, fbT;
-        MotionClip fbClip;
-        float prevYaw, yawRate;
+        MotionClip actClip; float actT, actW; bool actFull;
+        PoseAccum acc2;
+        float[] tmpM;
         float leanP, leanR;
         float lookYaw, lookPitch, lookW = 1f;
         float blinkTimer, blinkT = -1f;
         readonly float[] ex = new float[5]; // happy, sad, angry, surprised, relaxed
-        Ov from = new Ov(), tgt = new Ov(), cur = new Ov();
+        PoseOv from = new PoseOv(), tgt = new PoseOv(), cur = new PoseOv(), tmpA = new PoseOv(), tmpB = new PoseOv();
         float blendT, blendDur = 0.15f;
         bool firstFrame = true;
 
@@ -127,6 +145,15 @@ namespace Tobe.View
                 groundRefs = refs.ToArray();
                 restRefY = LowestLocalY();
 
+                var tFR = Bone(HumanBodyBones.RightFoot); var tFL = Bone(HumanBodyBones.LeftFoot);
+                ftR = tFR != null ? Make(tFR, null) : null; ftL = tFL != null ? Make(tFL, null) : null;
+                if (ulR != null && ulL != null)
+                    hipHalf = Mathf.Abs(root.InverseTransformPoint(ulR.t.position).x - root.InverseTransformPoint(ulL.t.position).x) * 0.5f;
+                if (tFR != null && tFL != null)
+                    restAnkleY = 0.5f * (root.InverseTransformPoint(tFR.position).y + root.InverseTransformPoint(tFL.position).y);
+                plant.Reset(); brain.Reset(); gait.Reset();
+                acc2 = new PoseAccum(); tmpM = new float[MotionLibrary.MC];
+
                 anim.enabled = false;   // we own the bones; a disabled Animator still lets HumanPoseHandler work
                 initialised = true;
                 return true;
@@ -162,7 +189,9 @@ namespace Tobe.View
         void OnEnable()
         {
             ResolveClips();
-            firstFrame = true; lastPose = (PoseId)255; hadAir = false; prevAir = false; airW = 0f; fullW = 0f; landT = 99f;
+            firstFrame = true; lastClass = -1; lastPose = (PoseId)255; prevPoseId = (PoseId)255; poseAge = 0f; hadAir = false; prevAir = false; airW = 0f; actW = 0f; actClip = null; landT = 99f;
+            gaitW = 0f; legIkW = 0f; recvW = setW = blockW2 = approachW = 0f; approachMul = 1f;
+            brain.Reset(); gait.Reset(); plant.Reset();
         }
 
         void OnDestroy() { handler?.Dispose(); handler = null; }
@@ -175,10 +204,15 @@ namespace Tobe.View
             cSide = MotionLibrary.Get("sidestep");
             cJumpV = MotionLibrary.Get("jump_vertical"); cJumpA = MotionLibrary.Get("jump_approach"); cJumpB = MotionLibrary.Get("jump_block"); cJumpR = MotionLibrary.Get("jump_run"); cLand = MotionLibrary.Get("land");
             cDive = MotionLibrary.Get("dive"); cCelebrate = MotionLibrary.Get("celebrate"); cSad = MotionLibrary.Get("sad");
+            cShL = MotionLibrary.Get("shuffle_left"); cShR = MotionLibrary.Get("shuffle_right"); cBack = MotionLibrary.Get("backpedal");
+            cBump = MotionLibrary.Get("bump"); cSet = MotionLibrary.Get("set"); cSpike = MotionLibrary.Get("spike"); cBlock = MotionLibrary.Get("block");
+            cServeF = MotionLibrary.Get("serve_float"); cServeJ = MotionLibrary.Get("serve_jump");
             var list = new System.Collections.Generic.List<MotionClip>();
             foreach (var c in new[] { cWalk, cRun, cSprint }) if (c != null && c.speed > 0.4f && c.loop) list.Add(c);
             list.Sort((a, b) => a.speed.CompareTo(b.speed));
             movers = list.ToArray();
+            clipStance = cReady != null && cReady.humanoid;
+            clipGait = (cShL != null && cShL.humanoid) || (cShR != null && cShR.humanoid);
             clipsResolved = true;
         }
 
@@ -194,12 +228,19 @@ namespace Tobe.View
             }
         }
 
+        static int PoseClass(PoseId p) => (p == PoseId.Idle || p == PoseId.Ready || p == PoseId.Run) ? 0 : (int)p + 1;
+
         void Step()
         {
             float dt = Mathf.Clamp(Time.deltaTime, 0f, 0.1f);
             float tm = Time.time + seed;
 
-            if (pose != lastPose) OnPoseChange();
+            RefreshMetrics();
+            if (pose != prevPoseId || Mathf.Abs(poseT - prevPoseT) > 0.2f || firstFrame) poseAge = 0f; else poseAge += dt;   // (re)triggered
+            prevPoseId = pose; prevPoseT = poseT;
+            UpdateContext(dt);
+            int cls = PoseClass(pose);
+            if (cls != lastClass) OnPoseChange(cls);
             UpdateKinematics(dt);
 
             // ---- air / landing bookkeeping
@@ -210,54 +251,45 @@ namespace Tobe.View
             landT += dt;
             airW = Mathf.MoveTowards(airW, air ? 1f : 0f, dt / 0.07f);
 
-            // ---- full-body clip layer (dive / celebrate / sad)
-            MotionClip want = null; float rate = 1f;
-            switch (pose)
-            {
-                case PoseId.Dive: want = cDive; if (want != null) rate = Mathf.Clamp(want.duration / 0.9f, 1f, 2.2f); break;
-                case PoseId.Celebrate: want = cCelebrate; break;
-                case PoseId.Sad: want = cSad; if (want != null) rate = Mathf.Clamp(want.duration / 1.4f, 1f, 2f); break;
-            }
-            if (want != null) { if (fbClip != want) { fbClip = want; } fbT = poseT * rate; fullW = Mathf.MoveTowards(fullW, 1f, dt / 0.1f); }
-            else { fbT += dt; fullW = Mathf.MoveTowards(fullW, 0f, dt / 0.18f); }
-            if (fullW <= 0f && want == null) fbClip = null;
-            if (fbClip == null) fullW = 0f;
+            // ---- clip action layer (dive / celebrate / sad / bump / set / spike / block / serve)
+            SelectAction(dt);
 
             // ---- base muscle pose
             acc.Clear();
-            float wRest = 1f - fullW;
-            if (wRest > 1e-3f)
+            if (actClip != null && actFull && actW > 0.999f) AdvanceClocks(dt);
+            else
             {
-                float wAir = airW * wRest, wGnd = wRest - wAir;
+                float wAir = airW, wGnd = 1f - airW;
                 if (wGnd > 1e-3f) AddGround(wGnd, dt);
                 if (wAir > 1e-3f) AddAir(wAir, dt);
             }
-            else AdvanceClocks(dt);
-            if (fbClip != null && fullW > 1e-3f) acc.Add(fbClip, fbT * (fbClip.loop ? 1f : 1f), fullW);
             acc.Finish(hp.muscles, out Vector3 bpos, out Quaternion brot);
+            ComposeAction(ref bpos, ref brot);
 
-            // ---- action layer
+            // ---- override layer (key poses, stance, torso)
             EvalOverrides(dt, tm);
-            hp.bodyPosition = bpos;
-            hp.bodyRotation = cur.pitch != 0f ? Quaternion.Euler(cur.pitch, 0f, 0f) * brot : brot;
+            Quaternion Q = Quaternion.Euler(0f, bodyOff, 0f);             // the body may face the ball while the view yaw follows the velocity
+            hp.bodyPosition = Q * bpos;
+            hp.bodyRotation = Q * (cur.pitch != 0f ? Quaternion.Euler(cur.pitch, 0f, 0f) * brot : brot);
             handler.SetHumanPose(ref hp);
 
-            // ---- bones: torso deltas, leg / arm overrides, secondary motion, foot plant
-            Quaternion R = root.rotation;
-            ApplyTorso(R, tm, dt);
-            ApplyLegs(R);
-            ApplyArms(R);
-            Plant();
+            // ---- bones: torso deltas, leg / arm overrides, procedural footwork, secondary motion, foot plant
+            Quaternion Rb = root.rotation * Q;
+            ApplyTorso(Rb, tm, dt);
+            ApplyLegs(Rb);
+            ApplyGait(Rb, Q, legIkW);
+            ApplyArms(Rb);
+            Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
             firstFrame = false;
         }
 
-        void OnPoseChange()
+        void OnPoseChange(int cls)
         {
             from.Set(cur);
             blendT = 0f;
             blendDur = BlendDur(pose);
-            lastPose = pose;
+            lastPose = pose; lastClass = cls;
         }
 
         static float BlendDur(PoseId p)
@@ -272,35 +304,104 @@ namespace Tobe.View
             }
         }
 
+        // ================================================================== context: what is going on in the match
+        void RefreshMetrics()
+        {
+            sc = Mathf.Max(0.01f, root.lossyScale.y);
+            if (ulR == null || llR == null || ulL == null || llL == null || ftR == null || ftL == null) return;
+            l1w = 0.5f * ((llR.t.position - ulR.t.position).magnitude + (llL.t.position - ulL.t.position).magnitude);
+            l2w = 0.5f * ((ftR.t.position - llR.t.position).magnitude + (ftL.t.position - llL.t.position).magnitude);
+            if (l1w < 1e-3f || l2w < 1e-3f) { l1w = 0.45f * sc; l2w = 0.45f * sc; }
+            legLocal = (l1w + l2w) / sc;
+        }
+
+        void UpdateContext(float dt)
+        {
+            var v = GameHub.View;
+            bool rally = v.phase == MatchPhase.Rally;
+            bool recvServe = v.phase == MatchPhase.Serve && myTeam != v.servingTeam && myId != v.serverPlayerId;
+            stanceCtx = (rally || recvServe) && !air;
+
+            PlanSnap pl = default; bool mine = false;
+            if (v.plans != null && myTeam >= 0 && myTeam < v.plans.Length) { pl = v.plans[myTeam]; mine = pl.kind != PlanKind.None && pl.playerId == myId; }
+            float tl = mine ? pl.timeLeft : 99f;
+            float rT = 0f, sT = 0f, aT = 0f, mulT = 1f;
+            forceRun = false;
+            if (mine && !air)
+            {
+                if (pl.kind == PlanKind.Receive) rT = AnimMath.Smooth01((0.85f - tl) / 0.3f);
+                else if (pl.kind == PlanKind.Set) sT = AnimMath.Smooth01((0.85f - tl) / 0.3f);
+                else if (pl.kind == PlanKind.Attack && pose != PoseId.SpikeWind && pose != PoseId.Spike)
+                {
+                    forceRun = tl < 1.6f;                                  // spike approach: turn and run in
+                    aT = AnimMath.Smooth01((0.3f - tl) / 0.12f);           // last step: both arms swing back
+                    mulT = tl > 0.55f ? 0.8f : 1.3f;                       // classic 3-step approach: slow - fast - fast
+                }
+            }
+            float bT = 0f;
+            if (rally && !air && !mine && v.ball.live && Court.DistFromNet(myTeam, worldPos.z) < 1.7f && !Court.OnSide(myTeam, v.ball.pos.z)) bT = 1f;
+            recvW = Mathf.MoveTowards(recvW, rT, dt / 0.15f);
+            setW = Mathf.MoveTowards(setW, sT, dt / 0.15f);
+            blockW2 = Mathf.MoveTowards(blockW2, bT, dt / 0.25f);
+            approachW = Mathf.MoveTowards(approachW, aT, dt / 0.1f);
+            approachMul = AnimMath.Damp(approachMul, mulT, 6f, dt);
+        }
+
         // ================================================================== kinematics
+        static bool GaitPose(PoseId p) => p == PoseId.Idle || p == PoseId.Ready || p == PoseId.Run || p == PoseId.Bump || p == PoseId.Set || p == PoseId.Block;
+
+        Vector2 ToBody(Vector2 w)
+        {
+            float a = bodyYaw * Mathf.Deg2Rad, s = Mathf.Sin(a), c = Mathf.Cos(a);
+            return new Vector2(w.x * c - w.y * s, w.x * s + w.y * c);   // x = right, y = forward
+        }
+
         void UpdateKinematics(float dt)
         {
-            Vector2 lv = new Vector2(localVel.x, localVel.z);
-            float k = dt > 1e-5f ? 1f - Mathf.Exp(-dt / 0.08f) : 1f;
-            if (firstFrame) { smVel = lv; prevSmVel = lv; }
-            smVel = Vector2.Lerp(smVel, lv, k);
-            if (dt > 1e-5f)
+            Vector2 vw = new Vector2(worldVel.x, worldVel.z);
+            if (firstFrame) { vwSm = vw; vwSlow = vw; bodyYaw = visYaw; prevBodyYaw = visYaw; gaze = visYaw; }
+            // two smoothing stages of the (noisy, stepwise) network velocity; the lag between them gives a clean acceleration estimate
+            vwSm = AnimMath.Damp(vwSm, vw, 10f, dt);
+            vwSlow = AnimMath.Damp(vwSlow, vw, 3.5f, dt);
+            accW = Vector2.ClampMagnitude((vwSm - vwSlow) / 0.28f, 25f);
+            speed = vwSm.magnitude;
+
+            // what the player looks at: the live ball, otherwise the net
+            var v = GameHub.View;
+            float gz = myTeam == 0 ? 0f : 180f;
+            if (v.ball.live)
             {
-                Vector2 a = (smVel - prevSmVel) / dt;
-                smAcc = Vector2.Lerp(smAcc, Vector2.ClampMagnitude(a, 25f), 1f - Mathf.Exp(-dt / 0.12f));
+                float dx = v.ball.pos.x - worldPos.x, dz = v.ball.pos.z - worldPos.z;
+                if (dx * dx + dz * dz > 0.25f) gz = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+                else gz = gaze;
             }
-            prevSmVel = smVel;
-            speed = smVel.magnitude;
+            gaze = firstFrame ? gz : AnimMath.DampAngle(gaze, gz, 8f, dt);
 
-            float yr = dt > 1e-5f ? Mathf.DeltaAngle(prevYaw, visYaw) / dt : 0f;
-            if (firstFrame) yr = 0f;
-            prevYaw = visYaw;
-            yawRate = Mathf.Lerp(yawRate, Mathf.Clamp(yr, -720f, 720f), dt > 1e-5f ? 1f - Mathf.Exp(-dt / 0.1f) : 1f);
+            // locomotion mode with hysteresis, then smooth weights between the procedural stance / footwork and the mocap loco
+            var mode = brain.Update(dt, vwSm, stanceCtx, forceRun);
+            bool gaitOk = mode == LocoBrain.Mode.Gait && !air && GaitPose(pose);
+            gaitW = Mathf.MoveTowards(gaitW, gaitOk ? 1f : 0f, dt / (gaitOk ? 0.18f : 0.12f));
+            legIkW = gaitW * (clipGait ? 0f : (clipStance ? gait.moveAmt : 1f));
 
-            // lean into acceleration (forward accel -> pitch forward, lateral accel / turning -> roll toward the inside)
-            float tp = Mathf.Clamp(smAcc.y * 1.3f, -9f, 11f);
-            float tr = -Mathf.Clamp(smAcc.x * 1.3f + yawRate * speed * 0.012f, -9f, 9f);
-            float lk = dt > 1e-5f ? 1f - Mathf.Exp(-dt / 0.12f) : 1f;
-            leanP = Mathf.Lerp(leanP, tp, lk); leanR = Mathf.Lerp(leanR, tr, lk);
+            // body facing: gaze while in the volleyball stance, the movement direction otherwise (the view yaw already follows the velocity)
+            bool facing = gaitW > 0.5f;
+            if (firstFrame) bodyYaw = visYaw;
+            else bodyYaw = AnimMath.DampAngle(bodyYaw, facing ? gaze : visYaw, facing ? 9f : 16f, dt, 720f);
+            bodyYaw = Mathf.Repeat(bodyYaw, 360f);
+            bodyOff = Mathf.DeltaAngle(visYaw, bodyYaw);
 
-            // stance: relaxed idle <-> ready crouch
-            float stTarget = (pose == PoseId.Idle || pose == PoseId.Celebrate || pose == PoseId.Sad) ? 0f : 1f;
-            stanceW = Mathf.MoveTowards(stanceW, stTarget, dt / 0.15f);
+            vBody = ToBody(vwSm);
+            float footHalfW = (hipHalf + 0.19f * legLocal) * sc;
+            gait.Update(dt, vBody, Mathf.Max(0.25f, 2f * footHalfW - 0.20f), 0.7f);
+
+            if (dt > 1e-4f) yawRate = AnimMath.Damp(yawRate, Mathf.Clamp(Mathf.DeltaAngle(prevBodyYaw, bodyYaw) / dt, -540f, 540f), 8f, dt);
+            prevBodyYaw = bodyYaw;
+
+            // lean into acceleration (forward accel -> pitch forward, lateral accel / turning -> roll toward the inside) + into the shuffle direction
+            Vector2 aB = ToBody(accW);
+            float tp = Mathf.Clamp(aB.y * 1.3f, -9f, 11f) + gaitW * Mathf.Clamp(vBody.y * 1.2f, -5f, 6f);
+            float tr = -Mathf.Clamp(aB.x * 1.3f + yawRate * speed * 0.012f, -9f, 9f) - gaitW * Mathf.Clamp(vBody.x * 1.6f, -6f, 6f);
+            leanP = AnimMath.Damp(leanP, tp, 8f, dt); leanR = AnimMath.Damp(leanR, tr, 8f, dt);
         }
 
         void AdvanceClocks(float dt) { tIdle += dt; tReady += dt; }
@@ -314,7 +415,7 @@ namespace Tobe.View
             if (landT < landDur)
             {
                 float u = landT / landDur;
-                float env = u < 0.15f ? u / 0.15f : 1f - Smooth((u - 0.15f) / 0.85f);
+                float env = u < 0.15f ? u / 0.15f : 1f - AnimMath.Smooth01((u - 0.15f) / 0.85f);
                 landW = env * Mathf.Lerp(0.5f, 1f, landImpact);
             }
             AddLoco(w * (1f - landW), dt);
@@ -328,68 +429,79 @@ namespace Tobe.View
         void AddLoco(float w, float dt)
         {
             tIdle += dt; tReady += dt;
+            float wG = w * gaitW, wM = w - wG;
+            if (wG > 1e-3f) AddGaitBase(wG, dt);
+            if (wM > 1e-3f) AddMocapLoco(wM, dt);
+        }
+
+        void AddReady(float w) { if (w > 1e-4f) acc.Add(cReady ?? cIdle, tReady, w); }
+
+        /// <summary>Base muscles under the procedural stance: the ready clip, or (humanoid shuffle clips) a direction blend of walk / back-pedal / shuffles.</summary>
+        void AddGaitBase(float w, float dt)
+        {
+            if (!clipGait) { AddReady(w); return; }
+            float m = gait.moveAmt, sp = speed;
+            AddReady(w * (1f - m));
+            if (m < 1e-3f) return;
+            float inv = sp > 0.05f ? 1f / sp : 0f;
+            float cf = Mathf.Max(0f, vBody.y) * inv, cb = Mathf.Max(0f, -vBody.y) * inv, cr = Mathf.Max(0f, vBody.x) * inv, cl = Mathf.Max(0f, -vBody.x) * inv;
+            float wm = w * m;
+            var refClip = cShL ?? cShR;
+            float rate = Mathf.Clamp(sp / Mathf.Max(0.5f, refClip.speed), 0.6f, 1.8f) / Mathf.Max(0.2f, refClip.duration);
+            gaitPhase = Mathf.Repeat(gaitPhase + rate * dt, 1f);
+            float wf = cf * cf, wb = cb * cb, wr = cr * cr, wl = cl * cl;
+            if (wf > 1e-3f) { if (cWalk != null) acc.Add(cWalk, gaitPhase * cWalk.duration, wm * wf); else AddReady(wm * wf); }
+            if (wb > 1e-3f) { if (cBack != null) acc.Add(cBack, gaitPhase * cBack.duration, wm * wb); else AddReady(wm * wb); }
+            if (wl > 1e-3f) { if (cShL != null) acc.Add(cShL, gaitPhase * cShL.duration, wm * wl); else acc.Add(cShR, gaitPhase * cShR.duration, wm * wl, true); }
+            if (wr > 1e-3f) { if (cShR != null) acc.Add(cShR, gaitPhase * cShR.duration, wm * wr); else acc.Add(cShL, gaitPhase * cShL.duration, wm * wr, true); }
+        }
+
+        /// <summary>Mocap idle / walk / run / sprint by speed. All stride cycles share one normalised phase (they start at "left leg forward"),
+        /// the phase rate is damped so weight / speed changes never make the cycle jump.</summary>
+        void AddMocapLoco(float w, float dt)
+        {
             float sp = speed;
-
-            // lateral-ness -> sidestep clip
-            float sideW = 0f;
-            if (cSide != null && sp > 0.3f)
-                sideW = Smooth(Mathf.Clamp01((Mathf.Abs(smVel.x) / sp - 0.55f) / 0.3f)) * Smooth(Mathf.Clamp01((sp - 0.3f) / 0.8f))
-                        * (1f - Smooth((Mathf.Abs(smVel.x) - 1.8f) / 1.5f));   // fast lateral runs use the run cycle (sidestep clip is slow)
-            float wLoco = w * (1f - sideW);
-
-            // mover weights between anchors (walk / run / sprint) by planar speed
             int n = movers.Length;
             float wStat = 1f; int i0 = -1, i1 = -1; float f = 0f;
             if (n > 0)
             {
-                if (sp <= movers[0].speed) { f = Smooth(sp / movers[0].speed); i0 = 0; wStat = 1f - f; }
+                if (sp <= movers[0].speed) { f = AnimMath.Smooth01(sp / movers[0].speed); i0 = 0; wStat = 1f - f; }
                 else
                 {
                     int i = 0;
                     while (i + 1 < n && sp > movers[i + 1].speed) i++;
                     if (i + 1 >= n) { i0 = n - 1; f = 1f; wStat = 0f; }
-                    else { i0 = i; i1 = i + 1; f = Smooth((sp - movers[i].speed) / (movers[i + 1].speed - movers[i].speed)); wStat = 0f; }
+                    else { i0 = i; i1 = i + 1; f = AnimMath.Smooth01((sp - movers[i].speed) / (movers[i + 1].speed - movers[i].speed)); wStat = 0f; }
                 }
             }
 
-            // stationary: idle <-> ready
+            // stationary: idle <-> ready (ready only inside a rally)
             if (wStat > 1e-3f)
             {
-                float ws = wLoco * wStat;
+                float ws = w * wStat;
                 if (cIdle == cReady) acc.Add(cIdle, tIdle, ws);
-                else { acc.Add(cIdle, tIdle, ws * (1f - stanceW)); acc.Add(cReady, tReady, ws * stanceW); }
+                else { float st = stanceCtx ? 1f : 0f; acc.Add(cIdle, tIdle, ws * (1f - st)); acc.Add(cReady, tReady, ws * st); }
             }
 
-            // movers share one normalised phase (all stride cycles start at "left leg forward") -> clean blends, no foot sliding
             if (n > 0)
             {
-                float rate;
+                float rateT;
                 if (i1 < 0)
                 {
                     var c = movers[i0];
-                    rate = Mathf.Clamp(sp / c.speed, 0.55f, 1.6f) / c.duration;
-                    acc.Add(c, phase * c.duration, wLoco * f);
-                    if (i0 == 0 && wStat <= 1e-3f) { }
+                    rateT = Mathf.Clamp(sp / c.speed, 0.55f, 1.6f) / c.duration;
+                    acc.Add(c, phase * c.duration, w * f);
                 }
                 else
                 {
                     var a = movers[i0]; var b = movers[i1];
                     float ra = Mathf.Clamp(sp / a.speed, 0.55f, 1.6f) / a.duration, rb = Mathf.Clamp(sp / b.speed, 0.55f, 1.6f) / b.duration;
-                    rate = Mathf.Lerp(ra, rb, f);
-                    acc.Add(a, phase * a.duration, wLoco * (1f - f));
-                    acc.Add(b, phase * b.duration, wLoco * f);
+                    rateT = Mathf.Lerp(ra, rb, f);
+                    acc.Add(a, phase * a.duration, w * (1f - f));
+                    acc.Add(b, phase * b.duration, w * f);
                 }
-                float dirSign = smVel.y < -0.3f && Mathf.Abs(smVel.y) > Mathf.Abs(smVel.x) ? -1f : 1f;   // backpedal plays the cycle in reverse
-                phase = Mathf.Repeat(phase + dirSign * rate * dt, 1f);
-            }
-            else if (wLoco > 0f && wStat < 1f) { }
-
-            if (sideW > 1e-3f)
-            {
-                float rate = Mathf.Clamp(Mathf.Abs(smVel.x) / Mathf.Max(0.3f, cSide.speed), 0.55f, 1.7f) / cSide.duration;
-                bool mirror = Mathf.Abs(cSide.rootVel.x) > 0.1f && Mathf.Sign(smVel.x) != Mathf.Sign(cSide.rootVel.x);
-                acc.Add(cSide, sidePhase * cSide.duration, w * sideW, mirror);
-                sidePhase = Mathf.Repeat(sidePhase + rate * dt, 1f);
+                rateSm = AnimMath.Damp(rateSm, rateT * approachMul, 9f, dt);
+                phase = Mathf.Repeat(phase + rateSm * dt, 1f);
             }
         }
 
@@ -414,8 +526,8 @@ namespace Tobe.View
             // vertical velocity -> jump phase: 0 = leaving the ground, 0.5 = apex, 1 = touching down
             float vy = worldVel.y, m = Mathf.Max(maxVy, 3.5f);
             float u = vy >= 0f ? 0.5f * (1f - Mathf.Clamp01(vy / m)) : 0.5f + 0.5f * Mathf.Clamp01(-vy / m);
-            airU = dt > 1e-5f ? Mathf.Lerp(airU, u, 1f - Mathf.Exp(-dt * 24f)) : u;
-            float blockTarget = (pose == PoseId.Block && cJumpB != null) ? 1f : 0f;
+            airU = AnimMath.Damp(airU, u, 24f, dt);
+            float blockTarget = (pose == PoseId.Block && cJumpB != null && cBlock == null) ? 1f : 0f;
             blockW = Mathf.MoveTowards(blockW, blockTarget, dt / 0.1f);
             if (blockW < 0.999f) acc.Add(airClip, JumpTime(airClip), w * (1f - blockW));
             if (blockW > 0.001f) acc.Add(cJumpB, JumpTime(cJumpB), w * blockW);   // basketball jump-shot: both arms overhead
@@ -427,131 +539,101 @@ namespace Tobe.View
             return fr / c.fps;
         }
 
-        // ================================================================== action layer
-        sealed class Ov
+        // ================================================================== action layer: clips (humanoid / mocap) timed by poseT
+        bool actWanted;
+
+        void SelectAction(float dt)
         {
-            static readonly Vector3 Hang = new Vector3(0.12f, -1f, 0.05f);
-            public Vector3 uR = Hang, lR = Hang, uL = Hang, lL = Hang;   // arm directions in the torso frame (x outward, y up, z forward)
-            public float wR = 1f, wL = 1f;                                // arm override weights
-            public Vector3 hips, spine, chest, neck, head;               // euler deltas (deg): x pitch fwd+, y yaw right+, z roll left+
-            public float legW;
-            public Vector3 gUR = Hang, gLR = Hang, gUL = Hang, gLL = Hang; // leg directions in the hips frame
-            public float pitch, lift;                                     // whole-body pitch (dive) / extra ground clearance (hop)
-
-            public static Ov Neutral() { var o = new Ov(); o.wR = o.wL = 0f; return o; }
-            public void SetNeutral() { Set(NeutralRef); }
-            static readonly Ov NeutralRef = Neutral();
-
-            public void Set(Ov o)
+            MotionClip c = null; float t = 0f; bool full = false;
+            float pt = poseAge;
+            switch (pose)
             {
-                uR = o.uR; lR = o.lR; uL = o.uL; lL = o.lL; wR = o.wR; wL = o.wL;
-                hips = o.hips; spine = o.spine; chest = o.chest; neck = o.neck; head = o.head;
-                legW = o.legW; gUR = o.gUR; gLR = o.gLR; gUL = o.gUL; gLL = o.gLL; pitch = o.pitch; lift = o.lift;
+                case PoseId.Dive: c = cDive; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 0.9f, 1f, 2.2f); break;
+                case PoseId.Celebrate: c = cCelebrate; full = true; t = pt; break;
+                case PoseId.Sad: c = cSad; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
+                case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
+                case PoseId.Set: c = cSet; full = air; if (c != null) t = pt * c.duration / 0.45f; break;
+                case PoseId.SpikeWind: c = cSpike; full = true; if (c != null) t = Mathf.Min(pt / 0.32f, 1f) * 0.55f * c.duration; break;
+                case PoseId.Spike: c = cSpike; full = true; if (c != null) t = (0.55f + Mathf.Min(pt / 0.4f, 1f) * 0.45f) * c.duration; break;
+                case PoseId.Block: c = cBlock; full = air; if (c != null) t = pt * c.duration / 0.5f; break;
+                case PoseId.ServeToss: c = air ? (cServeJ ?? cServeF) : cServeF; full = air; if (c != null) t = Mathf.Min(pt / 0.8f, 1f) * 0.5f * c.duration; break;
+                case PoseId.ServeHit: c = air ? (cServeJ ?? cServeF) : cServeF; full = air; if (c != null) t = (0.5f + Mathf.Min(pt / 0.45f, 1f) * 0.5f) * c.duration; break;
             }
-
-            static Vector3 Dir(Vector3 a, float wa, Vector3 b, float wb, float k)
+            actWanted = c != null;
+            if (c != null) { if (actClip != c) { actClip = c; } actT = t; actFull = full; actW = Mathf.MoveTowards(actW, 1f, dt / (full ? 0.09f : 0.07f)); }
+            else
             {
-                if (wa < 0.02f) a = b; else if (wb < 0.02f) b = a;
-                return Vector3.Slerp(a.normalized, b.normalized, k);
+                actT += dt;
+                actW = Mathf.MoveTowards(actW, 0f, dt / 0.18f);
+                if (actW <= 0f) actClip = null;
             }
-
-            public static void Lerp(Ov d, Ov a, Ov b, float k)
-            {
-                d.uR = Dir(a.uR, a.wR, b.uR, b.wR, k); d.lR = Dir(a.lR, a.wR, b.lR, b.wR, k);
-                d.uL = Dir(a.uL, a.wL, b.uL, b.wL, k); d.lL = Dir(a.lL, a.wL, b.lL, b.wL, k);
-                d.wR = Mathf.Lerp(a.wR, b.wR, k); d.wL = Mathf.Lerp(a.wL, b.wL, k);
-                d.hips = Vector3.Lerp(a.hips, b.hips, k); d.spine = Vector3.Lerp(a.spine, b.spine, k); d.chest = Vector3.Lerp(a.chest, b.chest, k);
-                d.neck = Vector3.Lerp(a.neck, b.neck, k); d.head = Vector3.Lerp(a.head, b.head, k);
-                d.legW = Mathf.Lerp(a.legW, b.legW, k);
-                d.gUR = Dir(a.gUR, a.legW, b.gUR, b.legW, k); d.gLR = Dir(a.gLR, a.legW, b.gLR, b.legW, k);
-                d.gUL = Dir(a.gUL, a.legW, b.gUL, b.legW, k); d.gLL = Dir(a.gLL, a.legW, b.gLL, b.legW, k);
-                d.pitch = Mathf.Lerp(a.pitch, b.pitch, k); d.lift = Mathf.Lerp(a.lift, b.lift, k);
-            }
+            if (actClip == null) actW = 0f;
         }
 
+        void ComposeAction(ref Vector3 bpos, ref Quaternion brot)
+        {
+            if (actClip == null || actW <= 1e-3f) return;
+            acc2.Clear();
+            acc2.Add(actClip, actT, 1f);
+            acc2.Finish(tmpM, out Vector3 ap, out Quaternion ar);
+            var mask = MotionLibrary.UpperMask;
+            var m = hp.muscles;
+            for (int j = 0; j < m.Length; j++)
+            {
+                float mw = actFull ? actW : (mask != null && j < mask.Length && mask[j] ? actW : 0f);
+                if (mw > 0f) m[j] = Mathf.Lerp(m[j], tmpM[j], mw);
+            }
+            if (actFull) { bpos = Vector3.Lerp(bpos, ap, actW); brot = Quaternion.Slerp(brot, ar, actW); }
+        }
+
+        // ================================================================== override layer
         static Vector3 V(float x, float y, float z) => new Vector3(x, y, z);
-        static float Smooth(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
 
-        // ---- authored key poses (right arm = hitting arm). Arm directions are in the TORSO frame so they follow arch / lean.
-        static readonly Vector3 LegHang = V(0.06f, -1f, 0f);
-        // Spike: wind-up (swing back/down) -> arms drive up -> cock (elbow high & back, chest arched, left arm up) -> whip -> follow-through
-        static readonly Ov SW0 = new Ov { uR = V(0.25f, -0.5f, -0.6f), lR = V(0.1f, -0.7f, -0.5f), uL = V(0.25f, -0.5f, -0.6f), lL = V(0.1f, -0.7f, -0.5f), spine = V(12, 0, 0), chest = V(8, 0, 0) };
-        static readonly Ov SW1 = new Ov { uR = V(0.5f, 0.75f, 0.35f), lR = V(0.3f, 0.8f, 0.3f), uL = V(0.3f, 1f, 0.3f), lL = V(0.15f, 1f, 0.4f), spine = V(-4, 0, 0), chest = V(-6, 0, 0) };
-        static readonly Ov SW2 = new Ov
+        void Overlay(PoseOv key, float w)
         {
-            uR = V(0.55f, 0.6f, -0.5f), lR = V(0.15f, 0.55f, -0.8f), uL = V(0.35f, 0.95f, 0.35f), lL = V(0.15f, 1f, 0.4f),
-            spine = V(-12, 0, 0), chest = V(-14, 22, 0), head = V(-6, 0, 0), legW = 0.55f,
-            gUR = V(0.06f, -0.95f, -0.25f), gLR = V(0.03f, -0.5f, -0.85f), gUL = V(0.06f, -0.95f, -0.2f), gLL = V(0.03f, -0.6f, -0.8f)
-        };
-        static readonly Ov SP1 = new Ov
-        {
-            uR = V(0.12f, 0.95f, 0.3f), lR = V(0.06f, 1f, 0.15f), uL = V(0.45f, -0.3f, 0.4f), lL = V(0.2f, -0.8f, 0.3f),
-            spine = V(6, 0, 0), chest = V(8, -10, 0), legW = 0.4f,
-            gUR = V(0.06f, -0.95f, -0.1f), gLR = V(0.03f, -0.8f, -0.55f), gUL = V(0.06f, -0.95f, -0.1f), gLL = V(0.03f, -0.8f, -0.55f)
-        };
-        static readonly Ov SP2 = new Ov
-        {
-            uR = V(0.3f, -0.2f, 0.85f), lR = V(0.15f, -0.6f, 0.8f), uL = V(0.5f, -0.5f, 0.2f), lL = V(0.25f, -0.9f, 0.1f),
-            spine = V(14, 0, 0), chest = V(24, -22, 0), head = V(6, 0, 0), legW = 0.5f,
-            gUR = V(0.06f, -0.8f, 0.55f), gLR = V(0.03f, -0.9f, -0.4f), gUL = V(0.06f, -0.8f, 0.5f), gLL = V(0.03f, -0.9f, -0.4f)
-        };
-        static readonly Ov SP3 = new Ov { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.2f), lL = V(0.1f, -0.95f, 0.2f), spine = V(8, 0, 0), chest = V(10, 0, 0) };
-        // Block: hands up fast, straight arms, hands spread, then press over the net
-        static readonly Ov BL0 = new Ov { uR = V(0.3f, 0.4f, 0.7f), lR = V(0.2f, 0.4f, 0.8f), uL = V(0.3f, 0.4f, 0.7f), lL = V(0.2f, 0.4f, 0.8f), spine = V(6, 0, 0) };
-        static readonly Ov BL1 = new Ov { uR = V(0.2f, 0.98f, 0.1f), lR = V(0.18f, 1f, 0.12f), uL = V(0.2f, 0.98f, 0.1f), lL = V(0.18f, 1f, 0.12f), spine = V(4, 0, 0), chest = V(-2, 0, 0), head = V(-10, 0, 0) };
-        static readonly Ov BL2 = new Ov { uR = V(0.18f, 0.9f, 0.4f), lR = V(0.15f, 0.88f, 0.45f), uL = V(0.18f, 0.9f, 0.4f), lL = V(0.15f, 0.88f, 0.45f), spine = V(10, 0, 0), chest = V(10, 0, 0), head = V(-6, 0, 0) };
-        // Bump (forearm pass): arms low, hands joined, platform swings up through the ball
-        static readonly Ov BP0 = new Ov { uR = V(0.15f, -0.9f, 0.3f), lR = V(0.05f, -0.8f, 0.5f), uL = V(0.15f, -0.9f, 0.3f), lL = V(0.05f, -0.8f, 0.5f), spine = V(18, 0, 0), chest = V(14, 0, 0) };
-        static readonly Ov BP1 = new Ov { uR = V(0.0f, -0.6f, 0.8f), lR = V(-0.2f, -0.45f, 0.85f), uL = V(0.0f, -0.6f, 0.8f), lL = V(-0.2f, -0.45f, 0.85f), spine = V(24, 0, 0), chest = V(16, 0, 0), head = V(-8, 0, 0) };
-        static readonly Ov BP2 = new Ov { uR = V(0.0f, -0.3f, 0.95f), lR = V(-0.1f, -0.2f, 0.95f), uL = V(0.0f, -0.3f, 0.95f), lL = V(-0.1f, -0.2f, 0.95f), spine = V(14, 0, 0), chest = V(10, 0, 0) };
-        // Set (overhead pass): hands to chest -> above forehead -> push through
-        static readonly Ov ST0 = new Ov { uR = V(0.35f, -0.3f, 0.6f), lR = V(0f, 0.3f, 0.9f), uL = V(0.35f, -0.3f, 0.6f), lL = V(0f, 0.3f, 0.9f), spine = V(4, 0, 0) };
-        static readonly Ov ST1 = new Ov { uR = V(0.55f, 0.78f, 0.3f), lR = V(-0.35f, 0.85f, 0.45f), uL = V(0.55f, 0.78f, 0.3f), lL = V(-0.35f, 0.85f, 0.45f), spine = V(-3, 0, 0), chest = V(-8, 0, 0), head = V(-8, 0, 0) };
-        static readonly Ov ST2 = new Ov { uR = V(0.3f, 0.95f, 0.25f), lR = V(0.05f, 1f, 0.35f), uL = V(0.3f, 0.95f, 0.25f), lL = V(0.05f, 1f, 0.35f), spine = V(4, 0, 0), chest = V(4, 0, 0) };
-        // Serve: toss arm lifts while the hitting arm draws back, then whip + follow-through (hit reuses spike keys)
-        static readonly Ov SV0 = new Ov { uR = V(0.3f, -0.9f, 0.1f), lR = V(0.1f, -0.95f, 0.2f), uL = V(0.3f, -0.9f, 0.1f), lL = V(0.1f, -0.95f, 0.2f) };
-        static readonly Ov SV1 = new Ov { uR = V(0.45f, -0.2f, -0.4f), lR = V(0.15f, 0.15f, -0.8f), uL = V(0.25f, 0.9f, 0.35f), lL = V(0.1f, 1f, 0.2f), spine = V(-5, 0, 0), chest = V(-6, 8, 0) };
-        static readonly Ov SV2 = new Ov { uR = V(0.55f, 0.6f, -0.5f), lR = V(0.15f, 0.6f, -0.8f), uL = V(0.25f, 1f, 0.3f), lL = V(0.1f, 1f, 0.2f), spine = V(-10, 0, 0), chest = V(-14, 20, 0), head = V(-6, 0, 0) };
-        static readonly Ov SH1 = new Ov { uR = V(0.12f, 0.95f, 0.3f), lR = V(0.06f, 1f, 0.15f), uL = V(0.4f, -0.4f, 0.3f), lL = V(0.2f, -0.8f, 0.3f), spine = V(4, 0, 0), chest = V(6, -8, 0) };
-        static readonly Ov SH2 = new Ov { uR = V(0.3f, -0.3f, 0.85f), lR = V(0.12f, -0.7f, 0.7f), uL = V(0.4f, -0.7f, 0.2f), lL = V(0.2f, -0.9f, 0.2f), spine = V(10, 0, 0), chest = V(22, -20, 0) };
-        static readonly Ov SH3 = new Ov { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.1f), lL = V(0.1f, -0.95f, 0.2f), spine = V(6, 0, 0), chest = V(6, 0, 0) };
-
-        // key sequence player: easeIn per key (0 smooth, 1 accelerate = whip, 2 decelerate)
-        static void Seq(Ov dst, float t, Ov[] keys, float[] times, int[] ease)
-        {
-            int n = keys.Length;
-            if (t <= times[0]) { dst.Set(keys[0]); return; }
-            if (t >= times[n - 1]) { dst.Set(keys[n - 1]); return; }
-            int i = 0;
-            while (i + 1 < n - 1 && t >= times[i + 1]) i++;
-            float k = (t - times[i]) / (times[i + 1] - times[i]);
-            switch (ease[i + 1]) { case 1: k *= k; break; case 2: k = 1f - (1f - k) * (1f - k); break; default: k = Smooth(k); break; }
-            Ov.Lerp(dst, keys[i], keys[i + 1], k);
+            if (w < 0.01f) return;
+            tmpA.Set(tgt);
+            PoseOv.Blend(tgt, tmpA, key, w);
         }
 
-        static readonly Ov[] kWind = { SW0, SW1, SW2 };          static readonly float[] tWind = { 0f, 0.14f, 0.32f };      static readonly int[] eWind = { 0, 0, 0 };
-        static readonly Ov[] kSpike = { SW2, SP1, SP2, SP3 };    static readonly float[] tSpike = { 0f, 0.06f, 0.17f, 0.4f }; static readonly int[] eSpike = { 0, 1, 2, 0 };
-        static readonly Ov[] kBlock = { BL0, BL1, BL2 };         static readonly float[] tBlock = { 0f, 0.1f, 0.3f };       static readonly int[] eBlock = { 0, 2, 0 };
-        static readonly Ov[] kBump = { BP0, BP1, BP2 };          static readonly float[] tBump = { 0f, 0.12f, 0.35f };      static readonly int[] eBump = { 0, 1, 0 };
-        static readonly Ov[] kSet = { ST0, ST1, ST2 };           static readonly float[] tSet = { 0f, 0.1f, 0.22f };        static readonly int[] eSet = { 0, 0, 1 };
-        static readonly Ov[] kToss = { SV0, SV1, SV2 };          static readonly float[] tToss = { 0f, 0.4f, 0.8f };        static readonly int[] eToss = { 0, 0, 0 };
-        static readonly Ov[] kHit = { SV2, SH1, SH2, SH3 };      static readonly float[] tHit = { 0f, 0.07f, 0.2f, 0.45f }; static readonly int[] eHit = { 0, 1, 2, 0 };
+        /// <summary>Ready stance (rally) with the anticipation overlays: receive platform, setter hands, blocker hands, approach arm swing.</summary>
+        void BuildStance()
+        {
+            float sw = clipStance ? 0f : gaitW;
+            PoseOv.Blend(tgt, PoseOv.NeutralRef, VolleyKeys.Ready, sw);
+            if (sw > 0.01f) { float b = gait.bob * 4f * sw; tgt.lR.y += b; tgt.lL.y += b; }   // forearms follow the knee bounce
+            Overlay(VolleyKeys.BlockReady, blockW2);
+            Overlay(VolleyKeys.SetReady, setW);
+            Overlay(VolleyKeys.Platform, recvW);
+            Overlay(VolleyKeys.Approach, approachW);
+        }
 
         void EvalOverrides(float dt, float tm)
         {
-            float pt = Mathf.Max(0f, poseT);
+            float pt = poseAge;
             tgt.SetNeutral();
+            bool ground = !air;
             switch (pose)
             {
-                case PoseId.SpikeWind: Seq(tgt, pt, kWind, tWind, eWind); break;
-                case PoseId.Spike: Seq(tgt, pt, kSpike, tSpike, eSpike); break;
-                case PoseId.Block: Seq(tgt, pt, kBlock, tBlock, eBlock); break;
-                case PoseId.Bump: Seq(tgt, pt, kBump, tBump, eBump); break;
-                case PoseId.Set: Seq(tgt, pt, kSet, tSet, eSet); break;
-                case PoseId.ServeToss: Seq(tgt, pt, kToss, tToss, eToss); break;
-                case PoseId.ServeHit: Seq(tgt, pt, kHit, tHit, eHit); break;
+                case PoseId.Idle: case PoseId.Ready: case PoseId.Run: BuildStance(); break;
+                case PoseId.SpikeWind: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kWind, VolleyKeys.tWind, VolleyKeys.eWind); break;
+                case PoseId.Spike: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kSpike, VolleyKeys.tSpike, VolleyKeys.eSpike); break;
+                case PoseId.Block:
+                    if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kBlock, VolleyKeys.tBlock, VolleyKeys.eBlock);
+                    if (ground) tgt.hips += VolleyKeys.BlockReady.hips * gaitW;
+                    break;
+                case PoseId.Bump:
+                    if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kBump, VolleyKeys.tBump, VolleyKeys.eBump);
+                    if (ground) tgt.hips += V(8f, 0f, 0f) * gaitW;
+                    break;
+                case PoseId.Set:
+                    if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kSet, VolleyKeys.tSet, VolleyKeys.eSet);
+                    if (ground) tgt.hips += V(2f, 0f, 0f) * gaitW;
+                    break;
+                case PoseId.ServeToss: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kToss, VolleyKeys.tToss, VolleyKeys.eToss); break;
+                case PoseId.ServeHit: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kHit, VolleyKeys.tHit, VolleyKeys.eHit); break;
                 case PoseId.Dive:
-                    if (cDive == null)
+                    if (!actWanted)
                     {
                         tgt.pitch = 78f; tgt.wR = tgt.wL = 1f;
                         tgt.uR = tgt.uL = V(0.12f, 1f, 0.2f); tgt.lR = tgt.lL = V(0.08f, 1f, 0.25f);
@@ -560,19 +642,20 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Celebrate:
-                    if (cCelebrate == null)
-                    {
+                    if (!actWanted)
+                    {   // fist pump + hop: both fists drive up in the beat of the jump
                         float hop = Mathf.Abs(Mathf.Sin(pt * 9f));
-                        tgt.wR = tgt.wL = 1f; tgt.uR = tgt.uL = V(0.7f, 0.65f, 0.1f); tgt.lR = tgt.lL = V(0.15f, 1f, 0.15f);
+                        float pump = 0.5f + 0.5f * Mathf.Sin(pt * 9f + 1.2f);
+                        tgt.wR = tgt.wL = 1f; tgt.uR = tgt.uL = V(0.7f, 0.55f + 0.2f * pump, 0.1f); tgt.lR = tgt.lL = V(0.15f, 1f, 0.15f + 0.3f * (1f - pump));
                         tgt.legW = hop; tgt.gUR = tgt.gUL = V(0.05f, -0.95f, 0.35f * hop); tgt.gLR = tgt.gLL = V(0.02f, -0.9f, -0.45f * hop);
-                        tgt.lift = hop * 0.14f; tgt.spine = V(-5, 0, 0); tgt.head = V(-10, 0, 0);
+                        tgt.lift = hop * 0.14f; tgt.spine = V(-5, 0, 0); tgt.chest = V(-4, 0, 0); tgt.head = V(-12, 0, 0);
                     }
                     break;
                 case PoseId.Sad:
-                    if (cSad == null)
-                    {
-                        tgt.wR = tgt.wL = 1f; tgt.uR = tgt.uL = V(0.08f, -1f, 0.05f); tgt.lR = tgt.lL = V(0f, -1f, 0.1f);
-                        tgt.spine = V(14, 0, 0); tgt.chest = V(10, 0, 0); tgt.neck = V(12, 0, 0); tgt.head = V(22, 0, 0);
+                    if (!actWanted)
+                    {   // hands on knees, head down
+                        tgt.wR = tgt.wL = 1f; tgt.armFrame = 1f; tgt.uR = tgt.uL = V(0.12f, -0.97f, 0.22f); tgt.lR = tgt.lL = V(0.05f, -0.95f, 0.30f);
+                        tgt.hips = V(14, 0, 0); tgt.spine = V(18, 0, 0); tgt.chest = V(14, 0, 0); tgt.neck = V(12, 0, 0); tgt.head = V(22, 0, 0);
                     }
                     break;
                 case PoseId.Stun:
@@ -596,8 +679,8 @@ namespace Tobe.View
             else
             {
                 blendT += dt;
-                float k = blendDur > 1e-4f ? Smooth(blendT / blendDur) : 1f;
-                Ov.Lerp(cur, from, tgt, k);
+                float k = blendDur > 1e-4f ? AnimMath.Smooth01(blendT / blendDur) : 1f;
+                PoseOv.Blend(cur, from, tgt, k);
             }
         }
 
@@ -612,14 +695,13 @@ namespace Tobe.View
 
         void ApplyTorso(Quaternion R, float tm, float dt)
         {
-            // secondary motion: breathing, sway, lean into acceleration, torso leads turns
+            // secondary motion: breathing, sway, lean into acceleration, torso leads turns (small, smoothed: no overshoot)
             float br = Mathf.Sin(tm * 1.9f), sw = Mathf.Sin(tm * 0.8f);
-            float turnLead = Mathf.Clamp(yawRate * 0.05f, -14f, 14f);
+            float turnLead = Mathf.Clamp(yawRate * 0.035f, -8f, 8f) * (1f - 0.7f * gaitW);
             Vector3 lean = new Vector3(leanP, 0f, leanR);
 
             // head tracks the ball (limited), the eyes finish the job through VRM LookAt (UpdateFace)
-            Vector3 lookEul = Vector3.zero;
-            ComputeLook(dt, out lookEul);
+            ComputeLook(dt, R, out Vector3 lookEul);
 
             if (hips != null) RotW(hips.t, R, cur.hips);
             if (spine != null) RotW(spine.t, R, cur.spine + lean * 0.45f + new Vector3(0f, 0f, sw * 1.0f));
@@ -630,23 +712,22 @@ namespace Tobe.View
             RotW(headT, R, cur.head - (lean * 0.5f) + lookEul * 0.5f + new Vector3(br * 0.6f, Mathf.Sin(tm * 0.7f) * 1.5f, 0f));
         }
 
-        void ComputeLook(float dt, out Vector3 eul)
+        void ComputeLook(float dt, Quaternion R, out Vector3 eul)
         {
             eul = Vector3.zero;
             var ball = GameHub.View.ball;
             float wTarget = (pose == PoseId.Sad || pose == PoseId.Stun) ? 0f : pose == PoseId.Celebrate ? 0.25f : 1f;
             lookW = Mathf.MoveTowards(lookW, wTarget, dt / 0.25f);
             if (head == null || ball.pos == Vector3.zero) return;
-            Vector3 l = root.InverseTransformDirection(ball.pos - head.t.position);
+            Vector3 l = Quaternion.Inverse(R) * (ball.pos - head.t.position);
             float hd = Mathf.Sqrt(l.x * l.x + l.z * l.z);
             if (hd < 0.05f && Mathf.Abs(l.y) < 0.05f) return;
             float yaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
             float pitch = Mathf.Atan2(-l.y, hd) * Mathf.Rad2Deg;     // + = look down
-            float fade = 1f - Smooth((Mathf.Abs(yaw) - 90f) / 50f);  // ball behind us: stop turning the head
+            float fade = 1f - AnimMath.Smooth01((Mathf.Abs(yaw) - 90f) / 50f);  // ball behind us: stop turning the head
             float ty = Mathf.Clamp(yaw, -55f, 55f) * fade * lookW;
             float tp = Mathf.Clamp(pitch, -35f, 30f) * Mathf.Lerp(0.6f, 1f, fade) * lookW;
-            float k = dt > 1e-5f ? 1f - Mathf.Exp(-dt * 7f) : 1f;
-            lookYaw = Mathf.Lerp(lookYaw, ty, k); lookPitch = Mathf.Lerp(lookPitch, tp, k);
+            lookYaw = AnimMath.Damp(lookYaw, ty, 7f, dt); lookPitch = AnimMath.Damp(lookPitch, tp, 7f, dt);
             eul = new Vector3(lookPitch * 0.8f, lookYaw * 0.8f, 0f);
         }
 
@@ -663,6 +744,7 @@ namespace Tobe.View
             if (cur.wR < 0.01f && cur.wL < 0.01f) return;
             B tb = upperChest ?? chest ?? spine ?? hips;
             Quaternion D = tb.t.rotation * Quaternion.Inverse(R * tb.rel);
+            if (cur.armFrame > 0.001f) D = Quaternion.Slerp(D, Quaternion.identity, Mathf.Clamp01(cur.armFrame));
             Limb(uaR, cur.uR, cur.wR, D, R); Limb(laR, cur.lR, cur.wR, D, R);
             Limb(uaL, cur.uL, cur.wL, D, R); Limb(laL, cur.lL, cur.wL, D, R);
         }
@@ -677,14 +759,82 @@ namespace Tobe.View
             b.t.rotation = w >= 0.999f ? target : Quaternion.Slerp(b.t.rotation, target, w);
         }
 
+        // ================================================================== procedural footwork (low stance + two-bone leg IK)
+        /// <summary>Sets a bone so that it points along a WORLD direction (minimal rotation from its bind pose), blended by w.</summary>
+        void PointWorld(B b, Vector3 dirW, float w)
+        {
+            if (b == null || w < 0.01f || dirW.sqrMagnitude < 1e-8f) return;
+            Quaternion R0 = root.rotation;
+            Quaternion target = Quaternion.FromToRotation(R0 * b.dir, dirW.normalized) * (R0 * b.rel);
+            b.t.rotation = w >= 0.999f ? target : Quaternion.Slerp(b.t.rotation, target, w);
+        }
+
+        static void SolveLeg(Vector3 hip, Vector3 target, float L1, float L2, Vector3 pole, out Vector3 thigh, out Vector3 shin)
+        {
+            Vector3 d = target - hip;
+            float dist = d.magnitude;
+            Vector3 u = dist > 1e-5f ? d / dist : Vector3.down;
+            dist = Mathf.Clamp(dist, Mathf.Abs(L1 - L2) + 0.02f, (L1 + L2) * 0.999f);
+            float cosA = Mathf.Clamp((L1 * L1 + dist * dist - L2 * L2) / (2f * L1 * dist), -1f, 1f);
+            float sinA = Mathf.Sqrt(1f - cosA * cosA);
+            Vector3 perp = pole - Vector3.Dot(pole, u) * u;
+            perp = perp.sqrMagnitude > 1e-6f ? perp.normalized : Vector3.Cross(u, Vector3.right).normalized;
+            thigh = u * cosA + perp * sinA;
+            Vector3 knee = hip + thigh * L1;
+            Vector3 ankle = hip + u * dist;
+            shin = (ankle - knee).normalized;
+        }
+
+        void ApplyGait(Quaternion Rb, Quaternion Q, float w)
+        {
+            if (w < 0.01f || hips == null || ulR == null || ulL == null || llR == null || llL == null || ftR == null || ftL == null) return;
+            float leg = legLocal;
+            float footHalf = hipHalf + 0.19f * leg;
+            float crouch = Mathf.Lerp(0.84f, 0.88f, gait.moveAmt);
+            if (pose == PoseId.Bump) crouch -= 0.03f; else if (pose == PoseId.Set) crouch += 0.03f;
+            float homeZ = 0.10f * leg;                                   // feet slightly ahead of the pelvis (hips back, weight on the balls of the feet)
+            float dx = footHalf - hipHalf;
+            float D = crouch * leg;
+            float hipY = restAnkleY + Mathf.Sqrt(Mathf.Max(0.01f, D * D - dx * dx - homeZ * homeZ)) + gait.bob / sc;
+
+            // pelvis: the middle of the two hip joints goes to the desired spot in the (yaw only) body frame
+            Vector3 mid = 0.5f * (ulR.t.position + ulL.t.position);
+            Vector3 midLocal = root.InverseTransformPoint(mid);
+            Vector3 want = Q * new Vector3(gait.sway / sc, hipY, 0f);
+            hips.t.position += root.TransformVector(want - midLocal) * w;
+
+            Vector3 fwdW = root.TransformDirection(Q * Vector3.forward);
+            Vector3 rightW = root.TransformDirection(Q * Vector3.right);
+            for (int i = 0; i < 2; i++)
+            {
+                float sg = i == 0 ? -1f : 1f;
+                B ul = i == 0 ? ulL : ulR, ll = i == 0 ? llL : llR, ft = i == 0 ? ftL : ftR;
+                gait.Foot(i, out Vector2 off, out float lift, out float swing);
+                Vector3 fb = new Vector3(sg * footHalf + off.x / sc, restAnkleY + lift / sc, homeZ + off.y / sc);
+                Vector3 target = root.TransformPoint(Q * fb);
+                Vector3 pole = (fwdW + rightW * (sg * 0.22f)).normalized;
+                SolveLeg(ul.t.position, target, l1w, l2w, pole, out Vector3 thigh, out Vector3 shin);
+                PointWorld(ul, thigh, w);
+                PointWorld(ll, shin, w);
+                // foot: flat on the ground, heel slightly raised (weight on the balls), toes a little out, toes up while swinging
+                float pitch = Mathf.Lerp(10f, -6f, Mathf.Clamp01(swing));
+                Quaternion fr = Rb * Quaternion.Euler(pitch, sg * 8f, 0f) * ft.rel;
+                ft.t.rotation = w >= 0.999f ? fr : Quaternion.Slerp(ft.t.rotation, fr, w);
+            }
+        }
+
         // ================================================================== foot plant
-        /// <summary>The simulation owns the root: slide the whole body vertically so the lowest ground reference sits on the floor.</summary>
-        void Plant()
+        /// <summary>The simulation owns the root: slide the whole body vertically so the lowest ground reference sits on the floor.
+        /// The correction goes through a critically damped spring (clamped speed), so the mocap foot strikes never snap the body.</summary>
+        void Plant(float dt)
         {
             if (groundRefs == null || hips == null) return;
             float low = LowestLocalY();
-            float dy = (restRefY + cur.lift) - low;
-            dy = Mathf.Clamp(dy, -0.8f, 0.8f);
+            float target = Mathf.Clamp((restRefY + cur.lift) - low, -0.8f, 0.8f);
+            if (firstFrame) plant.Reset();
+            float dy = plant.Step(target, 0.05f, dt, 6f);
+            dy = Mathf.Max(dy, target - 0.02f);          // never sink more than 2 cm into the floor
+            plant.x = dy;
             if (Mathf.Abs(dy) > 1e-4f) hips.t.position += root.TransformVector(0f, dy, 0f);
         }
 

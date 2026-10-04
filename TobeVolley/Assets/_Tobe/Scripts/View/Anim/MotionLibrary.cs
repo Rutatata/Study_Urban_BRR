@@ -24,6 +24,7 @@ namespace Tobe.View
     {
         public string name;
         public bool loop;
+        public bool humanoid;      // baked from a Unity Humanoid AnimationClip (Resources/Anim); wins over BVH / authored poses
         public float fps;          // baked sample rate
         public int frames;
         public float duration;     // loop: frames / fps (wraps to frame 0); one-shot: (frames-1) / fps
@@ -120,6 +121,8 @@ namespace Tobe.View
         /// <summary>For each muscle the index of its left/right counterpart, and the sign to apply when mirroring.</summary>
         public static int[] MirrorIdx { get; private set; }
         public static float[] MirrorSign { get; private set; }
+        /// <summary>True for muscles of the upper body (spine .. head, arms, hands, fingers, eyes); false for legs, feet and toes.</summary>
+        public static bool[] UpperMask { get; private set; }
 
         static readonly Dictionary<string, MotionClip> clips = new Dictionary<string, MotionClip>(StringComparer.OrdinalIgnoreCase);
         static bool started;
@@ -159,14 +162,19 @@ namespace Tobe.View
             catch (Exception e) { Debug.LogWarning("[Tobe] MotionLibrary start failed: " + e.Message); Loaded = true; }
         }
 
-        internal static void Register(MotionClip c) { clips[c.name] = c; }
+        /// <summary>Humanoid clips are never replaced by a BVH clip of the same name.</summary>
+        internal static void Register(MotionClip c)
+        {
+            if (clips.TryGetValue(c.name, out var old) && old.humanoid && !c.humanoid) return;
+            clips[c.name] = c;
+        }
         internal static void Finish() { Loaded = true; Debug.Log("[Tobe] Motions ready: " + clips.Count + " clip(s)"); OnLoaded?.Invoke(); }
 
         static void BuildMirrorTable()
         {
             var names = HumanTrait.MuscleName;
             MC = names.Length;
-            MirrorIdx = new int[MC]; MirrorSign = new float[MC];
+            MirrorIdx = new int[MC]; MirrorSign = new float[MC]; UpperMask = new bool[MC];
             var map = new Dictionary<string, int>();
             for (int i = 0; i < MC; i++) map[names[i]] = i;
             for (int i = 0; i < MC; i++)
@@ -175,6 +183,7 @@ namespace Tobe.View
                 if (n.StartsWith("Left ", StringComparison.Ordinal) && map.TryGetValue("Right " + n.Substring(5), out int r)) j = r;
                 else if (n.StartsWith("Right ", StringComparison.Ordinal) && map.TryGetValue("Left " + n.Substring(6), out int l)) j = l;
                 MirrorIdx[i] = j;
+                UpperMask[i] = !(n.Contains("Leg") || n.Contains("Foot") || n.Contains("Toes"));
                 // centre muscles that swing left/right (spine bend/twist, neck tilt/turn, jaw) flip sign; side muscles keep it
                 bool centre = j == i;
                 MirrorSign[i] = centre && n.Contains("Left-Right") ? -1f : 1f;

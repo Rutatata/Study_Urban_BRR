@@ -26,8 +26,16 @@ namespace Tobe.View
         {
             "idle", "ready", "run", "walk", "sprint", "sidestep", "jump_vertical", "jump_approach", "land", "dive", "celebrate", "sad", "throw_overhead"
         };
-        static readonly HashSet<string> LoopNames = new HashSet<string> { "idle", "ready", "walk", "run", "sprint", "sidestep", "celebrate" };
-        static readonly HashSet<string> LocoNames = new HashSet<string> { "walk", "run", "sprint", "sidestep" };
+        static readonly HashSet<string> LoopNames = new HashSet<string> { "idle", "ready", "walk", "run", "sprint", "sidestep", "celebrate", "shuffle_left", "shuffle_right", "backpedal" };
+        static readonly HashSet<string> LocoNames = new HashSet<string> { "walk", "run", "sprint", "sidestep", "shuffle_left", "shuffle_right", "backpedal" };
+        /// <summary>Names a Humanoid AnimationClip in Resources/Anim may have (see AnimImportPostprocessor).</summary>
+        static readonly string[] HumanoidNames =
+        {
+            "idle", "ready", "shuffle_left", "shuffle_right", "backpedal", "run", "sprint", "jump_vertical", "jump_approach", "land", "bump", "set",
+            "spike", "block", "serve_float", "serve_jump", "dive", "celebrate", "sad", "walk"
+        };
+        // humanoid clips that loop (everything else is a one-shot driven by PoseId.poseT)
+        static readonly HashSet<string> HumanoidLoops = new HashSet<string> { "idle", "ready", "shuffle_left", "shuffle_right", "backpedal", "run", "sprint", "walk" };
 
         const float BudgetMs = 3f;
         const float HipScale = 0.95f;   // hip height (m) of a 1.8 m character; BVH hierarchy is normalised to 1 m hips
@@ -59,8 +67,104 @@ namespace Tobe.View
                 yield return Bake(en, en.task.Result);
                 yield return null;
             }
+            // Unity Humanoid clips (Resources/Anim) are baked last: they override BVH clips and authored poses
+            yield return BakeHumanoidClips();
             MotionLibrary.Finish();
             Destroy(gameObject);
+        }
+
+        // ---------------------------------------------------------------- Humanoid AnimationClips (Resources/Anim)
+        /// <summary>"Model@ready" / "ready" / "Ready" -> "ready"; null when the name is not one of the known clip names.</summary>
+        static string HumanoidKey(string clipName)
+        {
+            if (string.IsNullOrEmpty(clipName) || clipName.StartsWith("__", StringComparison.Ordinal)) return null;
+            string n = clipName.Trim();
+            int at = n.LastIndexOf('@');
+            if (at >= 0) n = n.Substring(at + 1);
+            n = n.ToLowerInvariant().Replace(' ', '_').Replace('-', '_');
+            return Array.IndexOf(HumanoidNames, n) >= 0 ? n : null;
+        }
+
+        IEnumerator BakeHumanoidClips()
+        {
+            var chosen = new Dictionary<string, AnimationClip>();
+            try
+            {
+                var all = Resources.LoadAll<AnimationClip>("Anim");
+                if (all != null)
+                    foreach (var c in all)
+                    {
+                        if (c == null) continue;
+                        string key = HumanoidKey(c.name);
+                        if (key != null) chosen[key] = c;
+                    }
+            }
+            catch (Exception e) { Debug.LogWarning("[Tobe] Resources/Anim load failed: " + e.Message); }
+            if (chosen.Count == 0) yield break;
+
+            HumanoidRig rig = null;
+            try { rig = HumanoidRig.Build(); }
+            catch (Exception e) { Debug.LogWarning("[Tobe] humanoid bake rig failed: " + e.Message); }
+            if (rig == null) yield break;
+            yield return null;
+
+            foreach (var kv in chosen)
+            {
+                yield return BakeHumanoid(kv.Key, kv.Value, rig);
+                yield return null;
+            }
+            try { rig.Dispose(); } catch (Exception) { }
+            Debug.Log("[Tobe] Humanoid clips baked: " + chosen.Count);
+        }
+
+        IEnumerator BakeHumanoid(string name, AnimationClip src, HumanoidRig rig)
+        {
+            MotionClip clip = null;
+            int mc = MotionLibrary.MC;
+            bool ok = true;
+            float srcDur = Mathf.Max(0.05f, src.length);
+            float outFps = 60f;
+            int n = Mathf.Max(2, Mathf.FloorToInt(srcDur * outFps) + 1);
+            var mus = new float[n * mc];
+            var bp = new Vector3[n]; var br = new Quaternion[n]; var hips = new Vector3[n];
+            var pose = new HumanPose();
+            int k = 0;
+            try { rig.Bind(src); } catch (Exception e) { Debug.LogWarning("[Tobe] humanoid clip " + name + " bind failed: " + e.Message); ok = false; }
+            bool Slice()
+            {
+                try
+                {
+                    sw.Restart();
+                    while (k < n)
+                    {
+                        float t = Mathf.Min(k / outFps, srcDur);
+                        rig.Sample(src, t);
+                        rig.handler.GetHumanPose(ref pose);
+                        for (int j = 0; j < mc; j++) { float v = pose.muscles[j]; mus[k * mc + j] = float.IsNaN(v) || float.IsInfinity(v) ? 0f : v; }
+                        bp[k] = pose.bodyPosition; br[k] = pose.bodyRotation; hips[k] = rig.hips.position;
+                        k++;
+                        if (sw.Elapsed.TotalMilliseconds > BudgetMs) break;
+                    }
+                    return true;
+                }
+                catch (Exception e) { Debug.LogWarning("[Tobe] humanoid clip " + name + " sampling failed: " + e.Message); return false; }
+            }
+            while (ok && k < n)
+            {
+                ok = Slice();
+                if (ok && k < n) yield return null;
+            }
+            if (ok)
+            {
+                try
+                {
+                    var en = new Entry { name = name, loop = HumanoidLoops.Contains(name), jsonFps = outFps, jsonFrames = n };
+                    clip = PostProcess(en, mus, bp, br, hips, n, outFps);
+                    if (clip != null) clip.humanoid = true;
+                }
+                catch (Exception e) { Debug.LogWarning("[Tobe] humanoid clip " + name + " post-process failed: " + e.Message); }
+            }
+            if (clip != null) MotionLibrary.Register(clip);
         }
 
         // ---------------------------------------------------------------- discovery
