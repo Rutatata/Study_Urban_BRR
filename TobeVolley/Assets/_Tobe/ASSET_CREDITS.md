@@ -10,25 +10,13 @@ Source repo for VRoid/Orion: https://github.com/madjin/vrm-samples (mirror of VR
 | orion.vrm | Orion (Avatar_Orion.vrm) | Polygonal Mind (www.PolygonalMind.com) | CC0 1.0 (embedded meta) | none required |
 | seedsan.vrm | Seed-san | VirtualCast, Inc. | VRM Public License 1.0 (https://vrm.dev/licenses/1.0/); redistribution + modification allowed, credit required | "Seed-san model by VirtualCast, Inc." (https://github.com/vrm-c/vrm-specification/tree/master/samples/Seed-san) |
 
-## Sound effects (Assets/_Tobe/Resources/Audio/)
-Kenney Starter Kits, MIT License, Copyright (c) Kenney (https://kenney.nl). Credit optional but appreciated: "Sounds by Kenney (kenney.nl)". MIT notice must accompany copies.
-| File | Original | URL |
-|---|---|---|
-| spike.ogg | audio/impact.ogg | https://github.com/KenneyNL/Starter-Kit-Racing |
-| bump.ogg | sounds/placement-b.ogg | https://github.com/KenneyNL/Starter-Kit-City-Builder |
-| click.ogg | sounds/toggle.ogg | https://github.com/KenneyNL/Starter-Kit-City-Builder |
-| set.ogg | sounds/tile-swap.ogg | https://github.com/KenneyNL/Starter-Kit-Match-3 |
-| floor.ogg | sounds/tile-land.ogg | https://github.com/KenneyNL/Starter-Kit-Match-3 |
-| net.ogg | sounds/enemy_hurt.ogg | https://github.com/KenneyNL/Starter-Kit-FPS |
+## Звуки (Assets/_Tobe/Resources/Audio/)
+Записи скачал владелец проекта (Rutatata) 04.10.2026 с Pixabay Sound Effects / Freesound, фильтр CC0 (свободное использование, указание автора не требуется):
+whistle.wav, crowd_loop.wav, cheer.wav, spike.mp3, bump.wav, set.mp3, net.wav, floor.mp3, squeak.mp3.
+Игра при загрузке сама срезает тишину в начале, оставляет у коротких звуков только первый удар и склеивает петлю трибун (AudioManager).
 
-These are generic placeholder-quality picks (not volleyball-specific); replace when better sfx are available.
-
-## Generated (original, released CC0 by the project)
-whistle.wav, cheer.wav, crowd_loop.wav: synthesized procedurally (sine trill / filtered noise). Placeholders; no attribution needed.
-
-
-## Generated additions (original, released CC0 by the project)
-squeak.wav, drum.wav, ui_whoosh.wav, crowd_gasp.wav: synthesized procedurally (numpy). Placeholders; no attribution needed.
+click.ogg: Kenney Starter Kit City Builder, sounds/toggle.ogg (https://github.com/KenneyNL/Starter-Kit-City-Builder), MIT License, Copyright (c) Kenney (https://kenney.nl).
+ui_whoosh.wav: сгенерирован процедурно (numpy) самим проектом, CC0.
 
 ## Motion capture (Assets/StreamingAssets/Motions/)
 "The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217."

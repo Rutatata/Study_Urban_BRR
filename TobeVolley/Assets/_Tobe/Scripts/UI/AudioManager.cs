@@ -13,7 +13,7 @@ namespace Tobe.UI
 
         const int SampleRate = 44100;
         const int PoolSize = 16;
-        static readonly string[] ClipNames = { "spike", "bump", "set", "whistle", "crowd_loop", "cheer", "net", "floor", "click" };
+        static readonly string[] ClipNames = { "spike", "bump", "set", "whistle", "crowd_loop", "cheer", "net", "floor", "click", "squeak" };
 
         readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
         AudioSource[] pool;
@@ -41,7 +41,9 @@ namespace Tobe.UI
                 AudioClip c = null;
                 try { c = Resources.Load<AudioClip>("Audio/" + n); } catch (System.Exception) { }
                 // crowd sounds are never synthesized (noise sounds like surf); they play only when real recordings are provided
-                if (c == null && n != "crowd_loop" && n != "cheer") c = Synth(n);
+                // настоящие записи: петля трибун склеивается, у остальных срезается тишина; у коротких ударов берётся только первый удар
+                if (c != null) c = n == "crowd_loop" ? SeamlessLoop(c) : TrimSilence(c, n != "whistle" && n != "cheer");
+                else if (n != "crowd_loop" && n != "cheer" && n != "squeak") c = Synth(n);
                 clips[n] = c;
             }
 
@@ -76,6 +78,139 @@ namespace Tobe.UI
             float target = inMatch ? 0.32f : 0.12f;
             crowdVol = Mathf.MoveTowards(crowdVol, target, Time.unscaledDeltaTime * 0.3f);
             if (crowd != null) { crowd.volume = crowdVol; if (!crowd.isPlaying && crowd.clip != null) crowd.Play(); }
+            if (inMatch) Squeaks(Time.unscaledDeltaTime);
+        }
+
+        // ------------------------------------------------------------ скрип кроссовок
+        // Резкое торможение или смена направления на полу (а не плавный разгон) даёт короткий скрип у ног игрока.
+        struct Feet { public Vector2 vSlow; public float cooldown; public bool init; }
+        readonly Dictionary<byte, Feet> feet = new Dictionary<byte, Feet>();
+
+        void Squeaks(float dt)
+        {
+            if (dt <= 0f || !clips.TryGetValue("squeak", out var sq) || sq == null) return;
+            var players = GameHub.View.players;
+            if (players == null) return;
+            var cam = Camera.main;
+            for (int i = 0; i < players.Length; i++)
+            {
+                var p = players[i];
+                feet.TryGetValue(p.id, out var f);
+                var v = new Vector2(p.vel.x, p.vel.z);
+                if (!f.init) { f.vSlow = v; f.init = true; }
+                f.cooldown -= dt;
+                // «медленная» скорость отстаёт от настоящей примерно на 0,12 с: их разница = насколько резко поменялось движение
+                f.vSlow = Vector2.Lerp(f.vSlow, v, 1f - Mathf.Exp(-dt / 0.12f));
+                float jerk = (v - f.vSlow).magnitude;
+                bool braking = f.vSlow.magnitude > 2.6f && (v.magnitude < f.vSlow.magnitude * 0.6f || Vector2.Dot(v, f.vSlow) < 0f);
+                if (!p.air && f.cooldown <= 0f && jerk > 2.2f && braking)
+                {
+                    float dist = cam != null ? Vector3.Distance(cam.transform.position, p.pos) : 10f;
+                    float vol = Mathf.Clamp01(jerk / 6f) * Mathf.Lerp(0.55f, 0.18f, Mathf.InverseLerp(5f, 25f, dist));
+                    Play("squeak", p.pos, vol, 0.9f + Random.value * 0.25f);
+                    f.cooldown = 0.45f;
+                }
+                feet[p.id] = f;
+            }
+        }
+
+        // ------------------------------------------------------------ обработка настоящих записей
+        /// <summary>Срезает тишину в начале (иначе удар звучит с опозданием) и почти полную тишину в конце.
+        /// firstHitOnly: в файле может быть несколько ударов / скрипов подряд, тогда остаётся только первый (до паузы длиннее 120 мс).
+        /// Если данные недоступны, возвращает клип как есть.</summary>
+        static AudioClip TrimSilence(AudioClip c, bool firstHitOnly)
+        {
+            if (!ReadAll(c, out var data)) return c;
+            int ch = c.channels, frames = data.Length / ch, sr = c.frequency;
+            float peak = 0f;
+            for (int i = 0; i < data.Length; i++) peak = Mathf.Max(peak, Mathf.Abs(data[i]));
+            if (peak < 1e-4f) return c;
+            int first = 0, last = frames - 1;
+            while (first < frames && MaxAbs(data, first, ch) < peak * 0.04f) first++;
+            while (last > first && MaxAbs(data, last, ch) < peak * 0.003f) last--;   // около -50 дБ: дальше только тишина
+            if (firstHitOnly)
+            {
+                // огибающая окнами по 10 мс: конец первого события = начало паузы ниже 3 % пика длиной от 120 мс
+                int win = sr / 100, quiet = 0;
+                for (int w = first + sr / 25; w + win < last; w += win)
+                {
+                    float m = 0f;
+                    for (int k = 0; k < win; k++) m = Mathf.Max(m, MaxAbs(data, w + k, ch));
+                    if (m < peak * 0.03f) { if (++quiet * win >= sr * 0.12f) { last = w - (quiet - 1) * win; break; } }
+                    else quiet = 0;
+                }
+            }
+            first = Mathf.Max(0, first - sr / 500);                                  // 2 мс запаса перед атакой
+            last = Mathf.Min(frames - 1, last + sr / 20);                            // 50 мс хвоста
+            if (first < c.frequency / 100 && frames - 1 - last < c.frequency / 20) return c;   // резать почти нечего
+            int n = last - first + 1, fade = Mathf.Min(n / 4, c.frequency / 50);  // 20 мс затухания в конце, чтобы не щёлкало
+            var outData = new float[n * ch];
+            System.Array.Copy(data, first * ch, outData, 0, n * ch);
+            for (int i = 0; i < fade; i++)
+            {
+                float k = i / (float)fade;
+                for (int s = 0; s < ch; s++) outData[(n - 1 - i) * ch + s] *= k;
+            }
+            var res = AudioClip.Create(c.name, n, ch, c.frequency, false);
+            res.SetData(outData, 0);
+            return res;
+        }
+
+        /// <summary>Петля трибун: последние 1,5 с плавно перетекают в начало, поэтому на повторе нет щелчка и скачка громкости.</summary>
+        static AudioClip SeamlessLoop(AudioClip c)
+        {
+            if (!ReadAll(c, out var data)) return c;
+            int ch = c.channels, frames = data.Length / ch;
+            int fade = Mathf.Min(frames / 4, (int)(c.frequency * 1.5f));
+            if (fade < 64) return c;
+            int n = frames - fade;
+            var outData = new float[n * ch];
+            for (int i = 0; i < n; i++)
+            {
+                for (int s = 0; s < ch; s++)
+                {
+                    float v = data[i * ch + s];
+                    if (i < fade)
+                    {   // равномощное смешивание хвоста (n + i) и начала (i)
+                        float k = i / (float)fade;
+                        v = v * Mathf.Sin(k * Mathf.PI * 0.5f) + data[(n + i) * ch + s] * Mathf.Cos(k * Mathf.PI * 0.5f);
+                    }
+                    outData[i * ch + s] = v;
+                }
+            }
+            var res = AudioClip.Create(c.name, n, ch, c.frequency, false);
+            res.SetData(outData, 0);
+            return res;
+        }
+
+        static bool ReadAll(AudioClip c, out float[] data)
+        {
+            data = null;
+            try
+            {
+                if (c.loadType != AudioClipLoadType.DecompressOnLoad) return false;   // у потоковых клипов сэмплы не читаются
+                if (c.loadState != AudioDataLoadState.Loaded) c.LoadAudioData();
+                if (c.loadState != AudioDataLoadState.Loaded || c.samples <= 0) return false;
+                data = new float[c.samples * c.channels];
+                return c.GetData(data, 0);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Tobe] не удалось прочитать звук " + c.name + ": " + e.Message); return false; }
+        }
+
+        static float MaxAbs(float[] d, int frame, int ch)
+        {
+            float m = 0f;
+            for (int s = 0; s < ch; s++) m = Mathf.Max(m, Mathf.Abs(d[frame * ch + s]));
+            return m;
+        }
+
+        /// <summary>Для меню разработчика: какие звуки загружены и их длительность после обработки.</summary>
+        public string Describe()
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in clips)
+                sb.AppendLine(kv.Value == null ? $"{kv.Key}: нет" : $"{kv.Key}: {kv.Value.length:F2} с, {kv.Value.channels} кан., {kv.Value.frequency} Гц");
+            return sb.ToString();
         }
 
         // ------------------------------------------------------------ playback

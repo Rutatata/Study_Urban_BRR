@@ -23,6 +23,13 @@ namespace Tobe.EditorTools
             Debug.Log("[Tobe] DevProbe started: waiting for the match, then WASD script (~9 s).");
         }
 
+        [MenuItem("Tobe/Dev/Звуки: что загружено")]
+        static void DumpAudio()
+        {
+            var am = Tobe.UI.AudioManager.Instance;
+            Debug.Log(am == null ? "[Tobe] AudioManager ещё не создан (войдите в Play)." : "[Tobe] Звуки:\n" + am.Describe());
+        }
+
         [MenuItem("Tobe/Dev/Dump Motion Clips")]
         static void DumpClips()
         {
