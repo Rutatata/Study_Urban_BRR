@@ -154,7 +154,7 @@ STUB_HASH="$(cat "$STUBS_DIR"/*.cs | sha1sum | cut -c1-12)"
 if [ ! -f "$CACHE/.stamp-stubs-$STUB_HASH" ]; then
   log "building UnityStubs.dll from Tools/stubs"
   rm -f "${CACHE:?}"/.stamp-stubs-* "${CACHE:?}/.stamp-univrm"
-  build_dll "$CACHE/lib/UnityStubs.dll" "${BASE_REFS[@]}" "$STUBS_DIR"/*.cs
+  build_dll "$CACHE/lib/UnityStubs.dll" "${BASE_REFS[@]}" -r:"$CACHE/lib/UnityEngine.UI.dll" "$STUBS_DIR"/*.cs
   touch "$CACHE/.stamp-stubs-$STUB_HASH"
 fi
 

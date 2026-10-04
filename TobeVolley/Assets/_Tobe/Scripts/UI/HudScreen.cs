@@ -415,7 +415,7 @@ namespace Tobe.UI
                     float sc = age < 0.2f ? Mathf.Lerp(2.6f, 1f, UiKit.EaseOutBack(age / 0.2f)) : 1f + 0.03f * Mathf.Sin(age * 9f);
                     rt.localScale = new Vector3(sc, sc, 1f);
                     rt.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(-12f, -5f, Mathf.Clamp01(age / 0.25f)));
-                    rt.anchoredPos = new Vector2(0, 150f);
+                    rt.anchoredPosition = new Vector2(0, 150f);
                     col.a = age > p.life - 0.4f ? Mathf.Clamp01((p.life - age) / 0.4f) : 1f;
                 }
                 else
@@ -423,7 +423,7 @@ namespace Tobe.UI
                     float sc = age < 0.12f ? Mathf.Lerp(1.4f, 1f, age / 0.12f) : 1f;
                     rt.localScale = new Vector3(sc, sc, 1f);
                     rt.localRotation = Quaternion.identity;
-                    rt.anchoredPos = new Vector2(0, 290f + rank * 60f);
+                    rt.anchoredPosition = new Vector2(0, 290f + rank * 60f);
                     col.a = age > p.life - 0.3f ? Mathf.Clamp01((p.life - age) / 0.3f) : 1f;
                     rank++;
                 }

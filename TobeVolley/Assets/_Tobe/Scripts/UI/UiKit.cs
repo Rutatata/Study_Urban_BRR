@@ -229,13 +229,13 @@ namespace Tobe.UI
         public static void At(RectTransform rt, Vector2 anchor, Vector2 pos, Vector2 size)
         {
             rt.anchorMin = anchor; rt.anchorMax = anchor; rt.pivot = anchor;
-            rt.anchoredPos = pos; rt.sizeDelta = size;
+            rt.anchoredPosition = pos; rt.sizeDelta = size;
         }
 
         public static void AtP(RectTransform rt, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size)
         {
             rt.anchorMin = anchor; rt.anchorMax = anchor; rt.pivot = pivot;
-            rt.anchoredPos = pos; rt.sizeDelta = size;
+            rt.anchoredPosition = pos; rt.sizeDelta = size;
         }
 
         public static void Pad(RectTransform rt, float l, float t, float r, float b)

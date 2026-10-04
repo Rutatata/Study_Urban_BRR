@@ -261,6 +261,9 @@ namespace Tobe.Sim
                 if (p.team != team || p == setter || p.profile.style == PlayStyle.Libero || p.stunT > 0) continue;
                 if (!p.isBot && p.callT > 0) caller = p;
                 float sc = p.st.spike * 0.6f + (IsFront(p) ? 3 : 0) + Rnd(0, 5) + (!p.isBot ? 2.5f : 0);
+                // players far from where they'd attack (e.g. the receiver deep in the court) can't get there in time
+                float dn = Court.DistFromNet(team, p.pos.z), want = IsFront(p) ? 2.6f : 4.2f;
+                sc -= Mathf.Max(0, dn - want) * 2.5f + (p.air || p.recT > 0 ? 6 : 0);
                 if (sc > bs) { bs = sc; best = p; }
             }
             return caller ?? best;
@@ -280,6 +283,7 @@ namespace Tobe.Sim
             var target = new Vector3(Mathf.Clamp(sx + Rnd(-err, err), -1, Court.Width + 1), 2.35f, sz - Court.Fwd(t) * Rnd(0, err));
             float T = 1.15f + (1 - q) * 0.3f;
             Launch(target, T);
+            ball.kind = "pass";
             p.SetPose(PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Bump, 0.3f);
             if (setter != null) plans[t] = new Plan { kind = PlanKind.Set, p = setter, point = target, t = t + T };
@@ -317,6 +321,7 @@ namespace Tobe.Sim
             float err = freak ? 0 : (1 - q) * 1.3f;
             target.x += Rnd(-err, err); target.z -= Court.Fwd(tm) * Rnd(0, err * 0.6f);
             Launch(target, T);
+            ball.kind = "set";
             p.SetPose(ball.pos.y > 1.6f ? PoseId.Set : PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Set, 0.2f);
             plans[tm] = new Plan { kind = PlanKind.Attack, p = attacker, point = target, t = t + T, freak = freak };
@@ -342,7 +347,7 @@ namespace Tobe.Sim
             if (aim.HasValue && Court.OnSide(o, aim.Value.z)) target = new Vector3(aim.Value.x, R, aim.Value.z);
             else
             {
-                Vector2[] cands = { new Vector2(0.6f, 8.3f), new Vector2(8.4f, 8.3f), new Vector2(0.6f, 4.5f), new Vector2(8.4f, 4.5f), new Vector2(4.5f, 8.5f), new Vector2(2.2f, 2.4f), new Vector2(6.8f, 2.4f) };
+                Vector2[] cands = { new Vector2(0.9f, 7.7f), new Vector2(8.1f, 7.7f), new Vector2(0.9f, 4.5f), new Vector2(8.1f, 4.5f), new Vector2(4.5f, 7.9f), new Vector2(2.2f, 2.4f), new Vector2(6.8f, 2.4f) };
                 float bs = -1e9f; target = new Vector3(4.5f, R, Court.WorldZ(o, 6));
                 foreach (var c in cands)
                 {
@@ -627,7 +632,14 @@ namespace Tobe.Sim
                     {
                         if (tl > tPeak + 0.45f) Seek(p, sx, sz - f * 1.6f, 0.3f); else Seek(p, sx, sz, 0.2f);
                         p.sprint = true;
-                        if (tl <= tPeak + 0.01f && Hyp(p.pos.x - sx, p.pos.z - sz) < 1.7f) Jump(p, 1);
+                        if (tl <= tPeak + 0.01f && Hyp(p.pos.x - sx, p.pos.z - sz) < 1.7f)
+                        {
+                            Jump(p, 1);
+                            // steer the jump so the hitting hand meets the ball at the peak
+                            float jx = plan.point.x - p.pos.x, jz = plan.point.z - f * 0.15f - p.pos.z, k = 1f / Mathf.Max(tPeak, 0.2f);
+                            var hv = new Vector2(jx * k, jz * k); if (hv.magnitude > 4.5f) hv = hv.normalized * 4.5f;
+                            p.vel.x = hv.x; p.vel.z = hv.y;
+                        }
                     }
                 }
                 else

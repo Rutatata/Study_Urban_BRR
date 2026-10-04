@@ -172,8 +172,8 @@ namespace Tobe.View
             return new Color(1, 1, 1, a);
         });
 
-        public static Texture2D DashTex => MakeTex("dash", 4, 16, (u, v) =>
-            new Color(1, 1, 1, v < 0.5f ? 1f : 0f), true, TextureWrapMode.Repeat, FilterMode.Bilinear);
+        public static Texture2D DashTex => MakeTex("dash", 16, 4, (u, v) =>
+            new Color(1, 1, 1, u < 0.5f ? 1f : 0f), true, TextureWrapMode.Repeat, FilterMode.Bilinear);
 
         // ----------------------------------------------------------------- geometry
         public static Mesh QuadMesh

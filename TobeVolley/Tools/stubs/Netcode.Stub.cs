@@ -168,6 +168,7 @@ namespace Unity.Netcode
         public string DisconnectReason { get; }
         public NetworkTime LocalTime { get; } public NetworkTime ServerTime { get; }
         public NetworkSpawnManager SpawnManager { get; }
+        public CustomMessagingManager CustomMessagingManager { get; }
         public event Action<ulong> OnClientConnectedCallback;
         public event Action<ulong> OnClientDisconnectCallback;
         public event Action<NetworkManager, ConnectionEventData> OnConnectionEvent;
@@ -256,5 +257,53 @@ namespace Unity.Netcode.Transports.UTP
         public void SetRelayServerData(string ipv4Address, ushort port, byte[] allocationIdBytes, byte[] keyBytes, byte[] connectionDataBytes, byte[] hostConnectionDataBytes = null, bool isSecure = false) { }
         public int MaxPayloadSize;
         public int ConnectTimeoutMS, MaxConnectAttempts, DisconnectTimeoutMS, HeartbeatTimeoutMS;
+    }
+}
+
+// ---- Custom messaging / FastBuffer (Unity.Netcode) ----
+namespace Unity.Netcode
+{
+    public enum NetworkDelivery { Unreliable, UnreliableSequenced, Reliable, ReliableSequenced, ReliableFragmentedSequenced }
+    public delegate void HandleNamedMessageDelegate(ulong senderClientId, FastBufferReader messagePayload);
+    public delegate void UnnamedMessageDelegate(ulong clientId, FastBufferReader reader);
+
+    public struct FastBufferWriter : IDisposable
+    {
+        public FastBufferWriter(int size, Unity.Collections.Allocator allocator, int maxSize = -1) { }
+        public int Length => 0; public int Position => 0; public int Capacity => 0; public int MaxCapacity => 0;
+        public void WriteValueSafe<T>(in T value) where T : unmanaged { }
+        public void WriteValueSafe(string s, bool oneByteChars = false) { }
+        public void WriteValue<T>(in T value) where T : unmanaged { }
+        public void WriteValue(string s, bool oneByteChars = false) { }
+        public void WriteBytesSafe(byte[] value, int size = -1, int offset = 0) { }
+        public void WriteBytes(byte[] value, int size = -1, int offset = 0) { }
+        public void WriteNetworkSerializable<T>(in T value) where T : INetworkSerializable, new() { }
+        public byte[] ToArray() => null;
+        public bool TryBeginWrite(int bytes) => true;
+        public void Dispose() { }
+    }
+    public struct FastBufferReader : IDisposable
+    {
+        public int Length => 0; public int Position { get; set; }
+        public bool TryBeginRead(int bytes) => true;
+        public void ReadValueSafe<T>(out T value) where T : unmanaged { value = default; }
+        public void ReadValueSafe(out string s, bool oneByteChars = false) { s = null; }
+        public void ReadValue<T>(out T value) where T : unmanaged { value = default; }
+        public void ReadValue(out string s, bool oneByteChars = false) { s = null; }
+        public void ReadBytesSafe(ref byte[] value, int size, int offset = 0) { }
+        public void ReadBytes(ref byte[] value, int size, int offset = 0) { }
+        public void ReadNetworkSerializable<T>(out T value) where T : INetworkSerializable, new() { value = default; }
+        public void Dispose() { }
+    }
+    public class CustomMessagingManager
+    {
+        public event UnnamedMessageDelegate OnUnnamedMessage;
+        public void SendUnnamedMessage(ulong clientId, FastBufferWriter messageBuffer, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced) { }
+        public void SendUnnamedMessage(IReadOnlyList<ulong> clientIds, FastBufferWriter messageBuffer, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced) { }
+        public void RegisterNamedMessageHandler(string name, HandleNamedMessageDelegate callback) { }
+        public void UnregisterNamedMessageHandler(string name) { }
+        public void SendNamedMessage(string messageName, ulong clientId, FastBufferWriter messageStream, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced) { }
+        public void SendNamedMessage(string messageName, IReadOnlyList<ulong> clientIds, FastBufferWriter messageStream, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced) { }
+        public void SendNamedMessageToAll(string messageName, FastBufferWriter messageStream, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced) { }
     }
 }
