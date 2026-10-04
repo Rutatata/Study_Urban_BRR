@@ -38,7 +38,11 @@ namespace Tobe.EditorTools
                     if (i > 0) maxStep = Mathf.Max(maxStep, Vector3.Distance(c.bodyPos[i], c.bodyPos[i - 1]));
                 }
                 float wrap = c.bodyPos.Length > 1 ? Vector3.Distance(c.bodyPos[0], c.bodyPos[c.bodyPos.Length - 1]) : 0f;
-                sb.AppendLine($"{n}: loop={c.loop} humanoid={c.humanoid} frames={c.frames} fps={c.fps} dur={c.duration:F2} speed={c.speed:F2} bodyPos min={mn:F3} max={mx:F3} maxStep={maxStep:F3} wrap={wrap:F3}");
+                // muscle seam: pose change across the loop wrap vs the average pose change between neighbouring frames
+                int mc = Tobe.View.MotionLibrary.MC, L = c.frames; float avg = 0f, seam = 0f;
+                for (int i = 1; i < L; i++) { float s = 0f; for (int m = 0; m < mc; m++) s += Mathf.Abs(c.muscles[i * mc + m] - c.muscles[(i - 1) * mc + m]); avg += s / (L - 1); }
+                for (int m = 0; m < mc; m++) seam += Mathf.Abs(c.muscles[m] - c.muscles[(L - 1) * mc + m]);
+                sb.AppendLine($"{n}: loop={c.loop} frames={c.frames} dur={c.duration:F2} speed={c.speed:F2} bodyPos min={mn:F3} max={mx:F3} maxStep={maxStep:F3} wrap={wrap:F3} seam/avgStep={(avg > 1e-5f ? seam / avg : 0f):F2}");
             }
             Debug.Log("[Tobe] Clips:\n" + sb);
         }

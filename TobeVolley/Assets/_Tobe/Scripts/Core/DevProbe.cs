@@ -35,7 +35,7 @@ namespace Tobe
 
         readonly StringBuilder sb = new StringBuilder(1 << 16);
         float t; int step = -1; float stepT; bool started;
-        Transform hips, footL, footR, headT;
+        Transform hips, footL, footR, headT, toeL, toeR;
         Vector3 prevHips; bool havePrev;
 
         public static void Begin()
@@ -47,7 +47,7 @@ namespace Tobe
 
         void Awake()
         {
-            sb.AppendLine("frame,t,dt,step,phase,pose,simX,simZ,velX,velZ,viewX,viewY,viewZ,yaw,hipsX,hipsY,hipsZ,hipsStep,footLY,footRY,footLX,footLZ,footRX,footRZ,serving");
+            sb.AppendLine("frame,t,dt,step,phase,pose,simX,simZ,velX,velZ,viewX,viewY,viewZ,yaw,hipsX,hipsY,hipsZ,hipsStep,footLY,footRY,footLX,footLZ,footRX,footRZ,serving,toeLY,toeRY");
         }
 
         void Update()
@@ -78,6 +78,8 @@ namespace Tobe
                     footL = an.GetBoneTransform(HumanBodyBones.LeftFoot);
                     footR = an.GetBoneTransform(HumanBodyBones.RightFoot);
                     headT = an.GetBoneTransform(HumanBodyBones.Head);
+                    toeL = an.GetBoneTransform(HumanBodyBones.LeftToes) ?? footL;
+                    toeR = an.GetBoneTransform(HumanBodyBones.RightToes) ?? footR;
                 }
             }
             var pv = GameObject.Find("Player_" + me.id);
@@ -93,7 +95,8 @@ namespace Tobe
               .Append(F(vp.x)).Append(',').Append(F(vp.y)).Append(',').Append(F(vp.z)).Append(',').Append(F(pv != null ? pv.transform.Find("Visual").eulerAngles.y : 0)).Append(',')
               .Append(F(hp.x)).Append(',').Append(F(hp.y)).Append(',').Append(F(hp.z)).Append(',').Append(F(hs)).Append(',')
               .Append(F(fl.y)).Append(',').Append(F(fr.y)).Append(',').Append(F(fl.x)).Append(',').Append(F(fl.z)).Append(',').Append(F(fr.x)).Append(',').Append(F(fr.z)).Append(',')
-              .Append(v.serverPlayerId == me.id ? 1 : 0).AppendLine();
+              .Append(v.serverPlayerId == me.id ? 1 : 0).Append(',')
+              .Append(F(toeL != null ? toeL.position.y : 0)).Append(',').Append(F(toeR != null ? toeR.position.y : 0)).AppendLine();
             t += Time.deltaTime;
         }
 

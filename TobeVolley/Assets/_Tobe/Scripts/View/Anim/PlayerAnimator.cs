@@ -832,8 +832,10 @@ namespace Tobe.View
             float low = LowestLocalY();
             float target = Mathf.Clamp((restRefY + cur.lift) - low, -0.8f, 0.8f);
             if (firstFrame) plant.Reset();
-            float dy = plant.Step(target, 0.05f, dt, 6f);
-            dy = Mathf.Max(dy, target - 0.02f);          // never sink more than 2 cm into the floor
+            // slow follow: the mocap already carries the right vertical bounce (flight phase of a run, crouch on landing); the plant only
+            // removes the slow offset. A fast spring + hard clamp pulled the body down in every flight phase and popped it up at contact.
+            float dy = plant.Step(target, 0.16f, dt, 2.5f);
+            dy = Mathf.Max(dy, target - 0.06f);          // never sink deeper than 6 cm into the floor
             plant.x = dy;
             if (Mathf.Abs(dy) > 1e-4f) hips.t.position += root.TransformVector(0f, dy, 0f);
         }

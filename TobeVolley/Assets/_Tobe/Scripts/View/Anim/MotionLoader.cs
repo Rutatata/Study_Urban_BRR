@@ -576,7 +576,7 @@ namespace Tobe.View
                 }
                 peaks.Add(i);
             }
-            if (peaks.Count < 2) return;
+            if (peaks.Count < 2) { BestMatchCycle(mus, n, mc, fps, ref a, ref b); return; }
             float best = float.MaxValue; int bi = -1;
             for (int i = 0; i + 1 < peaks.Count; i++)
             {
@@ -586,8 +586,30 @@ namespace Tobe.View
                 for (int m = 0; m < mc; m++) err += Mathf.Abs(mus[peaks[i] * mc + m] - mus[peaks[i + 1] * mc + m]);
                 if (err < best) { best = err; bi = i; }
             }
-            if (bi < 0) return;
+            if (bi < 0) { BestMatchCycle(mus, n, mc, fps, ref a, ref b); return; }
             a = peaks[bi]; b = peaks[bi + 1];
+        }
+
+        /// <summary>Short clips (one stride + a bit, e.g. the 23-frame run) have no two leg peaks: pick the frame pair [a, b) whose pose AND
+        /// pose velocity match best, so the loop wraps in the same leg phase (otherwise the feet jump ~10 cm once per cycle).</summary>
+        static void BestMatchCycle(float[] mus, int n, int mc, float fps, ref int a, ref int b)
+        {
+            int minL = Mathf.Max(4, Mathf.RoundToInt(fps * 0.4f));
+            float best = float.MaxValue; int ba = -1, bb = -1;
+            for (int i = 0; i + minL < n - 1; i++)
+                for (int j = i + minL; j < n - 1; j++)
+                {
+                    float err = 0f;
+                    for (int m = 0; m < mc; m++)
+                    {
+                        float p = mus[i * mc + m] - mus[j * mc + m];
+                        float v = (mus[(i + 1) * mc + m] - mus[i * mc + m]) - (mus[(j + 1) * mc + m] - mus[j * mc + m]);
+                        err += Mathf.Abs(p) + 2f * Mathf.Abs(v);
+                    }
+                    err *= 1f + 0.15f * (1f - (float)(j - i) / n);   // prefer the longer cycle when the match is about as good
+                    if (err < best) { best = err; ba = i; bb = j; }
+                }
+            if (ba >= 0) { a = ba; b = bb; }
         }
 
         static void AnalyseJump(MotionClip c)
