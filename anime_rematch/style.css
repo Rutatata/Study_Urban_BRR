@@ -1,0 +1,73 @@
+:root {
+  --bg: #120b2a;
+  --ink: #fff;
+  --pink: #ff3b8d;
+  --cyan: #29e6ff;
+  --gold: #ffd23f;
+  --panel: rgba(20, 12, 48, 0.88);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+  font-family: "Russo One", "Segoe UI", sans-serif; user-select: none; }
+canvas#game { display: block; position: fixed; inset: 0; cursor: crosshair; }
+
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center;
+  justify-content: safe center; gap: 22px; padding: 16px; overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 30%, rgba(80, 30, 140, 0.55), rgba(10, 5, 25, 0.92)); }
+.screen.show { display: flex; }
+.screen.dim { background: rgba(8, 4, 20, 0.78); }
+.hidden { display: none !important; }
+
+.logo { text-align: center; transform: rotate(-4deg); }
+.logo-top { font-family: Bangers, sans-serif; font-size: clamp(40px, 7vw, 80px); letter-spacing: 8px;
+  color: var(--cyan); text-shadow: 4px 4px 0 #000, 0 0 30px var(--cyan); }
+.logo-main { font-family: Bangers, sans-serif; font-size: clamp(70px, 14vw, 170px); line-height: .85;
+  color: var(--gold); -webkit-text-stroke: 3px #000; text-shadow: 8px 8px 0 var(--pink), 0 0 40px rgba(255, 210, 63, .6); }
+.logo-sub { margin-top: 18px; font-size: clamp(12px, 1.6vw, 18px); color: #ddd; transform: rotate(4deg); }
+
+.btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+button { font-family: inherit; font-size: 18px; color: #fff; background: #2a1b5c; border: 3px solid #000;
+  padding: 10px 26px; cursor: pointer; transform: skew(-10deg); box-shadow: 5px 5px 0 #000; transition: transform .1s, background .1s; }
+button:hover { background: var(--pink); transform: skew(-10deg) translateY(-2px); }
+button.big { font-size: 24px; background: var(--pink); padding: 12px 40px; }
+button.big:hover { background: var(--gold); color: #000; }
+
+.panel { background: var(--panel); border: 3px solid #000; box-shadow: 6px 6px 0 rgba(255, 59, 141, .7); padding: 16px 20px; }
+.panel h3 { margin: 0 0 8px; color: var(--gold); }
+.panel table { border-collapse: collapse; font-size: 14px; }
+.panel td { padding: 3px 10px 3px 0; vertical-align: top; }
+.panel td:first-child { color: var(--cyan); white-space: nowrap; }
+.panel p { font-size: 13px; color: #ccc; max-width: 520px; }
+
+.hdr { font-family: Bangers, "Russo One", sans-serif; font-size: clamp(36px, 6vw, 64px); margin: 0; letter-spacing: 3px;
+  color: var(--gold); -webkit-text-stroke: 2px #000; text-shadow: 5px 5px 0 var(--pink); }
+
+.sel-wrap { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; justify-content: center; max-width: 1200px; }
+#grid { display: grid; grid-template-columns: repeat(4, 120px); gap: 10px; }
+.card { width: 120px; height: 150px; background: linear-gradient(160deg, #3b2382, #170d38); border: 3px solid #000;
+  cursor: pointer; position: relative; overflow: hidden; transform: skew(-4deg); transition: transform .12s; }
+.card:hover { transform: skew(-4deg) scale(1.05); }
+.card.sel { border-color: var(--gold); box-shadow: 0 0 0 3px var(--pink), 0 0 22px var(--gold); }
+.card canvas { display: block; width: 120px; height: 120px; }
+.card .nm { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 13px; padding: 5px 2px;
+  background: rgba(0, 0, 0, .7); }
+#info { width: 330px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+#infoPortrait { align-self: center; background: radial-gradient(circle, #5b2fb5, #1a0d3d); border: 3px solid #000; }
+#infoName { font-size: 28px; color: var(--gold); text-align: center; }
+#infoAnime { text-align: center; color: #aaa; font-size: 13px; margin-top: -6px; }
+.stat { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.stat span { width: 72px; }
+.stat .bar { flex: 1; height: 10px; background: #000; border: 1px solid #444; }
+.stat .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--pink)); }
+#infoSpecial { font-size: 13px; background: rgba(0, 0, 0, .4); padding: 8px; border-left: 4px solid var(--pink); }
+#infoSpecial b { color: var(--gold); }
+.opt { font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.opt span { color: var(--cyan); width: 100%; }
+#endScore { font-size: 64px; font-family: Bangers, "Russo One", sans-serif; -webkit-text-stroke: 2px #000; }
+#endList { min-width: 300px; font-size: 15px; line-height: 1.6; }
+
+@media (max-width: 700px) {
+  #grid { grid-template-columns: repeat(3, 100px); }
+  .card { width: 100px; height: 130px; }
+  .card canvas { width: 100px; height: 100px; }
+}
