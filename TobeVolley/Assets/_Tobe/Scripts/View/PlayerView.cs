@@ -12,7 +12,11 @@ namespace Tobe.View
 
         Transform visual;
         GameObject model, placeholder;
-        ProceduralPoser poser;
+        ProceduralPoser poser;        // fallback animation (no mocap / non-humanoid model / animator failure)
+        PlayerAnimator pa;            // mocap + key-pose animation
+        bool usingPa;
+        PlayerProfile curProfile;
+        int curAppear = -1;
         Transform ring, chevron;
         Material ringMat, chevMat;
         TextMesh plate;
@@ -86,6 +90,7 @@ namespace Tobe.View
             bool modelChanged = force || m != curModel;
             bool colorChanged = modelChanged || h != curHair || t != curTeam;
             curModel = m; curHair = h; curTeam = t;
+            curProfile = s.profile;
             if (st != curStyle)
             {
                 curStyle = st;
@@ -143,10 +148,54 @@ namespace Tobe.View
             }
             CharacterLibrary.Recolor(model, curTeam, HairColor(curHair));
 
+            ApplyAppearance();
+
+            // animation: PlayerAnimator (needs a humanoid avatar + loaded mocap) with ProceduralPoser as the fallback.
+            // Both capture the bind pose now, before any of them has moved a bone.
+            poser = null; pa = null; usingPa = false;
+            if (PlayerAnimator.CanAnimate(model))
+            {
+                pa = model.GetComponent<PlayerAnimator>();
+                if (pa == null) pa = model.AddComponent<PlayerAnimator>();
+                pa.enabled = false;
+                if (!pa.Init(model)) { Destroy(pa); pa = null; }
+            }
             poser = model.GetComponent<ProceduralPoser>();
             if (poser == null) poser = model.AddComponent<ProceduralPoser>();
             poser.Init(model);
             if (placeholder != null) placeholder.SetActive(false);
+        }
+
+        /// <summary>Character editor / roster changes: proportions, gear etc. are applied by CharacterAppearance (written elsewhere).</summary>
+        void ApplyAppearance()
+        {
+            if (model == null) return;
+            try
+            {
+                var animator = model.GetComponentInChildren<Animator>();
+                CharacterAppearance.Apply(model, animator, curProfile, curTeam);
+                curAppear = AppearKey(curProfile, curTeam);
+            }
+            catch (Exception e) { Debug.LogWarning("[Tobe] CharacterAppearance failed: " + e.Message); }
+        }
+
+        static int AppearKey(in PlayerProfile p, int team)
+        {
+            unchecked { return (((p.height * 31 + p.build) * 31 + p.skin) * 31 + p.eyes) * 31 + p.gear + team * 7919 + p.hair * 104729; }
+        }
+
+        /// <summary>Uses PlayerAnimator once the mocap is loaded and the model is a usable humanoid, otherwise the procedural poser.</summary>
+        void SelectAnimator()
+        {
+            bool want = pa != null && pa.Usable && MotionLibrary.HasCore;
+            if (want == usingPa) { if (!want && pa != null && !pa.Usable) { } return; }
+            usingPa = want;
+            if (pa != null) pa.enabled = want;
+            if (poser != null)
+            {
+                if (want) poser.Release();   // hand the root transform back before PlayerAnimator takes over
+                poser.enabled = !want;
+            }
         }
 
         // ------------------------------------------------------------------ per frame
@@ -155,6 +204,8 @@ namespace Tobe.View
             isLocal = local;
             if (s.profile.model != curModel || s.profile.hair != curHair || s.team != curTeam || (int)s.profile.style != curStyle)
                 ApplyProfileChanges(s, false);
+
+            if (model != null && curAppear != -1 && AppearKey(s.profile, s.team) != curAppear) { curProfile = s.profile; ApplyAppearance(); }
 
             Vector3 target = s.pos;
             if (!inited || (smPos - target).sqrMagnitude > 9f) { smPos = target; smYaw = s.yaw; inited = true; }
@@ -165,12 +216,15 @@ namespace Tobe.View
             transform.position = smPos;
             visual.rotation = Quaternion.Euler(0f, smYaw, 0f);
 
-            if (poser != null)
+            Vector3 lv = Quaternion.Inverse(Quaternion.Euler(0f, smYaw, 0f)) * s.vel;
+            SelectAnimator();
+            if (usingPa && pa != null) pa.Feed(in s, lv, smYaw);
+            if (!usingPa && poser != null)
             {
                 poser.pose = s.pose;
                 poser.poseT = s.poseT;
                 poser.air = s.air;
-                poser.localVel = Quaternion.Inverse(Quaternion.Euler(0f, smYaw, 0f)) * s.vel;
+                poser.localVel = lv;
             }
 
             if (wasAir && !s.air && FxManager.Instance != null)

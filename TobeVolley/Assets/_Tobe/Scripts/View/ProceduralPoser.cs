@@ -124,6 +124,15 @@ namespace Tobe.View
             ready = true;
         }
 
+        /// <summary>Restores the model root (the poser pitches / offsets it for dives) so another animator can take over.</summary>
+        public void Release()
+        {
+            if (root == null) return;
+            root.localRotation = baseLocalRot;
+            root.localPosition = baseLocalPos;
+            hasCur = false;
+        }
+
         Transform Get(HumanBodyBones hb)
         {
             Transform t = null;
