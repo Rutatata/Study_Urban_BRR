@@ -15,6 +15,10 @@ namespace Tobe.Net
         MatchPhase lastPhase = MatchPhase.Lobby;
         bool helloSent;
 
+        /// <summary>Dev/test hook (DevProbe): when set, replaces the WASD direction (camera-relative x = right, y = forward).</summary>
+        public static Vector2? DevMove;
+        public static bool DevSprint;
+
         // local movement state
         Vector3 pos, vel;
         bool air, diving, hasPos;
@@ -161,9 +165,10 @@ namespace Tobe.Net
             {
                 float x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
                 float y = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
+                if (DevMove.HasValue) { x = DevMove.Value.x; y = DevMove.Value.y; }
                 var dir = Quaternion.Euler(0, GameHub.CameraYaw, 0) * new Vector3(x, 0, y);
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
-                sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+                sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
                 if (kb.spaceKey.wasPressedThisFrame || mouse != null && mouse.rightButton.wasPressedThisFrame) { cmd.jumpCount++; TryJump(me); }
                 if (kb.eKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.cKey.wasPressedThisFrame) cmd.callCount++;
