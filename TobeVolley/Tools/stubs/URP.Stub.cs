@@ -79,6 +79,16 @@ namespace UnityEngine.Rendering.Universal
     public sealed class ChromaticAberration : VolumeComponent, IPostProcessComponent { public ClampedFloatParameter intensity = new ClampedFloatParameter(0f, 0f, 1f); public bool IsActive() => true; }
     public sealed class FilmGrain : VolumeComponent, IPostProcessComponent { public ClampedFloatParameter intensity = new ClampedFloatParameter(0f, 0f, 1f); public bool IsActive() => true; }
     public sealed class WhiteBalance : VolumeComponent, IPostProcessComponent { public ClampedFloatParameter temperature = new ClampedFloatParameter(0f, -100f, 100f); public ClampedFloatParameter tint = new ClampedFloatParameter(0f, -100f, 100f); public bool IsActive() => true; }
-    public class UniversalAdditionalCameraData : MonoBehaviour { public bool renderPostProcessing; public bool renderShadows = true; }
+    public enum AntialiasingMode { None, FastApproximateAntialiasing, SubpixelMorphologicalAntiAliasing, TemporalAntiAliasing }
+    public enum AntialiasingQuality { Low, Medium, High }
+    public class UniversalAdditionalCameraData : MonoBehaviour
+    {
+        public bool renderPostProcessing; public bool renderShadows = true;
+        public AntialiasingMode antialiasing; public AntialiasingQuality antialiasingQuality;
+    }
+    public static class CameraExtensions
+    {
+        public static UniversalAdditionalCameraData GetUniversalAdditionalCameraData(this Camera camera) => null;
+    }
     public class UniversalAdditionalLightData : MonoBehaviour { }
 }

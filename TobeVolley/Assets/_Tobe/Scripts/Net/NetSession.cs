@@ -47,11 +47,13 @@ namespace Tobe.Net
 
         void OnServerStarted()
         {
+            if (server != null && client != null) return;   // already created by OnClientStarted (host)
             server?.Dispose();
             server = new MatchServer(nm, pendingTeamSize, pendingPractice);
         }
         void OnClientStarted()
         {
+            if (nm.IsServer && server == null) OnServerStarted();
             client?.Dispose();
             client = new MatchClient(nm, nm.IsServer ? server : null);
             NetApi.InSession = true;

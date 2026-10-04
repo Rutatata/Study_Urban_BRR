@@ -59,7 +59,7 @@ namespace Tobe.EditorTools
             // --- shaders created from code at runtime must be included in builds ---
             AddAlwaysIncluded("Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit", "Universal Render Pipeline/Particles/Lit",
-                "Universal Render Pipeline/Simple Lit", "Sprites/Default", "UI/Default", "VRM10/Universal Render Pipeline/MToon10");
+                "Universal Render Pipeline/Simple Lit", "Sprites/Default", "UI/Default", "GUI/Text Shader", "VRM10/Universal Render Pipeline/MToon10");
 
             // --- scene ---
             if (!File.Exists(ScenePath))
