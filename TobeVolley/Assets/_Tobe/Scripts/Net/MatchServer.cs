@@ -22,6 +22,7 @@ namespace Tobe.Net
         float acc, snapAcc, lobbyT;
         bool started, rosterDirty;
         int sentEvents;
+        public bool Paused;
 
         /// <summary>Called by the host's own client to receive messages without a network round trip.</summary>
         public System.Action<string, byte[]> LocalDelivery;
@@ -133,6 +134,7 @@ namespace Tobe.Net
             else
             {
                 acc += Mathf.Min(dt, 0.1f);
+                if (Paused) acc = 0;
                 while (acc >= Tick) { acc -= Tick; sim.Step(Tick); }
             }
 
@@ -154,6 +156,7 @@ namespace Tobe.Net
                     $"Ищем игроков: {humans.Count}/{teamSize * 2}. Через {Mathf.CeilToInt(Mathf.Max(0, LobbyWait - lobbyT))} c свободные места займут боты";
             }
             else exportView.lobbyStatus = "";
+            if (Paused) exportView.slowMo = 1f;
         }
         void SendSnapshot()
         {

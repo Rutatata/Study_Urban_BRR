@@ -134,6 +134,34 @@ namespace Tobe.Sim
             l.Sort((a, b) => a.slot.CompareTo(b.slot));
             return l;
         }
+        // ----- rotation (clockwise; the player rotating into the back-right position serves) -----
+        int[] RotationCycle()
+        {
+            if (teamSize >= 6) return new[] { 2, 5, 4, 3, 0, 1 };   // FR -> BR -> BM -> BL -> FL -> FM -> FR
+            if (teamSize == 4) return new[] { 0, 3, 2, 1 };         // FR -> BR -> BL -> FL -> FR
+            return new[] { 0, 2, 1 };                               // F -> BR -> BL -> F
+        }
+        int ServerSlot => teamSize >= 6 ? 5 : teamSize == 4 ? 3 : 2;
+        bool HasLibero(int team) => teamSize >= 6 && players.Exists(p => p.team == team && p.profile.style == PlayStyle.Libero);
+        void Rotate(int team)
+        {
+            var cycle = new List<int>(RotationCycle());
+            bool lib = HasLibero(team);
+            if (lib) cycle.Remove(4);                                // the libero stays in the back row (middle back)
+            var next = new Dictionary<int, int>();
+            for (int i = 0; i < cycle.Count; i++) next[cycle[i]] = cycle[(i + 1) % cycle.Count];
+            foreach (var p in players)
+                if (p.team == team && !(lib && p.profile.style == PlayStyle.Libero) && next.TryGetValue(p.slot, out int ns)) p.slot = ns;
+        }
+        SimPlayer ServerOf(int team)
+        {
+            var p = players.Find(q => q.team == team && q.slot == ServerSlot && q.profile.style != PlayStyle.Libero);
+            if (p != null) return p;
+            var order = ServeOrder(team);
+            return order[serverIdx[team] % order.Count];
+        }
+        bool IsBackRow(SimPlayer p) => teamSize >= 6 && p.slot >= 3;
+
         void SetupServe()
         {
             phase = MatchPhase.Serve; phaseT = 1.8f; slowT = 0;
@@ -146,8 +174,7 @@ namespace Tobe.Sim
                 p.diveT = p.recT = p.stunT = 0; p.hasBlockTask = false; p.celebrate = 0; p.SetPose(PoseId.Ready, 0);
                 p.yaw = p.team == 0 ? 0 : 180; p.serveCharging = false; p.hitBuf = 0;
             }
-            var order = ServeOrder(servingTeam);
-            server = order[serverIdx[servingTeam] % order.Count];
+            server = ServerOf(servingTeam);
             server.pos = new Vector3(6.8f, 0, Court.WorldZ(servingTeam, 9.9f));
             ball.held = server; ball.live = false; ball.superBy = null; ball.mini = false; ball.lastP = null; ball.lastTeam = -1;
             ball.vel = Vector3.zero; ball.blockTouch = false; ball.kind = "serve";
@@ -218,7 +245,7 @@ namespace Tobe.Sim
             Popup(why, team == 0 ? Gold : Pink, true);
             foreach (var p in players) { p.celebrate = p.team == team ? 1 : -1; p.hasBlockTask = false; }
             if (hero != null) hero.energy = Mathf.Min(100, hero.energy + 12);
-            if (servingTeam != team) { servingTeam = team; serverIdx[team]++; }
+            if (servingTeam != team) { servingTeam = team; Rotate(team); }   // side-out: the team that wins the serve rotates
         }
         bool CheckWin()
         {
@@ -337,7 +364,7 @@ namespace Tobe.Sim
         }
         void PlanBlock(int team, float x, float tHit)
         {
-            var front = players.FindAll(p => p.team == team && p.isBot && IsFront(p));
+            var front = players.FindAll(p => p.team == team && p.isBot && IsFront(p) && p.profile.style != PlayStyle.Libero);
             front.Sort((a, b) => Mathf.Abs(a.pos.x - x).CompareTo(Mathf.Abs(b.pos.x - x)));
             for (int k = 0; k < Mathf.Min(Bots.blockers, front.Count); k++)
             {
@@ -350,6 +377,11 @@ namespace Tobe.Sim
         }
         void DoSpike(SimPlayer p, float q, Vector3? aim, bool special)
         {
+            if (ball.pos.y > NH + 0.05f)
+            {
+                if (p.profile.style == PlayStyle.Libero && teamSize >= 6) { Fault(p.team, "ЛИБЕРО НЕ АТАКУЕТ"); return; }
+                if (IsBackRow(p) && Court.DistFromNet(p.team, p.pos.z) < Court.AttackLine - 0.1f && !p.isBot) { Fault(p.team, "ОШИБКА ЗАДНЕЙ ЛИНИИ"); return; }
+            }
             int tm = p.team, o = Other(tm);
             Vector3 target;
             if (aim.HasValue && Court.OnSide(o, aim.Value.z)) target = new Vector3(aim.Value.x, R, aim.Value.z);
@@ -558,7 +590,7 @@ namespace Tobe.Sim
                 var delta = np - u.pos; delta.y = 0;
                 if (delta.magnitude > maxStep) np = u.pos + delta.normalized * maxStep + Vector3.up * (np.y - u.pos.y);
                 np.x = Mathf.Clamp(np.x, -3, Court.Width + 3);
-                np.z = u.team == 0 ? Mathf.Clamp(np.z, -4, NY - 0.3f) : Mathf.Clamp(np.z, NY + 0.3f, Court.Length + 4);
+                np.z = u.team == 0 ? Mathf.Clamp(np.z, -4, NY - 0.35f) : Mathf.Clamp(np.z, NY + 0.35f, Court.Length + 4);
                 np.y = Mathf.Clamp(np.y, 0, 1.6f);
                 u.vel = c.clientVel; u.pos = np;
                 bool wasAir = u.air;
@@ -696,8 +728,14 @@ namespace Tobe.Sim
             else p.vel.y = 0;
             p.pos.z = p.team == 0 ? Mathf.Clamp(p.pos.z, -4, NY - 0.3f) : Mathf.Clamp(p.pos.z, NY + 0.3f, Court.Length + 4);
             p.pos.x = Mathf.Clamp(p.pos.x, -3, Court.Width + 3);
-            if (Hyp(p.vel.x, p.vel.z) > 0.4f) p.yaw = Mathf.Atan2(p.vel.x, p.vel.z) * Mathf.Rad2Deg;
-            else if (ball.live) p.yaw = Mathf.Atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z) * Mathf.Rad2Deg;
+            // volleyball footwork: keep facing the ball (or the net) and shuffle; only turn to run on long, fast moves
+            float spd = Hyp(p.vel.x, p.vel.z);
+            float face;
+            if (spd > 4.2f && !p.air) face = Mathf.Atan2(p.vel.x, p.vel.z) * Mathf.Rad2Deg;
+            else if (ball.held == null && (ball.live || phase == MatchPhase.Serve)) face = Mathf.Atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z) * Mathf.Rad2Deg;
+            else face = p.team == 0 ? 0 : 180;
+            if (Court.Fwd(p.team) * Mathf.Cos(face * Mathf.Deg2Rad) < -0.2f && spd < 4.2f) face = p.team == 0 ? 0 : 180; // don't turn the back to the net
+            p.yaw = Mathf.LerpAngle(p.yaw, face, 1 - Mathf.Exp(-12f * dt));
         }
 
         void UpdatePose(SimPlayer p, float dt)
@@ -720,6 +758,22 @@ namespace Tobe.Sim
             else if (Hyp(p.vel.x, p.vel.z) > 0.6f) np = PoseId.Run;
             else np = phase == MatchPhase.Rally ? PoseId.Ready : PoseId.Idle;
             p.pose = np;
+        }
+
+        void Separate()
+        {
+            const float minD = 0.55f;
+            for (int i = 0; i < players.Count; i++)
+                for (int j = i + 1; j < players.Count; j++)
+                {
+                    var a = players[i]; var c = players[j];
+                    if (a.team != c.team) continue;
+                    float dx = c.pos.x - a.pos.x, dz = c.pos.z - a.pos.z, d = Hyp(dx, dz);
+                    if (d >= minD || d < 1e-4f) continue;
+                    float push = (minD - d) * 0.5f; dx /= d; dz /= d;
+                    if (a.isBot) { a.pos.x -= dx * push * (c.isBot ? 1 : 2); a.pos.z -= dz * push * (c.isBot ? 1 : 2); }
+                    if (c.isBot) { c.pos.x += dx * push * (a.isBot ? 1 : 2); c.pos.z += dz * push * (a.isBot ? 1 : 2); }
+                }
         }
 
         // ================= ball =================
@@ -747,6 +801,12 @@ namespace Tobe.Sim
                     Popup("В СЕТКУ!", Grey);
                     Replan();
                 }
+                else if (b.pos.x < -0.05f || b.pos.x > Court.Width + 0.05f)
+                {
+                    int hitter = b.lastTeam >= 0 ? b.lastTeam : (pz < NY ? 0 : 1);
+                    Fault(hitter, "МИМО АНТЕНН");
+                    return;
+                }
                 else { touches[0] = touches[1] = 0; }
             }
             if (b.live && !b.blockChecked && Mathf.Abs(b.pos.z - NY) < 0.45f && b.lastTeam >= 0)
@@ -756,6 +816,7 @@ namespace Tobe.Sim
                     foreach (var p in players)
                     {
                         if (p.team != def || !p.air || Mathf.Abs(p.pos.z - NY) > 0.9f) continue;
+                        if (p.profile.style == PlayStyle.Libero && teamSize >= 6) continue;   // libero may not block
                         float top = p.pos.y + p.reach + 0.3f, bot = p.pos.y + p.reach - 0.55f;
                         if (Mathf.Abs(b.pos.x - p.pos.x) < 0.65f && b.pos.y > bot && b.pos.y < top) { b.blockChecked = true; BlockHit(p); break; }
                     }
@@ -878,6 +939,10 @@ namespace Tobe.Sim
             }
             if (server == null) return;
             if (server.serveCharging) server.serveHold += dt;
+            if (!server.isBot && server.connected && ball.held == server && phaseT < -8f)
+            {   // 8 seconds to serve
+                phase = MatchPhase.Rally; Fault(server.team, "8 СЕКУНД НА ПОДАЧУ"); return;
+            }
             if (server.isBot && phaseT <= 0.6f && ball.held != null)
             {
                 ball.held = null; ball.vel = new Vector3(0, 4.6f, 0); ball.pos.y = 1.8f; server.SetPose(PoseId.ServeToss, 1f);
@@ -921,6 +986,7 @@ namespace Tobe.Sim
                 if (phase != MatchPhase.Rally) return;
             }
             foreach (var p in players) if (p.isBot) BotThink(p);
+            Separate();
             foreach (var p in players)
             {
                 if (p.isBot) { PhysBot(p, dt); p.energy = Mathf.Min(100, p.energy + dt * 0.4f); }

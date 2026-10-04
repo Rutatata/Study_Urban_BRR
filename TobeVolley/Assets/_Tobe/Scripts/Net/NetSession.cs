@@ -43,6 +43,7 @@ namespace Tobe.Net
             NetApi.StartPractice = StartPractice;
             NetApi.Leave = () => _ = LeaveAsync();
             NetApi.StartNow = () => client?.RequestStart();
+            NetApi.SetPaused = p => { if (pendingPractice && server != null) server.Paused = p; };
         }
 
         void OnServerStarted()
@@ -50,6 +51,7 @@ namespace Tobe.Net
             if (server != null && client != null) return;   // already created by OnClientStarted (host)
             server?.Dispose();
             server = new MatchServer(nm, pendingTeamSize, pendingPractice);
+            NetApi.PauseAllowed = pendingPractice;
         }
         void OnClientStarted()
         {

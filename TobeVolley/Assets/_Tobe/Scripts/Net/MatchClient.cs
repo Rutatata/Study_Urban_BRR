@@ -151,7 +151,15 @@ namespace Tobe.Net
                 if (pos.y <= 0) { pos.y = 0; vel.y = 0; air = false; recT = Mathf.Max(recT, 0.18f); }
             }
             int team = me.team;
-            pos.z = team == 0 ? Mathf.Clamp(pos.z, -4, Court.NetZ - 0.3f) : Mathf.Clamp(pos.z, Court.NetZ + 0.3f, Court.Length + 4);
+            // don't walk through teammates
+            foreach (var o in GameHub.View.players)
+            {
+                if (o.id == me.id || o.team != team) continue;
+                float dx = pos.x - o.pos.x, dz = pos.z - o.pos.z, d = Mathf.Sqrt(dx * dx + dz * dz);
+                if (d < 0.55f && d > 1e-4f) { pos.x += dx / d * (0.55f - d); pos.z += dz / d * (0.55f - d); }
+            }
+            // never cross (or touch) the net: stay on your own side, inside the hall
+            pos.z = team == 0 ? Mathf.Clamp(pos.z, -4, Court.NetZ - 0.35f) : Mathf.Clamp(pos.z, Court.NetZ + 0.35f, Court.Length + 4);
             pos.x = Mathf.Clamp(pos.x, -3, Court.Width + 3);
             if (serving) pos.z = Ser.LocalServerPos.z;
         }
@@ -178,8 +186,9 @@ namespace Tobe.Net
                 ref var p = ref v.players[i];
                 p.pos = pos; p.vel = vel; p.air = air; p.stamina = stamina;
                 var flat = new Vector2(vel.x, vel.z);
-                if (flat.sqrMagnitude > 0.3f) p.yaw = Mathf.Atan2(vel.x, vel.z) * Mathf.Rad2Deg;
-                else if (GameHub.AimValid) { var d = GameHub.AimPoint - pos; p.yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg; }
+                // volleyball footwork: face where the camera looks (ball/net) and shuffle; turn into the run only when sprinting far
+                float face = flat.magnitude > 4.2f && !air ? Mathf.Atan2(vel.x, vel.z) * Mathf.Rad2Deg : GameHub.CameraYaw;
+                p.yaw = Mathf.LerpAngle(p.yaw, face, 1 - Mathf.Exp(-14f * Time.unscaledDeltaTime));
                 // immediate local pose feedback (server pose arrives a bit later)
                 if (diving) p.pose = PoseId.Dive;
                 else if (air && p.pose != PoseId.Spike && p.pose != PoseId.Block && p.pose != PoseId.SpikeWind) p.pose = PoseId.Jump;

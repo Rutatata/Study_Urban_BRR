@@ -40,7 +40,8 @@ namespace Tobe.UI
                 string n = ClipNames[i];
                 AudioClip c = null;
                 try { c = Resources.Load<AudioClip>("Audio/" + n); } catch (System.Exception) { }
-                if (c == null) c = Synth(n);
+                // crowd sounds are never synthesized (noise sounds like surf); they play only when real recordings are provided
+                if (c == null && n != "crowd_loop" && n != "cheer") c = Synth(n);
                 clips[n] = c;
             }
 
@@ -61,7 +62,7 @@ namespace Tobe.UI
             crowd.transform.SetParent(transform, false);
             crowd.clip = clips["crowd_loop"]; crowd.loop = true; crowd.spatialBlend = 0f; crowd.volume = 0f;
             crowd.playOnAwake = false;
-            crowd.Play();
+            if (crowd.clip != null) crowd.Play();
         }
 
         void OnEnable() { GameHub.OnEvent += OnEvent; }

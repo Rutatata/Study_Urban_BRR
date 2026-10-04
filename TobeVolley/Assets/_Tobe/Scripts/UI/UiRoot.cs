@@ -20,7 +20,7 @@ namespace Tobe.UI
         public EndScreen End { get; private set; }
 
         public bool EndDismissed;
-        bool paused;
+        bool paused, pauseSent;
         MatchPhase prevPhase = MatchPhase.Lobby;
 
         public static UiRoot Create()
@@ -109,6 +109,7 @@ namespace Tobe.UI
             Hud.Show(target == Hud);
             End.Show(target == End);
             Pause.Show(paused);
+            if (paused != pauseSent) { pauseSent = paused; NetApi.SetPaused?.Invoke(paused); }
             if ((prevPhase == MatchPhase.Lobby || prevPhase == MatchPhase.Countdown) && ph == MatchPhase.Serve && target == Hud) Vs.Play();
             if (target != Hud && Vs.Visible) Vs.Show(false);
             prevPhase = ph;

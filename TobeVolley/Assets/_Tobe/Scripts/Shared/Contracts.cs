@@ -250,6 +250,9 @@ namespace Tobe
         public static Action Leave;
         /// <summary>Host only: start the match now (bots fill empty slots).</summary>
         public static Action StartNow;
+        /// <summary>Pause/resume the simulation. Only works in offline practice (online matches keep running).</summary>
+        public static Action<bool> SetPaused;
+        public static bool PauseAllowed;
         public static string Status = "";
         public static bool Busy;
         public static bool InSession;
