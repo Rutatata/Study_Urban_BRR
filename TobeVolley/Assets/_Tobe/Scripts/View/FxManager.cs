@@ -15,7 +15,20 @@ namespace Tobe.View
         }
         readonly Ring[] rings = new Ring[6];
         readonly Ring[] cracks = new Ring[4];
+        readonly Ring[] crackGlow = new Ring[4];
         int ringIdx, crackIdx;
+
+        // camera-facing flat effects (speed lines, shock rings, onomatopoeia)
+        sealed class Bb
+        {
+            public Transform t; public Material mat; public TextMesh text; public float age, life, s0, s1, roll; public Color col; public bool active;
+        }
+        readonly Bb[] speedLines = new Bb[4];
+        readonly Bb[] shockBb = new Bb[4];
+        readonly Bb[] words = new Bb[3];
+        int slIdx, sbIdx, wIdx;
+        // full screen "impact frame" (ink flash with radial lines), parented to the camera while active
+        Transform frameQuad; Material frameMat; float frameT, frameLife; Camera frameCam;
         Texture2D crackTex;
 
         public static FxManager Create(Transform parent)
@@ -104,6 +117,120 @@ namespace Tobe.View
                 var go = Mats.FloorQuad("Crack" + i, transform, Vector3.zero, 1f, 1f, m);
                 go.SetActive(false);
                 cracks[i] = new Ring { t = go.transform, mat = m };
+                var mg = Mats.Instance(Mats.Unlit("fx_crack_glow", Color.white, crackTex, true, true));
+                var gg = Mats.FloorQuad("CrackGlow" + i, transform, Vector3.zero, 1f, 1f, mg);
+                gg.SetActive(false);
+                crackGlow[i] = new Ring { t = gg.transform, mat = mg };
+            }
+
+            var slBase = Mats.Unlit("fx_speedlines", Color.white, ProcTex.SpeedLinesTex, true, true, true);
+            for (int i = 0; i < speedLines.Length; i++)
+            {
+                var m = Mats.Instance(slBase);
+                var q = Mats.Quad("SpeedLines" + i, transform, Vector3.zero, Vector3.zero, Vector3.one, m);
+                q.SetActive(false);
+                speedLines[i] = new Bb { t = q.transform, mat = m };
+            }
+            var sbBase = Mats.Unlit("fx_shockbb", Color.white, Mats.RingTex, true, true, true);
+            for (int i = 0; i < shockBb.Length; i++)
+            {
+                var m = Mats.Instance(sbBase);
+                var q = Mats.Quad("ShockBb" + i, transform, Vector3.zero, Vector3.zero, Vector3.one, m);
+                q.SetActive(false);
+                shockBb[i] = new Bb { t = q.transform, mat = m };
+            }
+            for (int i = 0; i < words.Length; i++)
+            {
+                var tm = Mats.Text(transform, "", 0.05f, 64, Color.white);
+                tm.gameObject.SetActive(false);
+                words[i] = new Bb { t = tm.transform, text = tm };
+            }
+            frameMat = Mats.Unlit("fx_impactframe", Color.white, ProcTex.ImpactFrameTex, true, false, true);
+            frameMat.renderQueue = 4000;
+            var fq = Mats.Quad("ImpactFrame", transform, Vector3.zero, Vector3.zero, Vector3.one, frameMat);
+            frameQuad = fq.transform;
+            fq.SetActive(false);
+        }
+
+        // ------------------------------------------------------------------ anime impact frame
+        /// <summary>Brief inverted ink flash with radial speed lines over the whole screen.</summary>
+        public void ImpactFrame(float life)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            frameCam = cam;
+            frameQuad.SetParent(cam.transform, false);
+            frameQuad.gameObject.SetActive(true);
+            frameT = 0f; frameLife = Mathf.Max(0.08f, life);
+        }
+
+        void UpdateFrame(float dt)
+        {
+            if (!frameQuad.gameObject.activeSelf) return;
+            frameT += dt;
+            if (frameT >= frameLife || frameCam == null) { frameQuad.gameObject.SetActive(false); frameQuad.SetParent(transform, false); return; }
+            const float d = 0.35f;
+            float h = 2f * d * Mathf.Tan(frameCam.fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.05f;
+            frameQuad.localPosition = new Vector3(0f, 0f, d);
+            frameQuad.localRotation = Quaternion.identity;
+            frameQuad.localScale = new Vector3(h * frameCam.aspect, h, 1f);
+            float k = frameT / frameLife;
+            float a = k < 0.45f ? 0.92f : Mathf.Lerp(0.92f, 0f, (k - 0.45f) / 0.55f);
+            // first part inverted (white lines on black) feel via alternating tint
+            Color c = k < 0.2f ? new Color(1f, 1f, 1f, a) : new Color(1f, 0.92f, 0.8f, a);
+            Mats.SetColor(frameMat, c);
+        }
+
+        // ------------------------------------------------------------------ billboards
+        void StartSpeedLines(Vector3 pos, Color col, float size, float life)
+        {
+            var b = speedLines[slIdx++ % speedLines.Length];
+            b.t.gameObject.SetActive(true);
+            b.t.position = pos; b.age = 0f; b.life = life; b.s0 = size * 0.6f; b.s1 = size; b.roll = Random.value * 360f; b.col = col; b.active = true;
+        }
+
+        void StartShockBb(Vector3 pos, Color col, float size, float life)
+        {
+            var b = shockBb[sbIdx++ % shockBb.Length];
+            b.t.gameObject.SetActive(true);
+            b.t.position = pos; b.age = 0f; b.life = life; b.s0 = size * 0.15f; b.s1 = size; b.roll = 0f; b.col = col; b.active = true;
+        }
+
+        void StartWord(Vector3 pos, string text, Color col, float size)
+        {
+            var b = words[wIdx++ % words.Length];
+            b.t.gameObject.SetActive(true);
+            b.text.text = text; b.text.color = col;
+            b.t.position = pos + Vector3.up * 0.4f; b.age = 0f; b.life = 0.75f; b.s0 = size * 0.4f; b.s1 = size; b.roll = Random.Range(-14f, 14f); b.col = col; b.active = true;
+        }
+
+        void UpdateBb(Bb[] arr, float dt, bool isWord)
+        {
+            var cam = Camera.main;
+            for (int i = 0; i < arr.Length; i++)
+            {
+                var b = arr[i];
+                if (!b.active) continue;
+                b.age += dt;
+                float k = b.age / b.life;
+                if (k >= 1f) { b.active = false; b.t.gameObject.SetActive(false); continue; }
+                float e = 1f - (1f - k) * (1f - k);
+                float s = Mathf.Lerp(b.s0, b.s1, e);
+                if (cam != null) b.t.rotation = cam.transform.rotation * Quaternion.Euler(0f, 0f, b.roll);
+                if (isWord)
+                {
+                    float pop = k < 0.15f ? Mathf.Lerp(0.5f, 1.25f, k / 0.15f) : Mathf.Lerp(1.25f, 1f, Mathf.Clamp01((k - 0.15f) / 0.2f));
+                    b.t.localScale = Vector3.one * (s * pop);
+                    var c = b.col; c.a = k < 0.7f ? 1f : (1f - k) / 0.3f;
+                    b.text.color = c;
+                    b.t.position += Vector3.up * dt * 0.5f;
+                }
+                else
+                {
+                    b.t.localScale = new Vector3(s, s, 1f);
+                    var c = b.col; c.a = Mathf.Clamp01(1.4f * (1f - k)) * b.col.a;
+                    Mats.SetColor(b.mat, c);
+                }
             }
         }
 
@@ -126,6 +253,19 @@ namespace Tobe.View
                 r.t.localScale = new Vector3(s, s, 1f);
                 var c = r.col; c.a = (1f - k) * r.col.a;
                 Mats.SetColor(r.mat, c);
+            }
+            UpdateBb(speedLines, dt, false);
+            UpdateBb(shockBb, dt, false);
+            UpdateBb(words, dt, true);
+            UpdateFrame(dt);
+            for (int i = 0; i < crackGlow.Length; i++)
+            {
+                var r = crackGlow[i];
+                if (!r.active) continue;
+                r.age += dt;
+                if (r.age >= r.life) { r.active = false; r.t.gameObject.SetActive(false); continue; }
+                float a = Mathf.Clamp01(1f - r.age / r.life);
+                Mats.SetColor(r.mat, new Color(r.col.r * 2.2f, r.col.g * 2.2f, r.col.b * 2.2f, a * a));
             }
             for (int i = 0; i < cracks.Length; i++)
             {
@@ -169,6 +309,27 @@ namespace Tobe.View
                 Emit(sparks, e.pos, v, c, Random.Range(0.05f, 0.1f), Random.Range(0.2f, 0.45f));
             }
             Emit(glow, e.pos, Vector3.zero, new Color(1f, 0.9f, 0.7f, 1f) * 1.5f, 0.35f + p * 0.6f, 0.15f);
+            // sweat / shine sparkles
+            if (p > 0.45f)
+            {
+                int ns = 2 + Mathf.RoundToInt(p * 5f);
+                for (int i = 0; i < ns; i++)
+                {
+                    Vector3 v = new Vector3(Random.Range(-1.5f, 1.5f), Random.Range(1.2f, 3f), Random.Range(-1.5f, 1.5f));
+                    Emit(stars, e.pos, v, new Color(0.7f, 0.95f, 1f, 1f) * 1.8f, Random.Range(0.1f, 0.2f), Random.Range(0.35f, 0.6f));
+                }
+            }
+            if (p > 0.7f)
+            {
+                StartSpeedLines(e.pos, new Color(1f, 0.95f, 0.8f, 0.9f), 2.2f + p * 2.4f, 0.2f);
+                if (p > 0.9f) StartShockBb(e.pos, new Color(1f, 0.9f, 0.6f, 1f), 2.2f, 0.25f);
+            }
+            if (p > 0.82f)
+            {
+                var pose = (PoseId)e.intArg;
+                string w = pose == PoseId.Spike ? "バシッ!" : pose == PoseId.ServeHit ? "ドンッ!" : pose == PoseId.Block ? "ガッ!" : pose == PoseId.Dive ? "ズザッ!" : "ポンッ!";
+                StartWord(e.pos, w, pose == PoseId.Spike ? new Color(1f, 0.85f, 0.2f) : new Color(1f, 1f, 1f), 2.4f);
+            }
             if (p > 0.85f && CameraRig.Instance != null) CameraRig.Instance.Shake(0.08f);
         }
 
@@ -191,7 +352,18 @@ namespace Tobe.View
             Color col = e.color.a > 0.01f ? e.color : new Color(1f, 0.7f, 0.2f);
             StartRing(p, col, 9f, 0.7f);
             StartRing(p, Color.white, 5f, 0.45f);
-            StartCrack(p);
+            StartCrack(p, col);
+            Vector3 mid = p + Vector3.up * 0.5f;
+            StartSpeedLines(mid, new Color(col.r, col.g, col.b, 1f) * 1.2f + new Color(0.2f, 0.2f, 0.2f, 0f), 7f, 0.35f);
+            StartShockBb(mid, Color.white, 6f, 0.4f);
+            StartShockBb(mid, col, 9f, 0.55f);
+            StartWord(mid + Vector3.up * 0.8f, new[] { "ドガァッ!", "ズドン!!", "バァン!!" }[Random.Range(0, 3)], new Color(1f, 0.9f, 0.3f), 4.2f);
+            ImpactFrame(0.2f);
+            for (int i = 0; i < 18; i++)
+            {
+                Vector3 v = new Vector3(Random.Range(-2.5f, 2.5f), Random.Range(1f, 4f), Random.Range(-2.5f, 2.5f));
+                Emit(stars, p, v, Color.Lerp(col, Color.white, 0.5f) * 2f, Random.Range(0.12f, 0.3f), Random.Range(0.4f, 0.9f));
+            }
             for (int i = 0; i < 40; i++)
             {
                 float a = Random.value * Mathf.PI * 2f, sp = Random.Range(2f, 8f);
@@ -275,8 +447,9 @@ namespace Tobe.View
             r.age = 0f; r.life = life; r.maxScale = maxScale; r.col = new Color(c.r * 1.6f, c.g * 1.6f, c.b * 1.6f, 1f); r.active = true;
         }
 
-        void StartCrack(Vector3 pos)
+        void StartCrack(Vector3 pos, Color glowCol)
         {
+            int ci = crackIdx % cracks.Length;
             var r = cracks[crackIdx++ % cracks.Length];
             r.t.gameObject.SetActive(true);
             r.t.position = new Vector3(pos.x, 0.012f, pos.z);
@@ -284,6 +457,11 @@ namespace Tobe.View
             float s = Random.Range(4f, 5.5f);
             r.t.localScale = new Vector3(s, s, 1f);
             r.age = 0f; r.life = 6f; r.active = true;
+            var g = crackGlow[ci];
+            g.t.gameObject.SetActive(true);
+            g.t.position = new Vector3(pos.x, 0.014f, pos.z);
+            g.t.rotation = r.t.rotation; g.t.localScale = r.t.localScale;
+            g.age = 0f; g.life = 1.4f; g.col = glowCol; g.active = true;
         }
 
         static Texture2D MakeCrackTexture()

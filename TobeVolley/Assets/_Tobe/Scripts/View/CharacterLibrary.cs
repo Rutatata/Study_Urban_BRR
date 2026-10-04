@@ -47,6 +47,7 @@ namespace Tobe.View
                     {
                         var rgi = inst.GetComponent<UniGLTF.RuntimeGltfInstance>();
                         if (rgi != null) rgi.EnableUpdateWhenOffscreen();
+                        CharacterAppearance.StyleMaterials(inst.gameObject);      // outline / rim / ramp
                         return inst.gameObject;
                     }
                 }
@@ -55,51 +56,9 @@ namespace Tobe.View
             return BuildFallback();
         }
 
-        // ------------------------------------------------------------------ recolor
-        enum Part { None, Hair, Shirt, Shorts }
-
-        static Part Classify(string n)
-        {
-            n = n.ToLowerInvariant();
-            if (n.Contains("skin") || n.Contains("face") || n.Contains("eye") || n.Contains("mouth") || n.Contains("brow") ||
-                n.Contains("lash") || n.Contains("shoe") || n.Contains("sock") || n.Contains("accessor")) return Part.None;
-            if (n.Contains("hair")) return Part.Hair;
-            if (n.Contains("bottom") || n.Contains("skirt") || n.Contains("pants") || n.Contains("shorts")) return Part.Shorts;
-            if (n.Contains("tops") || n.Contains("cloth") || n.Contains("shirt") || n.Contains("onepiece") || n.Contains("body")) return Part.Shirt;
-            return Part.None;
-        }
-
-        static readonly string[] ColorProps = { "_Color", "_BaseColor" };
-        static readonly string[] TexProps = { "_MainTex", "_BaseMap", "_ShadeTex" };
-
-        static void Paint(Material m, Color c)
-        {
-            foreach (var p in ColorProps) if (m.HasProperty(p)) m.SetColor(p, c);
-            if (m.HasProperty("_ShadeColor")) m.SetColor("_ShadeColor", new Color(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f));
-            foreach (var p in TexProps) if (m.HasProperty(p)) m.SetTexture(p, Texture2D.whiteTexture);
-        }
-
-        public static void Recolor(GameObject model, int team, Color hair)
-        {
-            if (model == null) return;
-            team = Mathf.Clamp(team, 0, 1);
-            Color shirt = TeamLook.Shirt[team], shorts = TeamLook.Shorts[team];
-            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
-            {
-                var mats = r.sharedMaterials;
-                for (int i = 0; i < mats.Length; i++)
-                {
-                    var m = mats[i];
-                    if (m == null) continue;
-                    switch (Classify(m.name))
-                    {
-                        case Part.Hair: Paint(m, hair); break;
-                        case Part.Shirt: Paint(m, shirt); break;
-                        case Part.Shorts: Paint(m, shorts); break;
-                    }
-                }
-            }
-        }
+        // ------------------------------------------------------------------ recolor (moved to CharacterAppearance)
+        /// <summary>Compatibility wrapper: team uniform + hair color only. Prefer CharacterAppearance.Apply.</summary>
+        public static void Recolor(GameObject model, int team, Color hair) => CharacterAppearance.Recolor(model, team, hair);
 
         // ------------------------------------------------------------------ fallback humanoid
         static Transform Bone(Transform parent, string name, Vector3 worldPos)
@@ -112,7 +71,7 @@ namespace Tobe.View
 
         static Material M(string name, Color c)
         {
-            var m = Mats.Instance(Mats.Lit("fb_" + name, c, 0.35f));
+            var m = Mats.Toon(null, c, new Color(c.r * 0.66f, c.g * 0.62f, Mathf.Min(1f, c.b * 0.8f)), false);
             m.name = name;
             Mats.SetColor(m, c);
             return m;
@@ -176,6 +135,7 @@ namespace Tobe.View
                 Limb(ll, ll.position, foot.position, 0.062f, skin);
                 Blob(foot, new Vector3(0.09f * s, 0.04f, 0.05f), new Vector3(0.12f, 0.08f, 0.26f), shoe, PrimitiveType.Cube);
             }
+            CharacterAppearance.StyleMaterials(root);
             return root;
         }
     }

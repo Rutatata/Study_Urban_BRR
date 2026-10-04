@@ -8,7 +8,8 @@ namespace Tobe.View
         const float VisualScale = 0.11f * 2f * 1.25f;
 
         Transform ball;
-        TrailRenderer trail;
+        TrailRenderer trail, core;
+        Transform aura; Material auraMat;
         Light glowLight;
         ParticleSystem glowPs;
         ParticleSystem.EmissionModule glowEm;
@@ -30,34 +31,61 @@ namespace Tobe.View
             return go.AddComponent<BallView>();
         }
 
-        static Texture2D BallTexture() => Mats.MakeTex("ball", 512, 256, (u, v) =>
+        static Material BallMaterial()
         {
-            if (v < 0.1f || v > 0.9f) return new Color(0.95f, 0.95f, 0.95f, 1f);
-            float t = u * 6f + (v - 0.5f) * 0.9f;
-            t -= Mathf.Floor(t);
-            float seg = t * 3f; seg -= Mathf.Floor(seg);
-            Color c = t < 0.3333f ? new Color(1f, 0.82f, 0.1f) : (t < 0.6667f ? new Color(0.96f, 0.96f, 0.96f) : new Color(0.1f, 0.35f, 0.85f));
-            if (seg < 0.04f || seg > 0.97f) c *= 0.35f;
-            return c;
-        }, true, TextureWrapMode.Repeat);
+            return Mats.Toon("ball_mikasa", Color.white, new Mats.ToonOpts
+            {
+                tex = ProcTex.BallAlbedo(), shadeTex = ProcTex.BallShade(), shift = 0.1f, toony = 0.85f,
+                rim = new Color(0.55f, 0.65f, 0.9f), rimPower = 3.5f, outlineWidth = 0.006f, outlineColor = new Color(0.04f, 0.05f, 0.1f), gi = 0.9f,
+            });
+        }
+
+        static GameObject MakeBallObject(Transform parent, Material mat)
+        {
+            var mb = new MeshBatch("ball");
+            mb.Sphere(mat, Vector3.zero, 0.5f, 48, 32);
+            var go = new GameObject("Ball");
+            go.transform.SetParent(parent, false);
+            go.transform.localScale = Vector3.one * VisualScale;
+            go.AddComponent<MeshFilter>().sharedMesh = mb.BuildMesh(mat, "BallMesh");
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            r.receiveShadows = true;
+            return go;
+        }
 
         void Awake()
         {
-            var sphere = Mats.Prim(PrimitiveType.Sphere, transform, "Ball", Vector3.zero, Vector3.one * VisualScale,
-                Mats.Lit("ball", Color.white, 0.45f, 0f, null, BallTexture()), true);
+            var sphere = MakeBallObject(transform, BallMaterial());
             ball = sphere.transform;
 
             // trail
             trail = sphere.AddComponent<TrailRenderer>();
-            trailMat = Mats.Particle("ball_trail", Mats.SquareTex, true);
+            trailMat = Mats.Particle("ball_trail2", ProcTex.TrailTex, true);
             trail.sharedMaterial = trailMat;
             trail.time = 0.28f;
             trail.widthMultiplier = 0.2f;
-            trail.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+            trail.widthCurve = new AnimationCurve(new Keyframe(0f, 0.25f), new Keyframe(0.12f, 1f), new Keyframe(1f, 0f));
             trail.minVertexDistance = 0.05f;
+            trail.numCornerVertices = 3; trail.numCapVertices = 3;
+            trail.textureMode = LineTextureMode.Stretch;
             trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             trail.receiveShadows = false;
             trail.emitting = false;
+            // thin bright core of the trail
+            var coreGo = new GameObject("TrailCore");
+            coreGo.transform.SetParent(ball, false);
+            core = coreGo.AddComponent<TrailRenderer>();
+            core.sharedMaterial = Mats.Particle("ball_trail_core", ProcTex.TrailTex, true);
+            core.time = 0.18f; core.widthMultiplier = 0.07f; core.minVertexDistance = 0.04f;
+            core.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+            core.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; core.receiveShadows = false;
+            core.emitting = false;
+            // camera-facing glow billboard (finisher / perfect hits)
+            auraMat = Mats.Instance(Mats.Particle("ball_aura", Mats.SoftDot, true));
+            aura = Mats.Quad("BallAura", transform, Vector3.zero, Vector3.zero, Vector3.one, auraMat).transform;
+            aura.gameObject.SetActive(false);
 
             // glow
             var lg = new GameObject("GlowLight");
@@ -114,7 +142,7 @@ namespace Tobe.View
             bool vis = b.live || b.held || b.pos.sqrMagnitude > 0.01f;
             ball.gameObject.SetActive(vis);
             shadow.gameObject.SetActive(vis);
-            if (vis) UpdateBall(b, dt, view); else { trail.emitting = false; glowLight.intensity = 0f; glowEm.enabled = false; }
+            if (vis) UpdateBall(b, dt, view); else { trail.emitting = false; core.emitting = false; aura.gameObject.SetActive(false); glowLight.intensity = 0f; glowEm.enabled = false; }
             UpdateLanding(view);
             UpdatePlans(view);
         }
@@ -123,7 +151,7 @@ namespace Tobe.View
         {
             if (!inited || (smPos - b.pos).sqrMagnitude > 9f)
             {
-                smPos = b.pos; inited = true; trail.Clear();
+                smPos = b.pos; inited = true; trail.Clear(); core.Clear();
             }
             smPos = Vector3.Lerp(smPos, b.pos, 1f - Mathf.Exp(-dt * 28f));
             ball.position = smPos;
@@ -166,6 +194,26 @@ namespace Tobe.View
                     trail.startColor = new Color(1f, 1f, 1f, 0.45f);
                     trail.endColor = new Color(1f, 1f, 1f, 0f);
                 }
+            }
+
+            core.emitting = trail.emitting;
+            if (core.emitting)
+            {
+                core.startColor = new Color(1f, 1f, 1f, power > 0f ? 1f : 0.55f);
+                core.endColor = new Color(c2.r, c2.g, c2.b, 0f);
+                core.widthMultiplier = 0.07f + power * 0.06f;
+            }
+            bool showAura = power > 0f;
+            aura.gameObject.SetActive(showAura);
+            if (showAura)
+            {
+                var cam = Camera.main;
+                aura.position = smPos;
+                if (cam != null) aura.rotation = cam.transform.rotation;
+                float pulse = 1f + 0.1f * Mathf.Sin(Time.time * 18f);
+                float sz = (fin ? 1.5f : 0.8f) * pulse;
+                aura.localScale = new Vector3(sz, sz, 1f);
+                Mats.SetColor(auraMat, new Color(c1.r * 1.6f, c1.g * 1.6f, c1.b * 1.6f, fin ? 0.55f : 0.3f));
             }
 
             glowLight.color = c1;

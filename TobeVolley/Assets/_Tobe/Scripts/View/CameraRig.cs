@@ -58,7 +58,7 @@ namespace Tobe.View
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 150f;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.03f, 0.02f, 0.06f);
+            cam.backgroundColor = new Color(0.06f, 0.06f, 0.13f);
             cam.allowHDR = true;
             var data = cam.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = true;

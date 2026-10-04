@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using VRM10.MToon10;
 
 namespace Tobe.View
 {
@@ -10,7 +11,8 @@ namespace Tobe.View
     {
         static readonly Dictionary<string, Material> cache = new Dictionary<string, Material>();
         static readonly Dictionary<string, Texture2D> texCache = new Dictionary<string, Texture2D>();
-        static Shader litSh, unlitSh, partSh;
+        static Shader litSh, unlitSh, partSh, mtoonSh;
+        public const string MToonShaderName = "VRM10/Universal Render Pipeline/MToon10";
         static Mesh quadMesh;
         static Font jpFont;
 
@@ -24,6 +26,15 @@ namespace Tobe.View
         static Shader LitSh => Sh(ref litSh, "Universal Render Pipeline/Lit");
         static Shader UnlitSh => Sh(ref unlitSh, "Universal Render Pipeline/Unlit");
         static Shader PartSh => Sh(ref partSh, "Universal Render Pipeline/Particles/Unlit");
+        /// <summary>The VRM MToon10 URP shader, or null when it is not available (then Toon() falls back to URP Lit).</summary>
+        public static Shader MToonSh
+        {
+            get
+            {
+                if (mtoonSh == null) mtoonSh = Shader.Find(MToonShaderName);
+                return mtoonSh;
+            }
+        }
 
         static bool TryGet(string key, out Material m)
         {
@@ -79,6 +90,97 @@ namespace Tobe.View
             return m;
         }
 
+
+        // ----------------------------------------------------------------- toon (MToon10)
+        public struct ToonOpts
+        {
+            public Color? shade;            // shade color (default: base * shadeMul)
+            public float shadeMul;          // 0 -> 0.72
+            public float shift;             // shading shift (default -0.05): higher = more lit area
+            public float toony;             // 0..1 (default 0.9)
+            public Color? rim;              // parametric rim color
+            public float rimPower;          // default 4
+            public Color? emission;         // linear HDR emission
+            public Texture tex;
+            public Texture shadeTex;
+            public bool doubleSided;
+            public bool transparent;        // alpha blend
+            public Texture matcap; public Color? matcapColor;
+            public float outlineWidth;      // meters (world), 0 = none
+            public Color? outlineColor;
+            public float gi;                // GI equalization, default 0.85
+        }
+
+        /// <summary>Cel-shaded material (VRM MToon10). Falls back to URP Lit when the shader is missing.</summary>
+        public static Material Toon(string key, Color color, ToonOpts o = default)
+        {
+            if (TryGet(key, out var m)) return m;
+            var sh = MToonSh;
+            if (sh == null)
+            {
+                m = Lit(null, color, 0.15f, 0f, o.emission, o.tex, o.transparent, o.doubleSided);
+                m.name = key ?? "toon";
+                if (key != null) cache[key] = m;
+                return m;
+            }
+            m = new Material(sh) { name = key ?? "toon" };
+            ApplyToon(m, color, o);
+            if (key != null) cache[key] = m;
+            return m;
+        }
+
+        /// <summary>(Re)configures an MToon10 material.</summary>
+        public static void ApplyToon(Material m, Color color, ToonOpts o)
+        {
+            var c = new MToon10Context(m);
+            c.AlphaMode = o.transparent ? MToon10AlphaMode.Transparent : MToon10AlphaMode.Opaque;
+            c.TransparentWithZWriteMode = MToon10TransparentWithZWriteMode.Off;
+            c.DoubleSidedMode = o.doubleSided ? MToon10DoubleSidedMode.On : MToon10DoubleSidedMode.Off;
+            c.BaseColorFactorSrgb = color;
+            float mul = o.shadeMul > 0f ? o.shadeMul : 0.72f;
+            c.ShadeColorFactorSrgb = o.shade ?? new Color(color.r * mul, color.g * mul * 0.97f, Mathf.Min(1f, color.b * mul * 1.06f), color.a);
+            if (o.tex != null) { c.BaseColorTexture = o.tex; c.ShadeColorTexture = o.shadeTex != null ? o.shadeTex : o.tex; }
+            c.ShadingShiftFactor = o.shift != 0f ? o.shift : -0.05f;
+            c.ShadingToonyFactor = o.toony > 0f ? o.toony : 0.9f;
+            c.GiEqualizationFactor = o.gi > 0f ? o.gi : 0.85f;
+            c.ParametricRimColorFactorSrgb = o.rim ?? Color.black;
+            c.ParametricRimFresnelPowerFactor = o.rimPower > 0f ? o.rimPower : 4f;
+            c.ParametricRimLiftFactor = 0.05f;
+            c.RimLightingMixFactor = 0.6f;
+            if (o.matcap != null) { c.MatcapTexture = o.matcap; c.MatcapColorFactorSrgb = o.matcapColor ?? Color.white; }
+            if (o.emission.HasValue) c.EmissiveFactorLinear = o.emission.Value;
+            if (o.outlineWidth > 0f)
+            {
+                c.OutlineWidthMode = MToon10OutlineMode.World;
+                c.OutlineWidthFactor = o.outlineWidth;
+                c.OutlineColorFactorSrgb = o.outlineColor ?? new Color(color.r * 0.3f, color.g * 0.28f, color.b * 0.35f, 1f);
+                c.OutlineLightingMixFactor = 0.5f;
+            }
+            else c.OutlineWidthMode = MToon10OutlineMode.None;
+            c.Validate();
+        }
+
+        /// <summary>True when the MToon shader is present (outline renderer feature still has to be on the renderer).</summary>
+        public static bool IsToon(Material m) => m != null && m.shader != null && m.shader.name == MToonShaderName;
+
+        /// <summary>Shorthand for flat environment surfaces.</summary>
+        public static Material Toon(string key, Color color, Color shade, bool doubleSided = false, Texture tex = null, float shift = 0f)
+            => Toon(key, color, new ToonOpts { shade = shade, doubleSided = doubleSided, tex = tex, shift = shift });
+
+        /// <summary>Additive unlit material that multiplies by vertex colors (light shafts, glows).</summary>
+        public static Material AdditiveVertex(string key, Texture tex = null)
+            => Particle(key, tex != null ? tex : SquareTex, true);
+
+        /// <summary>Alpha blended unlit vertex color material (soft decals).</summary>
+        public static Material AlphaVertex(string key, Texture tex = null)
+            => Particle(key, tex != null ? tex : SquareTex, false);
+
+        /// <summary>Resources.Load wrapper (null when missing).</summary>
+        public static T Res<T>(string path) where T : UnityEngine.Object
+        {
+            try { return Resources.Load<T>(path); } catch (Exception) { return null; }
+        }
+
         /// <summary>Opaque unlit material that multiplies by mesh vertex colors (crowd etc.).</summary>
         public static Material VertexColorOpaque(string key, Color tint)
         {
@@ -119,10 +221,10 @@ namespace Tobe.View
 
         // ----------------------------------------------------------------- textures
         public static Texture2D MakeTex(string key, int w, int h, Func<float, float, Color> f,
-            bool mips = true, TextureWrapMode wrap = TextureWrapMode.Clamp, FilterMode filter = FilterMode.Bilinear)
+            bool mips = true, TextureWrapMode wrap = TextureWrapMode.Clamp, FilterMode filter = FilterMode.Bilinear, bool linear = false)
         {
             if (key != null && texCache.TryGetValue(key, out var t) && t != null) return t;
-            t = new Texture2D(w, h, TextureFormat.RGBA32, mips) { name = key ?? "proc", wrapMode = wrap, filterMode = filter };
+            t = new Texture2D(w, h, TextureFormat.RGBA32, mips, linear) { name = key ?? "proc", wrapMode = wrap, filterMode = filter };
             var px = new Color32[w * h];
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
@@ -162,6 +264,10 @@ namespace Tobe.View
             return new Color(1, 1, 1, a);
         });
 
+        /// <summary>Stores a finished texture in the cache (used by generators that fill pixels themselves).</summary>
+        public static void CacheTex(string key, Texture2D t) { if (key != null) texCache[key] = t; }
+        public static bool TryGetTex(string key, out Texture2D t) => texCache.TryGetValue(key, out t) && t != null;
+
         public static Texture2D SquareTex => MakeTex("square", 8, 8, (u, v) => Color.white, false);
 
         public static Texture2D ChevronTex => MakeTex("chevron", 64, 64, (u, v) =>
@@ -181,11 +287,26 @@ namespace Tobe.View
             get
             {
                 if (quadMesh != null) return quadMesh;
+                // Both faces are present (front looks along -Z with normal -Z, back looks along +Z), so the quad is visible
+                // from either side no matter what the material's culling is.
                 quadMesh = new Mesh { name = "TobeQuad" };
-                quadMesh.vertices = new[] { new Vector3(-.5f, -.5f, 0), new Vector3(.5f, -.5f, 0), new Vector3(.5f, .5f, 0), new Vector3(-.5f, .5f, 0) };
-                quadMesh.normals = new[] { -Vector3.forward, -Vector3.forward, -Vector3.forward, -Vector3.forward };
-                quadMesh.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
-                quadMesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+                quadMesh.vertices = new[]
+                {
+                    new Vector3(-.5f, -.5f, 0), new Vector3(.5f, -.5f, 0), new Vector3(.5f, .5f, 0), new Vector3(-.5f, .5f, 0),
+                    new Vector3(-.5f, -.5f, 0), new Vector3(.5f, -.5f, 0), new Vector3(.5f, .5f, 0), new Vector3(-.5f, .5f, 0),
+                };
+                quadMesh.normals = new[]
+                {
+                    -Vector3.forward, -Vector3.forward, -Vector3.forward, -Vector3.forward,
+                    Vector3.forward, Vector3.forward, Vector3.forward, Vector3.forward,
+                };
+                quadMesh.uv = new[]
+                {
+                    new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1),
+                    new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1),
+                };
+                // front (clockwise seen from -Z): BL, TL, TR ; back: reversed
+                quadMesh.triangles = new[] { 0, 3, 2, 0, 2, 1, 4, 6, 7, 4, 5, 6 };
                 quadMesh.RecalculateBounds();
                 return quadMesh;
             }
