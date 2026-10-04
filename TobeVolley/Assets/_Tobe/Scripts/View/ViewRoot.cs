@@ -17,6 +17,10 @@ namespace Tobe.View
         public CameraRig Rig { get; private set; }
         public BallView Ball { get; private set; }
         public FxManager Fx { get; private set; }
+        /// <summary>True while any player of the current roster has no model yet (a "loading" overlay is shown instead of placeholders).</summary>
+        public bool PlayersLoading { get; private set; }
+
+        public bool TryGetView(int id, out PlayerView pv) => views.TryGetValue(id, out pv) && pv != null;
 
         public static ViewRoot Create()
         {
@@ -32,12 +36,14 @@ namespace Tobe.View
         {
             Instance = this;
             CharacterLibrary.Scan();
+            CharacterLibrary.Preload();          // load every VRM once, hidden, while the player is in the main menu
             ArenaBuilder.Build(transform);
             playersRoot = new GameObject("Players").transform;
             playersRoot.SetParent(transform, false);
             Fx = FxManager.Create(transform);
             Ball = BallView.Create(transform);
             Rig = CameraRig.Create(transform);
+            NameplateLayer.Create(transform);
         }
 
         void OnEnable() { GameHub.OnRosterChanged += OnRoster; }
@@ -63,6 +69,7 @@ namespace Tobe.View
             var players = view.players ?? new PlayerSnap[0];
             float dt = Time.deltaTime;
             seen.Clear();
+            bool loading = false;
             for (int i = 0; i < players.Length; i++)
             {
                 int id = players[i].id;
@@ -73,7 +80,9 @@ namespace Tobe.View
                     views[id] = pv;
                 }
                 pv.Tick(in players[i], id == view.localPlayerId, dt);
+                if (!pv.HasModel) loading = true;
             }
+            PlayersLoading = loading;
             if (views.Count != seen.Count || rosterDirty)
             {
                 toRemove.Clear();

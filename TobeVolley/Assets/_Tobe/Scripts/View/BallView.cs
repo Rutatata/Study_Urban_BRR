@@ -5,7 +5,9 @@ namespace Tobe.View
 {
     public sealed class BallView : MonoBehaviour
     {
-        const float VisualScale = 0.11f * 2f * 1.25f;
+        // physics radius is 0.11 m; drawn a bit larger (0.135 m) so it stays readable from the broadcast camera
+        const float VisualRadius = 0.135f;
+        const float VisualScale = VisualRadius * 2f;
 
         Transform ball;
         TrailRenderer trail, core;
@@ -36,7 +38,7 @@ namespace Tobe.View
             return Mats.Toon("ball_mikasa", Color.white, new Mats.ToonOpts
             {
                 tex = ProcTex.BallAlbedo(), shadeTex = ProcTex.BallShade(), shift = 0.1f, toony = 0.85f,
-                rim = new Color(0.55f, 0.65f, 0.9f), rimPower = 3.5f, outlineWidth = 0.006f, outlineColor = new Color(0.04f, 0.05f, 0.1f), gi = 0.9f,
+                rim = new Color(0.45f, 0.55f, 0.85f), rimPower = 3.5f, outlineWidth = 0f, gi = 0.9f,
             });
         }
 
@@ -52,6 +54,17 @@ namespace Tobe.View
             r.sharedMaterial = mat;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             r.receiveShadows = true;
+            // strong dark outline: inverted hull (front faces culled), independent of the MToon outline render feature
+            var hullMat = Mats.Unlit("ball_hull", new Color(0.015f, 0.02f, 0.05f));
+            hullMat.SetFloat("_Cull", 1f);
+            var hull = new GameObject("BallOutline");
+            hull.transform.SetParent(go.transform, false);
+            hull.transform.localScale = Vector3.one * 1.1f;
+            hull.AddComponent<MeshFilter>().sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            var hr = hull.AddComponent<MeshRenderer>();
+            hr.sharedMaterial = hullMat;
+            hr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            hr.receiveShadows = false;
             return go;
         }
 
@@ -65,7 +78,7 @@ namespace Tobe.View
             trailMat = Mats.Particle("ball_trail2", ProcTex.TrailTex, true);
             trail.sharedMaterial = trailMat;
             trail.time = 0.28f;
-            trail.widthMultiplier = 0.2f;
+            trail.widthMultiplier = 0.13f;
             trail.widthCurve = new AnimationCurve(new Keyframe(0f, 0.25f), new Keyframe(0.12f, 1f), new Keyframe(1f, 0f));
             trail.minVertexDistance = 0.05f;
             trail.numCornerVertices = 3; trail.numCapVertices = 3;
@@ -78,7 +91,7 @@ namespace Tobe.View
             coreGo.transform.SetParent(ball, false);
             core = coreGo.AddComponent<TrailRenderer>();
             core.sharedMaterial = Mats.Particle("ball_trail_core", ProcTex.TrailTex, true);
-            core.time = 0.18f; core.widthMultiplier = 0.07f; core.minVertexDistance = 0.04f;
+            core.time = 0.18f; core.widthMultiplier = 0.05f; core.minVertexDistance = 0.04f;
             core.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
             core.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; core.receiveShadows = false;
             core.emitting = false;
@@ -178,11 +191,11 @@ namespace Tobe.View
             }
             else if (b.mini) power = 0.45f;
 
-            bool fast = sp > 9f;
+            bool fast = sp > 11f;
             trail.emitting = fast || power > 0f;
             if (trail.emitting)
             {
-                trail.widthMultiplier = 0.2f + power * 0.2f;
+                trail.widthMultiplier = 0.13f + power * 0.2f;
                 trail.time = 0.28f + power * 0.25f;
                 if (power > 0f)
                 {
@@ -191,7 +204,7 @@ namespace Tobe.View
                 }
                 else
                 {
-                    trail.startColor = new Color(1f, 1f, 1f, 0.45f);
+                    trail.startColor = new Color(1f, 1f, 1f, 0.3f);
                     trail.endColor = new Color(1f, 1f, 1f, 0f);
                 }
             }
@@ -199,7 +212,7 @@ namespace Tobe.View
             core.emitting = trail.emitting;
             if (core.emitting)
             {
-                core.startColor = new Color(1f, 1f, 1f, power > 0f ? 1f : 0.55f);
+                core.startColor = new Color(1f, 1f, 1f, power > 0f ? 1f : 0.35f);
                 core.endColor = new Color(c2.r, c2.g, c2.b, 0f);
                 core.widthMultiplier = 0.07f + power * 0.06f;
             }
@@ -218,7 +231,7 @@ namespace Tobe.View
 
             glowLight.color = c1;
             glowLight.range = fin ? 6f : 3f;
-            glowLight.intensity = power * (fin ? 3f : 1.5f) * (0.85f + 0.15f * Mathf.Sin(Time.time * 20f));
+            glowLight.intensity = power * (fin ? 6f : 3f) * (0.85f + 0.15f * Mathf.Sin(Time.time * 20f));
             glowEm.enabled = power > 0f;
             if (power > 0f)
             {
@@ -231,10 +244,10 @@ namespace Tobe.View
 
             // blob shadow
             float h = Mathf.Max(0f, smPos.y);
-            float size = Mathf.Clamp(0.32f + h * 0.07f, 0.32f, 0.9f);
+            float size = Mathf.Clamp(0.42f + h * 0.06f, 0.42f, 1.0f);
             shadow.position = new Vector3(smPos.x, 0.015f, smPos.z);
             shadow.localScale = new Vector3(size, size, 1f);
-            Mats.SetColor(shadowMat, new Color(0f, 0f, 0f, 0.6f / (1f + h * 0.35f)));
+            Mats.SetColor(shadowMat, new Color(0f, 0f, 0.02f, 0.75f / (1f + h * 0.25f)));
         }
 
         void UpdateLanding(MatchView view)
@@ -245,14 +258,14 @@ namespace Tobe.View
             if (!on) return;
             bool danger = false;
             if (view.TryGetLocal(out var lp)) danger = Court.OnSide(lp.team, view.landing.z);
-            Color c = danger ? new Color(1f, 0.15f, 0.15f) : new Color(0.1f, 0.9f, 1f);
-            float s = 1.5f + 0.15f * Mathf.Sin(Time.time * 8f);
+            Color c = danger ? new Color(1f, 0.12f, 0.12f) : new Color(0.1f, 0.85f, 1f);
+            float s = 1.7f + 0.15f * Mathf.Sin(Time.time * 8f);
             landRing.position = new Vector3(view.landing.x, 0.035f, view.landing.z);
             landDisc.position = new Vector3(view.landing.x, 0.03f, view.landing.z);
             landRing.localScale = new Vector3(s, s, 1f);
             landDisc.localScale = new Vector3(s * 0.8f, s * 0.8f, 1f);
-            Mats.SetColor(landRingMat, new Color(c.r * 2f, c.g * 2f, c.b * 2f, 1f));
-            Mats.SetColor(landDiscMat, new Color(c.r, c.g, c.b, 0.22f));
+            Mats.SetColor(landRingMat, new Color(c.r * 1.3f, c.g * 1.3f, c.b * 1.3f, 1f));
+            Mats.SetColor(landDiscMat, new Color(c.r, c.g, c.b, 0.38f));
         }
 
         void UpdatePlans(MatchView view)
@@ -269,7 +282,7 @@ namespace Tobe.View
                         float s = 0.55f + Mathf.Clamp01(pl.timeLeft) * 0.9f;
                         planRing[i].position = new Vector3(pl.point.x, 0.04f, pl.point.z);
                         planRing[i].localScale = new Vector3(s, s, 1f);
-                        Mats.SetColor(planMat[i], new Color(1f, 0.82f, 0.2f) * 2.2f);
+                        Mats.SetColor(planMat[i], new Color(1f, 0.82f, 0.2f) * 1.4f);
                         bool atk = pl.kind == PlanKind.Attack;
                         beam[i].enabled = atk;
                         if (atk)

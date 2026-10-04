@@ -28,7 +28,7 @@ namespace Tobe.View
             var woodAlbedo = Mats.Res<Texture2D>("Textures/floor_wood_albedo");
             var woodNormal = Mats.Res<Texture2D>("Textures/floor_wood_normal");
             var baseTex = ProcTex.FloorBase(woodAlbedo != null);
-            var mat = Mats.Lit("floor_v2", Color.white, 0.62f, 0f, null, baseTex, false, true);
+            var mat = Mats.Lit("floor_v3", new Color(0.92f, 0.9f, 0.88f), 0.28f, 0f, null, baseTex, false, true);
             var nrm = ProcTex.FloorNormal();
             mat.SetTexture("_BumpMap", nrm);
             mat.SetFloat("_BumpScale", 0.9f);
@@ -57,7 +57,7 @@ namespace Tobe.View
         {
             var b = new MeshBatch("CourtLines");
             var white = Mats.Unlit("court_line", new Color(0.96f, 0.96f, 0.93f));
-            const float w = 0.05f, y = 0.009f;
+            const float w = 0.06f, y = 0.012f;
             float W = Court.Width, L = Court.Length;
             void Seg(float x0, float z0, float x1, float z1)
             {

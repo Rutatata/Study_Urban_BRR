@@ -298,7 +298,7 @@ namespace Tobe.View
             int strip = Mathf.Clamp(Mathf.FloorToInt(s), 0, 2);
             float fs = s - Mathf.Floor(s);
             bool yellow = ((strip + (face % 3 == 0 ? 1 : 0)) & 1) == 0;
-            Color c = yellow ? new Color(1f, 0.80f, 0.08f) : new Color(0.08f, 0.32f, 0.86f);
+            Color c = yellow ? new Color(1f, 0.78f, 0.0f) : new Color(0.04f, 0.26f, 0.95f);
             float edge = Mathf.Min(fs, 1f - fs) / 3f * 2.68f;                      // approx. distance in face units
             float face_edge = 1f - Mathf.Max(Mathf.Abs(p), Mathf.Abs(q));
             seam = Mathf.Min(edge * 1.4f, face_edge * 1.1f);

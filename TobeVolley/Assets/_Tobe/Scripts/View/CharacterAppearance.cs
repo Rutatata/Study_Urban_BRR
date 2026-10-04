@@ -396,26 +396,77 @@ namespace Tobe.View
         {
             Transform bone = g.chest ?? g.spine ?? g.hips;
             if (bone == null || g.hips == null || g.neck == null) return;
-            string txt = Mathf.Clamp(p.number, (byte)0, (byte)99).ToString();
+            int n = Mathf.Clamp(p.number, (byte)0, (byte)99);
             float S = g.S;
             Vector3 P = Vector3.Lerp(g.hips.position, g.neck.position, 0.64f);
             Color numCol = Luma(shirt) > 0.5f ? Color.Lerp(trim, new Color(0.05f, 0.1f, 0.2f), 0.35f) : (Luma(trim) > 0.35f ? trim : Color.white);
-            Color shadow = Luma(numCol) > 0.5f ? new Color(0.05f, 0.05f, 0.08f, 0.9f) : new Color(1f, 1f, 1f, 0.85f);
+            Color outline = Luma(numCol) > 0.5f ? new Color(0.05f, 0.05f, 0.08f) : Color.white;
             float back = g.fallback ? 0.2f : 0.115f, front = g.fallback ? 0.2f : 0.125f;
+            MeasureTorso(g, P, ref back, ref front);
 
-            MakeNumber(bone, txt, P - g.fwd * back * S, Quaternion.LookRotation(g.fwd, Vector3.up), 0.0345f * S, numCol, shadow, S);
-            MakeNumber(bone, txt, P + g.fwd * front * S + Vector3.up * 0.06f * S, Quaternion.LookRotation(-g.fwd, Vector3.up), 0.0165f * S, numCol, shadow, S);
+            var mat = JerseyNumbers.Material(n, numCol, outline, out float aspect);
+            const float gap = 0.006f;     // decal floats just above the cloth (+ the ink outline of the shirt material)
+            Decal(bone, mat, P - g.fwd * (back + gap * S), Quaternion.LookRotation(g.fwd, Vector3.up), 0.15f * S * aspect, 0.15f * S);
+            Decal(bone, mat, P + g.fwd * (front + gap * S) + Vector3.up * 0.06f * S, Quaternion.LookRotation(-g.fwd, Vector3.up), 0.062f * S * aspect, 0.062f * S);
         }
 
-        static void MakeNumber(Transform bone, string txt, Vector3 pos, Quaternion rot, float charSize, Color col, Color shadow, float S)
+        static void Decal(Transform bone, Material mat, Vector3 pos, Quaternion rot, float w, float h)
         {
-            var holder = new GameObject("TG_Number").transform;
-            holder.position = pos; holder.rotation = rot;
-            var sh = Mats.Text(holder, txt, charSize, 64, shadow);
-            sh.transform.localPosition = new Vector3(0.0035f * S, -0.0035f * S, 0.0035f * S);
-            var tm = Mats.Text(holder, txt, charSize, 64, col);
-            tm.transform.localPosition = Vector3.zero;
-            holder.SetParent(bone, true);
+            var q = Mats.Quad("TG_Number", null, Vector3.zero, Vector3.zero, new Vector3(w, h, 1f), mat);
+            q.transform.SetPositionAndRotation(pos, rot);
+            q.transform.SetParent(bone, true);
+        }
+
+        /// <summary>Finds how far the shirt surface reaches behind / in front of point P (along the body's forward axis) from the real mesh vertices.</summary>
+        static void MeasureTorso(Rig g, Vector3 P, ref float back, ref float front)
+        {
+            try
+            {
+                float S = g.S;
+                Vector3 right = Vector3.Cross(Vector3.up, g.fwd);
+                float maxBack = -1f, maxFront = -1f; int hits = 0;
+                var list = new List<Vector3>();
+                Mesh tmp = null;
+                foreach (var r in g.root.GetComponentsInChildren<Renderer>(false))
+                {
+                    if (r is ParticleSystemRenderer || InGear(r.transform)) continue;
+                    bool shirtMat = false;
+                    foreach (var m in r.sharedMaterials) if (m != null && Classify(m.name) == Part.Shirt) { shirtMat = true; break; }
+                    if (!shirtMat) continue;
+                    list.Clear();
+                    if (r is SkinnedMeshRenderer sk)
+                    {
+                        if (tmp == null) tmp = new Mesh();
+                        sk.BakeMesh(tmp, true);
+                        var vs = tmp.vertices;
+                        var rt = sk.transform;
+                        // BakeMesh(useScale) differs between versions: pick the interpretation that matches the renderer bounds
+                        float hb = 0f; { float lo = float.MaxValue, hi = float.MinValue; foreach (var v in vs) { lo = Mathf.Min(lo, v.y); hi = Mathf.Max(hi, v.y); } hb = hi - lo; }
+                        Vector3 sc = Vector3.one;
+                        if (hb > 1e-4f && Mathf.Abs(sk.bounds.size.y / hb - 1f) > 0.25f) sc = rt.lossyScale;
+                        var M = Matrix4x4.TRS(rt.position, rt.rotation, sc);
+                        foreach (var v in vs) list.Add(M.MultiplyPoint3x4(v));
+                    }
+                    else if (r.TryGetComponent<MeshFilter>(out var mf) && mf.sharedMesh != null)
+                    {
+                        var M = r.transform.localToWorldMatrix;
+                        foreach (var v in mf.sharedMesh.vertices) list.Add(M.MultiplyPoint3x4(v));
+                    }
+                    foreach (var w in list)
+                    {
+                        Vector3 d = w - P;
+                        if (Mathf.Abs(d.y) > 0.06f * S || Mathf.Abs(Vector3.Dot(d, right)) > 0.09f * S) continue;
+                        float z = Vector3.Dot(d, g.fwd);
+                        hits++;
+                        if (-z > maxBack) maxBack = -z;
+                        if (z > maxFront) maxFront = z;
+                    }
+                }
+                if (tmp != null) Object.Destroy(tmp);
+                if (hits >= 6 && maxBack > 0.04f * S && maxBack < 0.3f * S) back = maxBack;
+                if (hits >= 6 && maxFront > 0.04f * S && maxFront < 0.3f * S) front = maxFront;
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Tobe] torso measure failed: " + e.Message); }
         }
 
         // ------------------------------------------------------------------ build (body thickness)

@@ -179,7 +179,7 @@ namespace Tobe.View
 
             // --- flash via post exposure
             if (flash > 0f) flash = Mathf.Max(0f, flash - dt * 3f);
-            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(flash * 2.5f);
+            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f);
         }
 
         float Noise(float t, float seedOff) => (Mathf.PerlinNoise(t, noiseSeed + seedOff * 17.3f) - 0.5f) * 2f;

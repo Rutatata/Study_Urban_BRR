@@ -23,33 +23,33 @@ namespace Tobe.View
     {
         public static Material Steel => Mats.Toon("env_steel", new Color(0.34f, 0.37f, 0.45f), new Color(0.15f, 0.17f, 0.26f), false, null, 0.2f);
         public static Material SteelDark => Mats.Toon("env_steel_dark", new Color(0.16f, 0.17f, 0.23f), new Color(0.07f, 0.08f, 0.13f), false, null, 0.2f);
-        public static Material Wall => Mats.Toon("env_wall", new Color(0.82f, 0.83f, 0.94f), new Color(0.62f, 0.64f, 0.82f), true, null, 0.35f);
+        public static Material Wall => Mats.Toon("env_wall", new Color(0.50f, 0.54f, 0.76f), new Color(0.32f, 0.35f, 0.56f), true, null, 0.35f);
         public static Material WallDeep => Mats.Toon("env_wall_deep", new Color(0.30f, 0.34f, 0.55f), new Color(0.18f, 0.20f, 0.38f), true, null, 0.35f);
         public static Material Ceiling => Mats.Toon("env_ceiling", new Color(0.20f, 0.22f, 0.34f), new Color(0.10f, 0.11f, 0.20f), true, null, 0.3f);
         public static Material OuterFloor => Mats.Toon("env_outer_floor", new Color(0.12f, 0.12f, 0.20f), new Color(0.06f, 0.06f, 0.12f), true);
         public static Material StandA => Mats.Toon("env_stand_a", new Color(0.30f, 0.33f, 0.50f), new Color(0.18f, 0.20f, 0.34f), false, null, 0.3f);
         public static Material StandB => Mats.Toon("env_stand_b", new Color(0.24f, 0.27f, 0.43f), new Color(0.14f, 0.16f, 0.30f), false, null, 0.3f);
-        public static Material StandStep => Mats.Toon("env_stand_step", new Color(0.78f, 0.80f, 0.88f), new Color(0.55f, 0.57f, 0.70f));
+        public static Material StandStep => Mats.Toon("env_stand_step", new Color(0.52f, 0.55f, 0.68f), new Color(0.34f, 0.36f, 0.50f));
         public static Material Orange => Mats.Toon("env_orange", Hall.Orange, new Color(0.75f, 0.30f, 0.04f));
         public static Material TealM => Mats.Toon("env_teal", Hall.Teal, new Color(0.05f, 0.40f, 0.45f));
-        public static Material White => Mats.Toon("env_white", new Color(0.96f, 0.96f, 0.98f), new Color(0.70f, 0.74f, 0.88f));
+        public static Material White => Mats.Toon("env_white", new Color(0.90f, 0.91f, 0.95f), new Color(0.58f, 0.62f, 0.80f));
         public static Material Black => Mats.Toon("env_black", new Color(0.10f, 0.10f, 0.13f), new Color(0.04f, 0.04f, 0.07f));
         public static Material Red => Mats.Toon("env_red", new Color(0.85f, 0.12f, 0.18f), new Color(0.5f, 0.05f, 0.12f));
         public static Material Blue => Mats.Toon("env_blue", new Color(0.12f, 0.30f, 0.85f), new Color(0.06f, 0.14f, 0.5f));
         public static Material Wood => Mats.Toon("env_wood", new Color(0.78f, 0.52f, 0.28f), new Color(0.50f, 0.30f, 0.16f));
         public static Material Pad(string key, Color c, Color shade) => Mats.Toon("env_pad_" + key, c, new Mats.ToonOpts { shade = shade, tex = ProcTex.PadTex(), shift = 0.25f, doubleSided = true });
 
-        public static Material Lamp => Mats.Unlit("env_lamp", new Color(2.6f, 2.4f, 1.9f));
-        public static Material LedOrange => Mats.Unlit("env_led_o", new Color(2.4f, 1.15f, 0.2f));
-        public static Material LedTeal => Mats.Unlit("env_led_t", new Color(0.3f, 2.0f, 2.0f));
-        public static Material LedWhite => Mats.Unlit("env_led_w", new Color(1.6f, 1.6f, 1.7f));
-        public static Material Glass => Mats.Unlit("env_window", new Color(1.7f, 1.6f, 1.35f), ProcTex.WindowTex(), false, false, true);
+        public static Material Lamp => Mats.Unlit("env_lamp", new Color(1.5f, 1.4f, 1.15f));
+        public static Material LedOrange => Mats.Unlit("env_led_o", new Color(1.7f, 0.85f, 0.15f));
+        public static Material LedTeal => Mats.Unlit("env_led_t", new Color(0.2f, 1.4f, 1.4f));
+        public static Material LedWhite => Mats.Unlit("env_led_w", new Color(1.2f, 1.2f, 1.3f));
+        public static Material Glass => Mats.Unlit("env_window", new Color(1.1f, 1.05f, 0.9f), ProcTex.WindowTex(), false, false, true);
         /// <summary>Unlit, multiplies by baked vertex colors (crowd, figures, pennants).</summary>
-        public static Material Vc => Mats.VertexColorOpaque("env_vc", Color.white);
+        public static Material Vc => Mats.VertexColorOpaque("env_vc2", new Color(0.82f, 0.82f, 0.86f));
         public static Material Shaft => Mats.AdditiveVertex("env_shaft");
         public static Material Pool => Mats.AdditiveVertex("env_pool", Mats.SoftDot);
 
-        public static Material Ad(int i) => Mats.Unlit("env_ad" + i, new Color(1.15f, 1.15f, 1.15f), ProcTex.AdTex(i));
+        public static Material Ad(int i) => Mats.Unlit("env_ad" + i, new Color(0.9f, 0.9f, 0.9f), ProcTex.AdTex(i));
     }
 
     /// <summary>Low-poly blocky people for the arena (unlit, vertex-color shaded).</summary>

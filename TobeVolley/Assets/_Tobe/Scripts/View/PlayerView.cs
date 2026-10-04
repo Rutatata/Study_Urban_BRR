@@ -1,4 +1,4 @@
-// Visual for one player: model, colors, smoothing, ring / chevron / nameplate, aura, landing dust.
+// Visual for one player: model, colors, smoothing, ring / chevron, aura, landing dust. Nameplates live in NameplateLayer (screen space).
 using System;
 using UnityEngine;
 
@@ -9,9 +9,12 @@ namespace Tobe.View
         public int Id { get; private set; }
         public Vector3 VisualPos => smPos;
         public float VisualYaw => smYaw;
+        /// <summary>True once a real model (VRM clone or the fallback humanoid) is attached. Nothing is drawn before that (no capsule placeholders).</summary>
+        public bool HasModel => model != null;
+        public float HeadHeight { get; private set; } = 2.05f;
 
         Transform visual;
-        GameObject model, placeholder;
+        GameObject model;
         ProceduralPoser poser;        // fallback animation (no mocap / non-humanoid model / animator failure)
         PlayerAnimator pa;            // mocap + key-pose animation
         bool usingPa;
@@ -19,8 +22,6 @@ namespace Tobe.View
         int curAppear = -1;
         Transform ring, chevron;
         Material ringMat, chevMat;
-        TextMesh plate;
-        string plateText;
         ParticleSystem aura;
         ParticleSystem.EmissionModule auraEm;
 
@@ -46,19 +47,18 @@ namespace Tobe.View
             visual = new GameObject("Visual").transform;
             visual.SetParent(transform, false);
 
-            placeholder = Mats.Prim(PrimitiveType.Capsule, visual, "Placeholder", new Vector3(0, 0.9f, 0), new Vector3(0.5f, 0.9f, 0.5f),
-                Mats.Lit("placeholder", new Color(0.6f, 0.6f, 0.7f), 0.3f), true);
+            visual.gameObject.SetActive(false);       // shown when the model arrives
 
             // ground ring (world-space aligned, positioned each frame)
             ringMat = Mats.Instance(Mats.Unlit("pv_ring", Color.white, Mats.RingTex, true, true));
             ring = Mats.FloorQuad("Ring", transform, Vector3.zero, 1.4f, 1.4f, ringMat).transform;
 
             chevMat = Mats.Instance(Mats.Unlit("pv_chev", Color.white, Mats.ChevronTex, true, true));
-            chevron = Mats.Quad("Chevron", transform, Vector3.zero, Vector3.zero, new Vector3(0.45f, 0.45f, 1f), chevMat).transform;
+            chevron = Mats.Quad("Chevron", transform, Vector3.zero, Vector3.zero, new Vector3(0.3f, 0.3f, 1f), chevMat).transform;
             chevron.gameObject.SetActive(false);
 
-            plate = Mats.Text(transform, "", 0.04f, 64, Color.white);
-            plate.gameObject.SetActive(false);
+            ring.gameObject.SetActive(false);
+            chevron.gameObject.SetActive(false);
 
             BuildAura();
             ApplyProfileChanges(s, true);
@@ -127,6 +127,7 @@ namespace Tobe.View
         {
             if (model != null) Destroy(model);
             model = go;
+            model.SetActive(true);
             model.transform.SetParent(visual, false);
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
@@ -146,6 +147,7 @@ namespace Tobe.View
                 float s = 1.8f / b.size.y;
                 model.transform.localScale = Vector3.one * s;
             }
+            HeadHeight = 2.0f * Mathf.Max(0.9f, curProfile.HeightScale);
             CharacterLibrary.Recolor(model, curTeam, HairColor(curHair));
 
             ApplyAppearance();
@@ -163,7 +165,7 @@ namespace Tobe.View
             poser = model.GetComponent<ProceduralPoser>();
             if (poser == null) poser = model.AddComponent<ProceduralPoser>();
             poser.Init(model);
-            if (placeholder != null) placeholder.SetActive(false);
+            visual.gameObject.SetActive(true);
         }
 
         /// <summary>Character editor / roster changes: proportions, gear etc. are applied by CharacterAppearance (written elsewhere).</summary>
@@ -231,6 +233,10 @@ namespace Tobe.View
                 FxManager.Instance.Dust(smPos, Mathf.Clamp01(Mathf.Abs(s.vel.y) / 6f + 0.3f));
             wasAir = s.air;
 
+            // nothing is drawn until the model exists
+            ring.gameObject.SetActive(model != null);
+            if (model == null) { chevron.gameObject.SetActive(false); return; }
+
             // ground ring
             var def = Styles.Get(s.profile.style);
             Color trim = TeamLook.Trim[Mathf.Clamp(s.team, 0, 1)];
@@ -239,29 +245,21 @@ namespace Tobe.View
             if (local)
             {
                 Color gold = new Color(1f, 0.82f, 0.2f);
-                Mats.SetColor(ringMat, gold * 2.2f);
+                Mats.SetColor(ringMat, gold * 1.4f);
                 ring.localScale = new Vector3(1.8f * pulse, 1.8f * pulse, 1f);
             }
             else
             {
-                Mats.SetColor(ringMat, trim * 1.5f);
+                Mats.SetColor(ringMat, trim * 1.2f);
                 ring.localScale = new Vector3(1.3f, 1.3f, 1f);
             }
 
-            // chevron + nameplate (billboards finished in LateUpdate)
+            // local-player marker (billboard finished in LateUpdate); other players get a screen-space plate from NameplateLayer
             chevron.gameObject.SetActive(local);
             if (local)
             {
-                Mats.SetColor(chevMat, new Color(1f, 0.82f, 0.2f) * 2f);
-                chevron.position = smPos + new Vector3(0f, 2.45f + 0.08f * Mathf.Sin(Time.time * 4f), 0f);
-            }
-            plate.gameObject.SetActive(!local);
-            if (!local)
-            {
-                string txt = "#" + s.profile.number + " " + s.profile.nick;
-                if (txt != plateText) { plateText = txt; plate.text = txt; }
-                plate.color = Color.Lerp(Color.white, trim, 0.45f);
-                plate.transform.position = smPos + new Vector3(0f, 2.2f, 0f);
+                Mats.SetColor(chevMat, new Color(1f, 0.82f, 0.2f) * 1.4f);
+                chevron.position = smPos + new Vector3(0f, HeadHeight + 0.35f + 0.06f * Mathf.Sin(Time.time * 4f), 0f);
             }
 
             // aura
@@ -281,7 +279,6 @@ namespace Tobe.View
             if (cam == null) return;
             Quaternion q = cam.transform.rotation;
             if (chevron != null && chevron.gameObject.activeSelf) chevron.rotation = q;
-            if (plate != null && plate.gameObject.activeSelf) plate.transform.rotation = q;
         }
     }
 }

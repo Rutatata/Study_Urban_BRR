@@ -60,10 +60,10 @@ namespace Tobe.View
             var shaft = Env.Shaft;
             if (shaft != null)
             {
-                float k = 0.88f + 0.12f * Mathf.Sin(tm * 0.7f) + e * 0.3f;
+                float k = 0.85f + 0.1f * Mathf.Sin(tm * 0.7f) + e * 0.1f;
                 Mats.SetColor(shaft, new Color(k, k, k, 1f));
             }
-            if (ArenaBuilder.BloomFx != null) ArenaBuilder.BloomFx.intensity.Override(0.85f + e * 0.45f);
+            if (ArenaBuilder.BloomFx != null) ArenaBuilder.BloomFx.intensity.Override(ArenaBuilder.BaseBloom + e * 0.12f);
 
             UpdateScoreboard();
         }

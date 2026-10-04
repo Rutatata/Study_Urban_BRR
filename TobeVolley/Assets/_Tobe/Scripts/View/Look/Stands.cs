@@ -8,15 +8,15 @@ namespace Tobe.View
     {
         static readonly Color[] Neutral =
         {
-            new Color(0.9f,0.15f,0.15f), new Color(0.15f,0.4f,0.95f), new Color(0.95f,0.8f,0.15f), new Color(0.95f,0.95f,0.95f),
-            new Color(0.15f,0.8f,0.4f), new Color(0.9f,0.4f,0.9f), new Color(0.2f,0.85f,0.9f), new Color(0.5f,0.5f,0.58f), new Color(0.95f,0.55f,0.65f),
+            new Color(0.9f,0.15f,0.15f), new Color(0.15f,0.4f,0.95f), new Color(0.95f,0.8f,0.15f), new Color(0.72f,0.78f,0.92f),
+            new Color(0.15f,0.8f,0.4f), new Color(0.9f,0.4f,0.9f), new Color(0.2f,0.85f,0.9f), new Color(0.34f,0.36f,0.50f), new Color(0.95f,0.55f,0.65f),
         };
         static readonly Color[] Skin =
         {
             new Color(0.96f,0.8f,0.66f), new Color(0.85f,0.65f,0.5f), new Color(0.7f,0.5f,0.36f), new Color(0.5f,0.34f,0.24f), new Color(0.98f,0.86f,0.75f), new Color(0.9f,0.72f,0.58f),
         };
-        static readonly Color[] Team0Shirts = { new Color(0.1f, 0.1f, 0.13f), new Color(0.1f, 0.1f, 0.13f), new Color(0.1f, 0.1f, 0.13f), new Color(1f, 0.52f, 0.08f), new Color(1f, 0.52f, 0.08f), new Color(0.95f, 0.95f, 0.95f) };
-        static readonly Color[] Team1Shirts = { new Color(0.97f, 0.97f, 0.98f), new Color(0.97f, 0.97f, 0.98f), new Color(0.97f, 0.97f, 0.98f), new Color(0.12f, 0.72f, 0.70f), new Color(0.12f, 0.72f, 0.70f), new Color(0.1f, 0.25f, 0.35f) };
+        static readonly Color[] Team0Shirts = { new Color(0.1f, 0.1f, 0.13f), new Color(0.1f, 0.1f, 0.13f), new Color(0.1f, 0.1f, 0.13f), new Color(1f, 0.52f, 0.08f), new Color(1f, 0.52f, 0.08f), new Color(0.72f, 0.78f, 0.92f) };
+        static readonly Color[] Team1Shirts = { new Color(0.62f, 0.80f, 0.90f), new Color(0.62f, 0.80f, 0.90f), new Color(0.62f, 0.80f, 0.90f), new Color(0.12f, 0.72f, 0.70f), new Color(0.12f, 0.72f, 0.70f), new Color(0.1f, 0.25f, 0.35f) };
 
         const float Spacing = 0.6f;
         const int PerChunk = 46;

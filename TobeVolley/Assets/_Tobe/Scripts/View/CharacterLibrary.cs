@@ -1,5 +1,14 @@
-// Finds and loads character models (VRM from StreamingAssets/Characters, or a primitive-built fallback).
+// Finds and preloads character models (VRM from StreamingAssets/Characters, or a primitive-built fallback).
+// Every model file is loaded ONCE as a hidden template (during the main menu); players get cheap clones of it.
+//
+// Why cloning a loaded Vrm10Instance is safe here (checked against UniVRM 0.131 sources):
+//  * the clone's RuntimeGltfInstance is removed (its resources stay owned by the template) so Vrm10Instance takes its "scene prefab instance" path:
+//    initial pose is read from the transforms and a standalone FastSpringBone runtime is created in Start (the runtime fields are not serialized, so
+//    nothing is shared with the template). The template itself was loaded with a no-op spring bone runtime and stays inactive.
+//  * meshes / textures / Avatar / VRM10Object stay shared with the template (never destroyed while the game runs); materials are duplicated per clone
+//    (ModelMaterialOwner destroys them), so recoloring never leaks between players.
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -9,8 +18,12 @@ namespace Tobe.View
 {
     public static class CharacterLibrary
     {
+        sealed class Entry { public Task<GameObject> task; public bool done, failed; }
+
         static string[] paths = new string[0];
-        static bool scanned;
+        static bool scanned, preloadStarted;
+        static readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
+        static Transform templateRoot;
 
         public static string Dir => Path.Combine(Application.streamingAssetsPath, "Characters");
 
@@ -32,26 +45,140 @@ namespace Tobe.View
             GameHub.ModelNames = names;
         }
 
-        /// <summary>Loads model #index (VRM) or builds the fallback humanoid. Never returns null.</summary>
-        public static async Task<GameObject> LoadModel(int index)
+        static string PathOf(int index)
         {
             if (!scanned || paths.Length == 0) Scan();
-            if (paths.Length > 0)
+            if (paths.Length == 0) return null;
+            return paths[((index % paths.Length) + paths.Length) % paths.Length];
+        }
+
+        /// <summary>True when model #index can be cloned instantly (template loaded, or there is nothing to load / it failed -> fallback).</summary>
+        public static bool IsReady(int index)
+        {
+            string path = PathOf(index);
+            if (path == null) return true;
+            return entries.TryGetValue(path, out var e) && e.done;
+        }
+
+        /// <summary>True when every model file has finished loading (or failed).</summary>
+        public static bool AllReady
+        {
+            get
             {
-                string path = paths[((index % paths.Length) + paths.Length) % paths.Length];
+                if (!scanned) return false;
+                foreach (var p in paths) if (!entries.TryGetValue(p, out var e) || !e.done) return false;
+                return true;
+            }
+        }
+
+        /// <summary>Starts loading every model file one after another (call at startup, the main menu hides the work).</summary>
+        public static void Preload()
+        {
+            if (preloadStarted) return;
+            preloadStarted = true;
+            if (!scanned) Scan();
+            PreloadAll();
+        }
+
+        static async void PreloadAll()
+        {
+            foreach (var p in (string[])paths.Clone())
+            {
+                try { await GetTemplate(p); }
+                catch (Exception e) { Debug.LogWarning("[Tobe] preload failed (" + p + "): " + e.Message); }
+            }
+        }
+
+        static Task<GameObject> GetTemplate(string path)
+        {
+            if (entries.TryGetValue(path, out var e)) return e.task;
+            e = new Entry();
+            entries[path] = e;
+            e.task = LoadTemplate(path, e);
+            return e.task;
+        }
+
+        static async Task<GameObject> LoadTemplate(string path, Entry entry)
+        {
+            GameObject result = null;
+            try
+            {
+                var inst = await Vrm10.LoadPathAsync(path, canLoadVrm0X: true, controlRigGenerationOption: ControlRigGenerationOption.None, showMeshes: true,
+                    materialGenerator: new UrpVrm10MaterialDescriptorGenerator(), springboneRuntime: new Vrm10NopSpringboneRuntime());
+                if (inst != null)
+                {
+                    var rgi = inst.GetComponent<UniGLTF.RuntimeGltfInstance>();
+                    if (rgi != null) rgi.EnableUpdateWhenOffscreen();
+                    var go = inst.gameObject;
+                    go.name = "Template_" + Path.GetFileNameWithoutExtension(path);
+                    if (templateRoot == null)
+                    {
+                        var holder = new GameObject("CharacterTemplates");
+                        UnityEngine.Object.DontDestroyOnLoad(holder);
+                        holder.SetActive(false);
+                        templateRoot = holder.transform;
+                    }
+                    go.SetActive(false);
+                    go.transform.SetParent(templateRoot, false);
+                    CharacterAppearance.StyleMaterials(go);      // outline / rim / ramp, once on the shared materials
+                    result = go;
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning("[Tobe] VRM load failed (" + path + "): " + ex.Message); }
+            entry.failed = result == null;
+            entry.done = true;
+            return result;
+        }
+
+        static GameObject Clone(GameObject template)
+        {
+            var clone = UnityEngine.Object.Instantiate(template);      // template is inactive -> clone is inactive until fixed up
+            clone.name = template.name.Replace("Template_", "Model_");
+            clone.transform.SetParent(null, false);
+
+            // resources stay owned by the template: drop the clone's RuntimeGltfInstance so Vrm10Instance uses its prefab-instance path
+            var rgi = clone.GetComponent<UniGLTF.RuntimeGltfInstance>();
+            if (rgi != null) UnityEngine.Object.DestroyImmediate(rgi);
+
+            // per-clone material instances (shared between renderers of the same clone like the original)
+            var owner = clone.AddComponent<ModelMaterialOwner>();
+            var map = new Dictionary<Material, Material>();
+            foreach (var r in clone.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r is ParticleSystemRenderer) continue;
+                var mats = r.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var src = mats[i];
+                    if (src == null) continue;
+                    if (!map.TryGetValue(src, out var inst))
+                    {
+                        inst = new Material(src) { name = src.name };
+                        map[src] = inst;
+                        owner.Add(inst);
+                    }
+                    mats[i] = inst;
+                    changed = true;
+                }
+                if (changed) r.sharedMaterials = mats;
+            }
+            clone.SetActive(true);
+            return clone;
+        }
+
+        /// <summary>Model #index (a clone of the preloaded VRM template, or the fallback humanoid). Never returns null. The caller owns (and destroys) the result.</summary>
+        public static async Task<GameObject> LoadModel(int index)
+        {
+            string path = PathOf(index);
+            if (path != null)
+            {
                 try
                 {
-                    var inst = await Vrm10.LoadPathAsync(path, canLoadVrm0X: true, controlRigGenerationOption: ControlRigGenerationOption.None, showMeshes: true,
-                        materialGenerator: new UrpVrm10MaterialDescriptorGenerator());
-                    if (inst != null)
-                    {
-                        var rgi = inst.GetComponent<UniGLTF.RuntimeGltfInstance>();
-                        if (rgi != null) rgi.EnableUpdateWhenOffscreen();
-                        CharacterAppearance.StyleMaterials(inst.gameObject);      // outline / rim / ramp
-                        return inst.gameObject;
-                    }
+                    var template = await GetTemplate(path);
+                    if (template != null) return Clone(template);
                 }
-                catch (Exception e) { Debug.LogWarning("[Tobe] VRM load failed (" + path + "): " + e.Message); }
+                catch (Exception e) { Debug.LogWarning("[Tobe] model clone failed (" + path + "): " + e.Message); }
             }
             return BuildFallback();
         }

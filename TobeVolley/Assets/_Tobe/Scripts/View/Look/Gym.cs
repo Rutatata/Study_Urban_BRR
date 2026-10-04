@@ -131,9 +131,9 @@ namespace Tobe.View
                     foreach (float cx in new[] { -1.1f, 1.1f })
                         foreach (float cz in new[] { -0.4f, 0.4f })
                             b.Beam(steel, new Vector3(x + cx, LampY + 0.2f, z + cz), new Vector3(x + cx, TrussBottom, z + cz), 0.03f);
-                    shafts.Cone(Env.Shaft, new Vector3(x, LampY - 0.05f, z), Vector3.down, LampY - 0.05f, 0.7f, 3.4f, 14,
-                        new Color(warm.r, warm.g, warm.b, 0.22f), new Color(warm.r, warm.g, warm.b, 0.015f));
-                    pools.Panel(Env.Pool, new Vector3(x, 0.014f, z), Vector3.up, Vector3.forward, 7.5f, 7.5f, new Color(1f, 0.9f, 0.7f, 0.11f));
+                    // faint shaft only in the roof space (ends high above the camera path); no floor pools
+                    shafts.Cone(Env.Shaft, new Vector3(x, LampY - 0.05f, z), Vector3.down, 4.2f, 0.7f, 2.2f, 12,
+                        new Color(warm.r, warm.g, warm.b, 0.05f), new Color(warm.r, warm.g, warm.b, 0f));
                 }
             b.Flush(parent);
             shafts.Flush(parent);
@@ -164,14 +164,14 @@ namespace Tobe.View
                     b.Box(frame, new Vector3(xf, y0 + (y1 - y0) * 0.38f, z), new Vector3(0.14f, 0.07f, w));
                     b.Box(frame, new Vector3(xf, y0 + (y1 - y0) * 0.72f, z), new Vector3(0.14f, 0.07f, w));
                     // warm sun volume leaning into the hall
-                    Vector3 dir = new Vector3(s * 0.62f, -0.78f, 0.1f) * 11f;
+                    Vector3 dir = new Vector3(s * 0.62f, -0.78f, 0.1f) * 6f;
                     var top = new List<Vector3>
                     {
                         new Vector3(xi, y0, z - w * .5f), new Vector3(xi, y0, z + w * .5f), new Vector3(xi, y1, z + w * .5f), new Vector3(xi, y1, z - w * .5f),
                     };
                     var bot = new List<Vector3>();
                     foreach (var p in top) bot.Add(p + dir + new Vector3(0, 0, (p.z - z) * 0.25f));
-                    sun.Volume(Env.Shaft, top, bot, new Color(1f, 0.82f, 0.5f, 0.2f), new Color(1f, 0.8f, 0.5f, 0f));
+                    sun.Volume(Env.Shaft, top, bot, new Color(1f, 0.82f, 0.5f, 0.045f), new Color(1f, 0.8f, 0.5f, 0f));
                 }
             }
             b.Flush(parent);
@@ -358,13 +358,13 @@ namespace Tobe.View
             main.loop = true;
             main.startLifetime = new ParticleSystem.MinMaxCurve(6f, 10f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(0.02f, 0.12f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.08f);
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.9f, 0.7f, 0.5f), new Color(1f, 1f, 1f, 0.25f));
-            main.maxParticles = 260;
-            var em = ps.emission; em.enabled = true; em.rateOverTime = 36f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.045f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.9f, 0.7f, 0.16f), new Color(1f, 1f, 1f, 0.08f));
+            main.maxParticles = 120;
+            var em = ps.emission; em.enabled = true; em.rateOverTime = 14f;
             var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Box;
-            sh.scale = new Vector3(26f, 9f, 34f);
-            ps.transform.position = new Vector3(Hall.CX, 6f, Hall.CZ);
+            sh.scale = new Vector3(26f, 4f, 34f);
+            ps.transform.position = new Vector3(Hall.CX, 9.5f, Hall.CZ);
             ps.Play();
         }
     }
