@@ -43,23 +43,28 @@ namespace Tobe.View
         // ---------------------------------------------------------------- actions (arm directions in the TORSO frame so they follow arch / lean)
         public static readonly PoseOv SW0 = new PoseOv { uR = V(0.25f, -0.5f, -0.6f), lR = V(0.1f, -0.7f, -0.5f), uL = V(0.25f, -0.5f, -0.6f), lL = V(0.1f, -0.7f, -0.5f), spine = V(12, 0, 0), chest = V(8, 0, 0) };
         public static readonly PoseOv SW1 = new PoseOv { uR = V(0.5f, 0.75f, 0.35f), lR = V(0.3f, 0.8f, 0.3f), uL = V(0.3f, 1f, 0.3f), lL = V(0.15f, 1f, 0.4f), spine = V(-4, 0, 0), chest = V(-6, 0, 0) };
+        // «Натянутый лук»: левая рука прямая и указывает на мяч, правое плечо отведено назад-в сторону, локоть выше плеча,
+        // кисть у уха; корпус прогнут и развёрнут вправо (открыт), голени заведены назад.
         public static readonly PoseOv SW2 = new PoseOv
         {
-            uR = V(0.55f, 0.6f, -0.5f), lR = V(0.15f, 0.55f, -0.8f), uL = V(0.35f, 0.95f, 0.35f), lL = V(0.15f, 1f, 0.4f),
-            spine = V(-12, 0, 0), chest = V(-14, 22, 0), head = V(-6, 0, 0), legW = 0.55f,
-            gUR = V(0.06f, -0.95f, -0.25f), gLR = V(0.03f, -0.5f, -0.85f), gUL = V(0.06f, -0.95f, -0.2f), gLL = V(0.03f, -0.6f, -0.8f)
+            uR = V(0.78f, 0.38f, -0.5f), lR = V(-0.3f, 0.8f, -0.52f), uL = V(0.12f, 0.88f, 0.46f), lL = V(0.06f, 0.86f, 0.5f),
+            spine = V(-12, 8, 0), chest = V(-16, 28, -4), head = V(-10, -18, 0), legW = 0.6f,
+            gUR = V(0.07f, -0.95f, -0.3f), gLR = V(0.03f, -0.45f, -0.9f), gUL = V(0.07f, -0.95f, -0.15f), gLL = V(0.03f, -0.6f, -0.8f)
         };
+        // Контакт: правая рука полностью выпрямлена вверх-вперёд (мяч в высшей точке перед плечом), левая рука прижата к груди,
+        // корпус уже разворачивается влево и начинает складываться, ноги выносятся вперёд.
         public static readonly PoseOv SP1 = new PoseOv
         {
-            uR = V(0.12f, 0.95f, 0.3f), lR = V(0.06f, 1f, 0.15f), uL = V(0.45f, -0.3f, 0.4f), lL = V(0.2f, -0.8f, 0.3f),
-            spine = V(6, 0, 0), chest = V(8, -10, 0), legW = 0.4f,
-            gUR = V(0.06f, -0.95f, -0.1f), gLR = V(0.03f, -0.8f, -0.55f), gUL = V(0.06f, -0.95f, -0.1f), gLL = V(0.03f, -0.8f, -0.55f)
+            uR = V(0.1f, 0.9f, 0.42f), lR = V(0.04f, 0.86f, 0.5f), uL = V(0.3f, -0.55f, 0.6f), lL = V(-0.75f, 0.15f, 0.45f),
+            spine = V(4, -6, 0), chest = V(8, -16, 2), head = V(-12, 4, 0), legW = 0.5f,
+            gUR = V(0.07f, -0.92f, 0.15f), gLR = V(0.03f, -0.75f, -0.6f), gUL = V(0.07f, -0.92f, 0.1f), gLL = V(0.03f, -0.75f, -0.6f)
         };
+        // Проводка: рука хлёстом уходит по диагонали через тело к левому бедру, корпус сложен и развёрнут влево, ноги впереди к приземлению.
         public static readonly PoseOv SP2 = new PoseOv
         {
-            uR = V(0.3f, -0.2f, 0.85f), lR = V(0.15f, -0.6f, 0.8f), uL = V(0.5f, -0.5f, 0.2f), lL = V(0.25f, -0.9f, 0.1f),
-            spine = V(14, 0, 0), chest = V(24, -22, 0), head = V(6, 0, 0), legW = 0.5f,
-            gUR = V(0.06f, -0.8f, 0.55f), gLR = V(0.03f, -0.9f, -0.4f), gUL = V(0.06f, -0.8f, 0.5f), gLL = V(0.03f, -0.9f, -0.4f)
+            uR = V(-0.25f, -0.35f, 0.9f), lR = V(-0.55f, -0.65f, 0.5f), uL = V(0.45f, -0.75f, -0.1f), lL = V(0.2f, -0.95f, 0.1f),
+            spine = V(16, -8, 0), chest = V(24, -26, 0), head = V(10, 6, 0), legW = 0.55f,
+            gUR = V(0.07f, -0.8f, 0.55f), gLR = V(0.03f, -0.9f, -0.35f), gUL = V(0.07f, -0.82f, 0.5f), gLL = V(0.03f, -0.9f, -0.35f)
         };
         public static readonly PoseOv SP3 = new PoseOv { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.2f), lL = V(0.1f, -0.95f, 0.2f), spine = V(8, 0, 0), chest = V(10, 0, 0) };
         public static readonly PoseOv BL0 = new PoseOv { uR = V(0.3f, 0.4f, 0.7f), lR = V(0.2f, 0.4f, 0.8f), uL = V(0.3f, 0.4f, 0.7f), lL = V(0.2f, 0.4f, 0.8f), spine = V(6, 0, 0) };
@@ -79,7 +84,7 @@ namespace Tobe.View
         public static readonly PoseOv SH3 = new PoseOv { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.1f), lL = V(0.1f, -0.95f, 0.2f), spine = V(6, 0, 0), chest = V(6, 0, 0) };
 
         public static readonly PoseOv[] kWind = { SW0, SW1, SW2 };        public static readonly float[] tWind = { 0f, 0.14f, 0.32f };       public static readonly int[] eWind = { 0, 0, 0 };
-        public static readonly PoseOv[] kSpike = { SW2, SP1, SP2, SP3 };  public static readonly float[] tSpike = { 0f, 0.06f, 0.17f, 0.4f }; public static readonly int[] eSpike = { 0, 1, 2, 0 };
+        public static readonly PoseOv[] kSpike = { SW2, SP1, SP2, SP3 };  public static readonly float[] tSpike = { 0f, 0.05f, 0.15f, 0.42f }; public static readonly int[] eSpike = { 0, 1, 2, 0 };
         public static readonly PoseOv[] kBlock = { BL0, BL1, BL2 };       public static readonly float[] tBlock = { 0f, 0.1f, 0.3f };        public static readonly int[] eBlock = { 0, 2, 0 };
         public static readonly PoseOv[] kBump = { BP0, BP1, BP2 };        public static readonly float[] tBump = { 0f, 0.12f, 0.35f };       public static readonly int[] eBump = { 0, 1, 0 };
         public static readonly PoseOv[] kSet = { ST0, ST1, ST2 };         public static readonly float[] tSet = { 0f, 0.1f, 0.22f };         public static readonly int[] eSet = { 0, 0, 1 };
