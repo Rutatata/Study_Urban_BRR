@@ -661,11 +661,11 @@ namespace Tobe.View
                     break;
                 case PoseId.Bump:
                     if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kBump, VolleyKeys.tBump, VolleyKeys.eBump);
-                    if (ground) tgt.hips += V(8f, 0f, 0f) * gaitW;
+                    if (ground) tgt.hips += V(4f, 0f, 0f) * gaitW;
                     break;
                 case PoseId.Set:
                     if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kSet, VolleyKeys.tSet, VolleyKeys.eSet);
-                    if (ground) tgt.hips += V(2f, 0f, 0f) * gaitW;
+                    if (ground) tgt.hips += V(-6f, 0f, 0f) * gaitW;
                     break;
                 case PoseId.ServeToss: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kToss, VolleyKeys.tToss, VolleyKeys.eToss); break;
                 case PoseId.ServeHit: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kHit, VolleyKeys.tHit, VolleyKeys.eHit); break;
@@ -828,7 +828,7 @@ namespace Tobe.View
             float leg = legLocal;
             float footHalf = hipHalf + 0.19f * leg;
             float crouch = Mathf.Lerp(0.84f, 0.88f, gait.moveAmt);
-            if (pose == PoseId.Bump) crouch -= 0.03f; else if (pose == PoseId.Set) crouch += 0.03f;
+            if (pose == PoseId.Bump) crouch -= 0.08f; else if (pose == PoseId.Set) crouch += 0.04f;   // приём: глубоко в коленях; передача: выше
             float homeZ = 0.10f * leg;                                   // feet slightly ahead of the pelvis (hips back, weight on the balls of the feet)
             float dx = footHalf - hipHalf;
             float D = crouch * leg;
