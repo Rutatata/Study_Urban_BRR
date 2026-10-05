@@ -230,10 +230,33 @@ namespace Tobe.View
 
         static int PoseClass(PoseId p) => (p == PoseId.Idle || p == PoseId.Ready || p == PoseId.Run) ? 0 : (int)p + 1;
 
+        /// <summary>Витрина для разработки (меню Tobe/Dev): игрок с этим id проигрывает только указанный клип, без процедурных слоёв.</summary>
+        public static int DevShowId = -1;
+        public static string DevShowClip;
+        public static float DevShowTime = -1f;   // < 0 = клип идёт сам; >= 0 = стоп-кадр в этой секунде
+        float devT;
+
+        bool DevShow(float dt)
+        {
+            if (myId != DevShowId || string.IsNullOrEmpty(DevShowClip)) return false;
+            var c = MotionLibrary.Get(DevShowClip);
+            if (c == null) return false;
+            devT = DevShowTime >= 0f ? DevShowTime : devT + dt;
+            acc.Clear();
+            acc.Add(c, devT, 1f);
+            acc.Finish(hp.muscles, out Vector3 bpos, out Quaternion brot);
+            hp.bodyPosition = bpos; hp.bodyRotation = brot;
+            handler.SetHumanPose(ref hp);
+            AntiCross(dt);
+            Plant(dt);
+            return true;
+        }
+
         void Step()
         {
             float dt = Mathf.Clamp(Time.deltaTime, 0f, 0.1f);
             float tm = Time.time + seed;
+            if (DevShow(dt)) return;
 
             RefreshMetrics();
             if (pose != prevPoseId || Mathf.Abs(poseT - prevPoseT) > 0.2f || firstFrame) poseAge = 0f; else poseAge += dt;   // (re)triggered
@@ -279,6 +302,7 @@ namespace Tobe.View
             ApplyLegs(Rb);
             ApplyGait(Rb, Q, legIkW);
             ApplyArms(Rb);
+            AntiCross(dt);
             Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
             firstFrame = false;
@@ -821,6 +845,43 @@ namespace Tobe.View
                 Quaternion fr = Rb * Quaternion.Euler(pitch, sg * 8f, 0f) * ft.rel;
                 ft.t.rotation = w >= 0.999f ? fr : Quaternion.Slerp(ft.t.rotation, fr, w);
             }
+        }
+
+        // ================================================================== анти-скрещивание ног
+        // Записи CMU сами по себе ставят стопы в линию или крест-накрест («модельная» стойка в idle, танцевальные шаги в celebrate,
+        // ноги в прыжках). Волейболист так не стоит: после любой позы проверяем поперечное расстояние между стопами и, если оно
+        // меньше нормы, поворачиваем каждое бедро наружу. Поправка сглажена во времени, поэтому не дёргается.
+        float crossFix;
+
+        void AntiCross(float dt)
+        {
+            if (ulR == null || ulL == null || ftR == null || ftL == null) return;
+            Vector3 right = ulR.t.position - ulL.t.position; right.y = 0f;
+            float hipW = right.magnitude;
+            if (hipW < 1e-4f) return;
+            right /= hipW;
+            Vector3 pR = ftR.t.position, pL = ftL.t.position;
+            float sep = Vector3.Dot(pR - pL, right);
+            // норма: стоя ~ ширина плеч, на бегу уже (стопы ближе к центру), в воздухе ноги слегка разведены
+            float run = Mathf.Clamp01((speed - 1.5f) / 3f);
+            float want = air ? hipW * 1.25f : Mathf.Lerp(hipW * 1.9f, hipW * 0.55f, run);
+            if (pose == PoseId.Dive) want = hipW * 0.8f;
+            float need = Mathf.Max(0f, want - sep);
+            // быстро догоняем, когда ноги начинают сходиться, и мягко отпускаем
+            crossFix = need > crossFix ? AnimMath.Damp(crossFix, need, 25f, dt) : AnimMath.Damp(crossFix, need, 8f, dt);
+            if (crossFix < 0.002f) return;
+            float half = crossFix * 0.5f;
+            SpreadLeg(ulR.t, pR, right * half);
+            SpreadLeg(ulL.t, pL, -right * half);
+        }
+
+        /// <summary>Поворачивает бедро так, чтобы стопа сместилась на shift (горизонтально), длина ноги не меняется.</summary>
+        static void SpreadLeg(Transform thigh, Vector3 foot, Vector3 shift)
+        {
+            Vector3 v = foot - thigh.position;
+            if (v.sqrMagnitude < 1e-6f) return;
+            Vector3 v2 = (v + shift).normalized * v.magnitude;
+            thigh.rotation = Quaternion.FromToRotation(v, v2) * thigh.rotation;
         }
 
         // ================================================================== foot plant

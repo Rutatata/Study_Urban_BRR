@@ -23,6 +23,36 @@ namespace Tobe.EditorTools
             Debug.Log("[Tobe] DevProbe started: waiting for the match, then WASD script (~9 s).");
         }
 
+        [MenuItem("Tobe/Dev/Ноги: датчик скрещивания (30 с)")]
+        static void RunLegProbe()
+        {
+            if (!EditorApplication.isPlaying) { Debug.LogWarning("[Tobe] Сначала войдите в Play."); return; }
+            StartPractice();
+            LegProbe.Begin();
+            Debug.Log("[Tobe] Датчик ног запущен на 30 с.");
+        }
+
+        /// <summary>Logs/devshow.txt: «номер_игрока имя_клипа секунда» (секунда -1 = клип идёт сам). Пустой файл или «off» = выключить.</summary>
+        [MenuItem("Tobe/Dev/Витрина клипа: применить Logs\\devshow.txt")]
+        static void ApplyDevShow()
+        {
+            string path = System.IO.Path.Combine(Application.dataPath, "..", "Logs", "devshow.txt");
+            string s = System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path).Trim() : "";
+            var a = s.Split(new[] { ' ', '\t', '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (a.Length < 2 || a[0] == "off")
+            {
+                Tobe.View.PlayerAnimator.DevShowId = -1; Tobe.View.PlayerAnimator.DevShowClip = null;
+                NetApi.SetPaused?.Invoke(false);
+                Debug.Log("[Tobe] Витрина выключена.");
+                return;
+            }
+            Tobe.View.PlayerAnimator.DevShowId = int.Parse(a[0]);
+            Tobe.View.PlayerAnimator.DevShowClip = a[1];
+            Tobe.View.PlayerAnimator.DevShowTime = a.Length > 2 ? float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture) : -1f;
+            NetApi.SetPaused?.Invoke(true);
+            Debug.Log($"[Tobe] Витрина: игрок {a[0]}, клип {a[1]}, время {Tobe.View.PlayerAnimator.DevShowTime}");
+        }
+
         [MenuItem("Tobe/Dev/Звуки: что загружено")]
         static void DumpAudio()
         {
