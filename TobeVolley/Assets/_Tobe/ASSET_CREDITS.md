@@ -5,10 +5,14 @@ Source repo for VRoid/Orion: https://github.com/madjin/vrm-samples (mirror of VR
 | File | Model | Author | License | Attribution |
 |---|---|---|---|---|
 | hair_male.vrm | HairSample_Male (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| shino.vrm | Sendagaya_Shino (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| vita.vrm | Vita (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| vivi.vrm | Vivi (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| victoria.vrm | Victoria_Rubin (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| hair_female.vrm | HairSample_Female (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
+| darkness_shibu.vrm | Darkness_Shibu (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
 | sakurada.vrm | Sakurada Fumiriya (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
 | shibu.vrm | Sendagaya Shibu (vroid/beta/) | pixiv Inc. / VRoid Project | CC0 1.0 (embedded meta) | none required |
-| orion.vrm | Orion (Avatar_Orion.vrm) | Polygonal Mind (www.PolygonalMind.com) | CC0 1.0 (embedded meta) | none required |
-| seedsan.vrm | Seed-san | VirtualCast, Inc. | VRM Public License 1.0 (https://vrm.dev/licenses/1.0/); redistribution + modification allowed, credit required | "Seed-san model by VirtualCast, Inc." (https://github.com/vrm-c/vrm-specification/tree/master/samples/Seed-san) |
 
 ## Звуки (Assets/_Tobe/Resources/Audio/)
 Записи скачал владелец проекта (Rutatata) 04.10.2026 с Pixabay Sound Effects / Freesound, фильтр CC0 (свободное использование, указание автора не требуется):
@@ -17,6 +21,8 @@ whistle.wav, crowd_loop.wav, cheer.wav, spike.mp3, bump.wav, set.mp3, net.wav, f
 
 click.ogg: Kenney Starter Kit City Builder, sounds/toggle.ogg (https://github.com/KenneyNL/Starter-Kit-City-Builder), MIT License, Copyright (c) Kenney (https://kenney.nl).
 ui_whoosh.wav: сгенерирован процедурно (numpy) самим проектом, CC0.
+
+Модели orion и seedsan (роботы) убраны из игры 05.10.2026, вместо них шесть аниме-моделей VRoid с лицензией CC0 из того же репозитория.
 
 ## Motion capture (Assets/StreamingAssets/Motions/)
 "The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217."

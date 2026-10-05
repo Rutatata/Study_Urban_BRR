@@ -234,11 +234,19 @@ namespace Tobe.View
         public static int DevShowId = -1;
         public static string DevShowClip;
         public static float DevShowTime = -1f;   // < 0 = клип идёт сам; >= 0 = стоп-кадр в этой секунде
-        float devT;
+        float devT; bool devPose;
 
         bool DevShow(float dt)
         {
             if (myId != DevShowId || string.IsNullOrEmpty(DevShowClip)) return false;
+            if (DevShowClip.StartsWith("pose:"))
+            {   // игровая поза целиком (все слои), замороженная в момент DevShowTime от её начала; «pose:Spike:air» — как в прыжке
+                var parts = DevShowClip.Split(':');
+                if (System.Enum.TryParse(parts[1], out PoseId pid)) { pose = pid; if (parts.Length > 2) air = parts[2] == "air"; }
+                devPose = true;
+                return false;
+            }
+            devPose = false;
             var c = MotionLibrary.Get(DevShowClip);
             if (c == null) return false;
             devT = DevShowTime >= 0f ? DevShowTime : devT + dt;
@@ -260,6 +268,7 @@ namespace Tobe.View
 
             RefreshMetrics();
             if (pose != prevPoseId || Mathf.Abs(poseT - prevPoseT) > 0.2f || firstFrame) poseAge = 0f; else poseAge += dt;   // (re)triggered
+            if (devPose && DevShowTime >= 0f) { poseAge = DevShowTime; blendT = 99f; }   // витрина: стоп-кадр позы
             prevPoseId = pose; prevPoseT = poseT;
             UpdateContext(dt);
             int cls = PoseClass(pose);

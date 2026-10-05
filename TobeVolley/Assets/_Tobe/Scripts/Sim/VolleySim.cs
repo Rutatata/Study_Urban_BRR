@@ -112,7 +112,7 @@ namespace Tobe.Sim
             var rng = new System.Random(team * 101 + slot * 17 + teamSize);
             return new PlayerProfile
             {
-                nick = BotNames[k], style = BotStyleFor(teamSize, slot), model = (byte)((team * 3 + slot) % 7),
+                nick = BotNames[k], style = BotStyleFor(teamSize, slot), model = (byte)((team * 3 + slot) % Mathf.Max(1, GameHub.ModelNames.Length)),
                 hair = (byte)((slot * 3 + team) % TeamLook.HairPresets.Length), number = (byte)(1 + (slot * 3 + team * 5) % 15),
                 skin = (byte)rng.Next(TeamLook.SkinTones.Length), height = (byte)rng.Next(40, 230), build = (byte)rng.Next(60, 230),
                 eyes = (byte)rng.Next(TeamLook.EyeColors.Length),
