@@ -211,9 +211,13 @@ namespace Tobe.View
 
             Vector3 target = s.pos;
             if (!inited || (smPos - target).sqrMagnitude > 9f) { smPos = target; smYaw = s.yaw; inited = true; }
-            float kp = 1f - Mathf.Exp(-dt * (local ? 40f : 16f));
             float ky = 1f - Mathf.Exp(-dt * (local ? 30f : 14f));
-            smPos = Vector3.Lerp(smPos, target, kp);
+            if (local) smPos = target;   // своё движение и так считается каждый кадр: сглаживание только запаздывало (висел над полом при приземлении)
+            else
+            {   // чужие: по горизонтали мягко, по высоте быстро (полёт уже экстраполирован с гравитацией в MatchClient)
+                float kp = 1f - Mathf.Exp(-dt * 16f), kv = 1f - Mathf.Exp(-dt * 45f);
+                smPos = new Vector3(Mathf.Lerp(smPos.x, target.x, kp), Mathf.Lerp(smPos.y, target.y, kv), Mathf.Lerp(smPos.z, target.z, kp));
+            }
             smYaw = Mathf.LerpAngle(smYaw, s.yaw, ky);
             transform.position = smPos;
             visual.rotation = Quaternion.Euler(0f, smYaw, 0f);

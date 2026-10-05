@@ -84,7 +84,7 @@ namespace Tobe.View
         bool stanceCtx, forceRun;
         float recvW, setW, blockW2, approachW, approachMul = 1f;
         bool prevAir, hadAir;
-        float blockW, airW, airU, maxVy, lastVy, landT = 99f, landImpact;
+        float blockW, airW, airLin, airU, maxVy, lastVy, landT = 99f, landImpact;
         MotionClip airClip;
         MotionClip actClip; float actT, actW; bool actFull;
         PoseAccum acc2;
@@ -272,7 +272,9 @@ namespace Tobe.View
             if (!air && prevAir && hadAir) { landT = 0f; landImpact = Mathf.Clamp01(Mathf.Abs(lastVy) / 7f); }
             prevAir = air;
             landT += dt;
-            airW = Mathf.MoveTowards(airW, air ? 1f : 0f, dt / 0.07f);
+            // взлёт: быстро в позу прыжка; приземление: клип прыжка доигрывает свою амортизацию и плавно (0,28 с) уходит в стойку
+            airLin = Mathf.MoveTowards(airLin, air ? 1f : 0f, dt / (air ? 0.07f : 0.28f));
+            airW = air ? airLin : AnimMath.Smooth01(airLin);
 
             // ---- clip action layer (dive / celebrate / sad / bump / set / spike / block / serve)
             SelectAction(dt);
@@ -559,6 +561,8 @@ namespace Tobe.View
 
         float JumpTime(MotionClip c)
         {
+            // уже на земле: продолжаем клип после кадра касания в реальном темпе — там записана настоящая амортизация
+            if (!air && hadAir) return Mathf.Min(c.touch / c.fps + landT, c.duration);
             float fr = airU < 0.5f ? Mathf.Lerp(c.launch, c.apex, airU * 2f) : Mathf.Lerp(c.apex, c.touch, (airU - 0.5f) * 2f);
             return fr / c.fps;
         }

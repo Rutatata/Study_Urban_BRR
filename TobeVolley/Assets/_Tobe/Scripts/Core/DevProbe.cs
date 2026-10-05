@@ -11,7 +11,7 @@ namespace Tobe
     [DefaultExecutionOrder(30000)]   // after PlayerAnimator (-50) and the views: we read the final pose of the frame
     public sealed class DevProbe : MonoBehaviour
     {
-        struct Step { public float dur; public Vector2 move; public bool sprint; public string name; public Step(string n, float d, float x, float y, bool s = false) { name = n; dur = d; move = new Vector2(x, y); sprint = s; } }
+        struct Step { public float dur; public Vector2 move; public bool sprint, jump; public string name; public Step(string n, float d, float x, float y, bool s = false, bool j = false) { name = n; dur = d; move = new Vector2(x, y); sprint = s; jump = j; } }
 
         static readonly Step[] Script =
         {
@@ -26,6 +26,11 @@ namespace Tobe
             new Step("tapW", 0.15f, 0, 1),
             new Step("tap0", 0.3f, 0, 0),
             new Step("tapD", 0.15f, 1, 0),
+            new Step("jumpIdle", 1.3f, 0, 0, false, true),
+            new Step("runup", 0.9f, 0, 1),
+            new Step("jumpRun", 1.3f, 0, 1, false, true),
+            new Step("jump2", 1.1f, 0, 0, false, true),
+            new Step("jump3", 1.1f, 0, 0, false, true),
             new Step("end", 0.8f, 0, 0),
         };
 
@@ -57,7 +62,7 @@ namespace Tobe
             if (!started) { if (!ready) return; started = true; step = 0; stepT = 0; }
             if (step >= Script.Length) return;
             stepT += Time.deltaTime;
-            if (stepT >= Script[step].dur) { stepT = 0; step++; }
+            if (stepT >= Script[step].dur) { stepT = 0; step++; if (step < Script.Length && Script[step].jump) MatchClient.DevJump = true; }
             if (step >= Script.Length) { MatchClient.DevMove = null; MatchClient.DevSprint = false; Finish(); return; }
             MatchClient.DevMove = Script[step].move;
             MatchClient.DevSprint = Script[step].sprint;

@@ -18,6 +18,8 @@ namespace Tobe.Net
         /// <summary>Dev/test hook (DevProbe): when set, replaces the WASD direction (camera-relative x = right, y = forward).</summary>
         public static Vector2? DevMove;
         public static bool DevSprint;
+        /// <summary>Тестовый прыжок из DevProbe: true = прыгнуть в этом кадре (сбрасывается после чтения).</summary>
+        public static bool DevJump;
 
         // local movement state
         Vector3 pos, vel;
@@ -169,7 +171,7 @@ namespace Tobe.Net
                 var dir = Quaternion.Euler(0, GameHub.CameraYaw, 0) * new Vector3(x, 0, y);
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
                 sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
-                if (kb.spaceKey.wasPressedThisFrame || mouse != null && mouse.rightButton.wasPressedThisFrame) { cmd.jumpCount++; TryJump(me); }
+                if (kb.spaceKey.wasPressedThisFrame || mouse != null && mouse.rightButton.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
                 if (kb.eKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.cKey.wasPressedThisFrame) cmd.callCount++;
                 if (kb.qKey.wasPressedThisFrame) cmd.specialCount++;
