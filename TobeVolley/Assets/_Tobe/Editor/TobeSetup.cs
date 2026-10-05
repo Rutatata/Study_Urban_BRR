@@ -110,6 +110,7 @@ namespace Tobe.EditorTools
                     foreach (var rd in RendererDatas(pipeline))
                     {
                         dirty |= EnsureOutlineFeature(rd);
+                        dirty |= EnsureSsaoFeature(rd);
                         dirty |= SetInt(rd, "m_RenderingMode", 2);          // Forward+ : many lights (spots, ball glow, rims) without per-object limits
                     }
                 }
@@ -165,6 +166,37 @@ namespace Tobe.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(rd);
             Debug.Log("[Tobe] Added MToonOutlineRenderFeature to the URP renderer (character outlines).");
+            return true;
+        }
+
+        /// <summary>Мягкое затенение в углах и стыках (SSAO): ноги касаются пола, стыки трибун и стен получают глубину —
+        /// картинка перестаёт выглядеть плоской «картонной коробкой». Добавляется один раз.</summary>
+        static bool EnsureSsaoFeature(ScriptableObject rendererData)
+        {
+            var rd = rendererData as ScriptableRendererData;
+            if (rd == null) return false;
+            foreach (var f in rd.rendererFeatures) if (f is ScreenSpaceAmbientOcclusion) return false;
+            var feat = ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
+            feat.name = "SSAO";
+            AssetDatabase.AddObjectToAsset(feat, rd);
+            var fso = new SerializedObject(feat);
+            void F(string n, float v) { var p = fso.FindProperty("m_Settings." + n); if (p != null) p.floatValue = v; }
+            void B(string n, bool v) { var p = fso.FindProperty("m_Settings." + n); if (p != null) p.boolValue = v; }
+            F("Intensity", 0.9f); F("Radius", 0.3f); F("DirectLightingStrength", 0.15f); F("Falloff", 60f);
+            B("Downsample", true); B("AfterOpaque", false);
+            fso.ApplyModifiedPropertiesWithoutUndo();
+            var so = new SerializedObject(rd);
+            var list = so.FindProperty("m_RendererFeatures");
+            var map = so.FindProperty("m_RendererFeatureMap");
+            if (list == null || map == null) { Debug.LogWarning("[Tobe] Не удалось добавить SSAO в рендерер URP."); return false; }
+            list.arraySize++;
+            list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = feat;
+            AssetDatabase.TryGetGUIDAndLocalFileIdentifier(feat, out string guid, out long localId);
+            map.arraySize++;
+            map.GetArrayElementAtIndex(map.arraySize - 1).longValue = localId;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(rd);
+            Debug.Log("[Tobe] В рендерер URP добавлено затенение SSAO.");
             return true;
         }
 

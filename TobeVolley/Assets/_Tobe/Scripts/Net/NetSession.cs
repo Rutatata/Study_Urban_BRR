@@ -138,8 +138,15 @@ namespace Tobe.Net
             if (nm.IsListening) return;
             pendingTeamSize = teamSize; pendingPractice = true;
             var utp = (UnityTransport)nm.NetworkConfig.NetworkTransport;
-            utp.SetConnectionData("127.0.0.1", 7777);
-            if (!nm.StartHost()) { NetApi.SetStatus("Не удалось запустить локальный матч (порт 7777 занят?)", false); return; }
+            // офлайн номер порта не важен: если 7777 занят (второй экземпляр игры, неосвобождённый сокет), пробуем следующие
+            bool ok = false;
+            for (ushort port = 7777; port <= 7790 && !ok; port++)
+            {
+                utp.SetConnectionData("127.0.0.1", port);
+                ok = nm.StartHost();
+                if (!ok && nm.IsListening) nm.Shutdown();
+            }
+            if (!ok) { NetApi.SetStatus("Не удалось запустить локальный матч: порты 7777-7790 заняты", false); return; }
             NetApi.SessionCode = "";
             NetApi.SetStatus("Тренировка с ботами", false);
         }
@@ -165,5 +172,6 @@ namespace Tobe.Net
         }
 
         void OnApplicationQuit() { if (nm != null && nm.IsListening) nm.Shutdown(); }
+        void OnDestroy() { if (nm != null && nm.IsListening) nm.Shutdown(); }   // выход из Play в редакторе тоже освобождает порт
     }
 }

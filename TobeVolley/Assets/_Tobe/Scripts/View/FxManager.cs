@@ -330,7 +330,15 @@ namespace Tobe.View
                 string w = pose == PoseId.Spike ? "バシッ!" : pose == PoseId.ServeHit ? "ドンッ!" : pose == PoseId.Block ? "ガッ!" : pose == PoseId.Dive ? "ズザッ!" : "ポンッ!";
                 StartWord(e.pos, w, pose == PoseId.Spike ? new Color(1f, 0.85f, 0.2f) : new Color(1f, 1f, 1f), 2.4f);
             }
-            if (p > 0.85f && CameraRig.Instance != null) CameraRig.Instance.Shake(0.08f);
+            // сильные удары чувствуются камерой: тряска растёт с силой, мощная атака даёт «толчок» и вспышку
+            if (CameraRig.Instance != null)
+            {
+                var hp = (PoseId)e.intArg;
+                bool attack = hp == PoseId.Spike || hp == PoseId.ServeHit;
+                if (p > 0.5f) CameraRig.Instance.Shake((attack ? 0.18f : 0.08f) + (p - 0.5f) * (attack ? 0.5f : 0.2f));
+                if (attack && p > 0.6f) CameraRig.Instance.Punch(0.35f + (p - 0.6f) * 1.4f);
+                if (attack && p > 0.9f) CameraRig.Instance.Flash(0.25f);
+            }
         }
 
         void ImpactFx(GameEvent e)

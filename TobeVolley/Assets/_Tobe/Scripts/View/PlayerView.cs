@@ -236,6 +236,7 @@ namespace Tobe.View
             if (wasAir && !s.air && FxManager.Instance != null)
                 FxManager.Instance.Dust(smPos, Mathf.Clamp01(Mathf.Abs(s.vel.y) / 6f + 0.3f));
             wasAir = s.air;
+            FootDust(in s, dt);
 
             // nothing is drawn until the model exists
             ring.gameObject.SetActive(model != null);
@@ -275,6 +276,31 @@ namespace Tobe.View
                 main.startColor = new ParticleSystem.MinMaxGradient(def.c1 * 2f, def.c2 * 2f);
             }
             aura.transform.position = new Vector3(smPos.x, smPos.y + 0.1f, smPos.z);
+        }
+
+        // ------------------------------------------------------------------ пыль из-под ног
+        // На рывке ноги поднимают лёгкие облачка пыли, резкое торможение или смена направления — облачко побольше (вместе со скрипом).
+        Vector2 dustVSlow; float dustT;
+
+        void FootDust(in PlayerSnap s, float dt)
+        {
+            if (FxManager.Instance == null || model == null || dt <= 0f) return;
+            var v = new Vector2(s.vel.x, s.vel.z);
+            dustVSlow = Vector2.Lerp(dustVSlow, v, 1f - Mathf.Exp(-dt / 0.12f));
+            dustT -= dt;
+            if (s.air || dustT > 0f) return;
+            float jerk = (v - dustVSlow).magnitude;
+            Vector3 feet = new Vector3(smPos.x, 0.02f, smPos.z);
+            if (dustVSlow.magnitude > 2.6f && jerk > 2.2f)
+            {   // торможение / разворот: облачко в сторону, противоположную новому движению
+                FxManager.Instance.Dust(feet - new Vector3(v.x, 0f, v.y).normalized * 0.15f, Mathf.Clamp01(jerk / 6f) * 0.55f);
+                dustT = 0.3f;
+            }
+            else if (v.magnitude > 5.2f)
+            {   // рывок: частые маленькие облачка за спиной
+                FxManager.Instance.Dust(feet - new Vector3(v.x, 0f, v.y).normalized * 0.25f, 0.18f);
+                dustT = 0.11f;
+            }
         }
 
         void LateUpdate()

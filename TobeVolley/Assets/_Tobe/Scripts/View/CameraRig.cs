@@ -23,6 +23,10 @@ namespace Tobe.View
         float trauma, flash;
         float noiseSeed;
         float fov = BaseFov;
+        float punch;                 // «толчок» камеры при сильном ударе: кратко сужает обзор и подаёт камеру вперёд
+        float lean;                  // крен камеры в сторону бокового движения
+        float dip, dipIn;            // затемнение между очками (скрывает расстановку игроков на позиции)
+        MatchPhase prevPhase;
 
         bool cine; float cineT, cineDur, cineSide; Vector3 cineFocus;
 
@@ -69,6 +73,7 @@ namespace Tobe.View
         // ------------------------------------------------------------------ public API
         public void Shake(float amount) { trauma = Mathf.Clamp01(Mathf.Max(trauma, amount)); }
         public void Flash(float amount) { flash = Mathf.Clamp(Mathf.Max(flash, amount), 0f, 1.5f); }
+        public void Punch(float amount) { punch = Mathf.Clamp01(Mathf.Max(punch, amount)); }
 
         public void Cinematic(Vector3 pos, float duration)
         {
@@ -140,6 +145,23 @@ namespace Tobe.View
             Vector3 pos = nPos; Quaternion rot = nRot;
             float targetFov = BaseFov - (view.slowMo > 0f ? 5f : 0f);
 
+            // --- динамика: на рывке обзор шире (ощущение скорости), камера кренится в сторону бокового движения
+            float latVel = 0f;
+            if (haveLocal && view.TryGetLocal(out var me))
+            {
+                var hv = new Vector3(me.vel.x, 0f, me.vel.z);
+                targetFov += Mathf.Clamp01((hv.magnitude - 4.2f) / 2.5f) * 8f;
+                latVel = Vector3.Dot(hv, nRot * Vector3.right);
+            }
+            lean = Mathf.Lerp(lean, Mathf.Clamp(-latVel * 0.45f, -2.5f, 2.5f), 1f - Mathf.Exp(-dt * 5f));
+            if (punch > 0.001f)
+            {   // резко внутрь, мягко обратно
+                float pk = punch * punch;
+                targetFov -= pk * 9f;
+                pos += rot * Vector3.forward * (pk * 0.35f);
+                punch = Mathf.Max(0f, punch - dt * 3.2f);
+            }
+
             // --- cinematic
             if (cine)
             {
@@ -161,11 +183,11 @@ namespace Tobe.View
                 }
             }
 
-            fov = Mathf.Lerp(fov, targetFov, 1f - Mathf.Exp(-dt * 8f));
+            fov = Mathf.Lerp(fov, targetFov, 1f - Mathf.Exp(-dt * (punch > 0.05f ? 22f : 8f)));
             cam.fieldOfView = fov;
 
             // --- shake
-            float roll = 0f;
+            float roll = lean;
             if (trauma > 0.001f)
             {
                 float a = trauma * trauma;
@@ -179,7 +201,14 @@ namespace Tobe.View
 
             // --- flash via post exposure
             if (flash > 0f) flash = Mathf.Max(0f, flash - dt * 3f);
-            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f);
+            // --- затемнение между очками: темнеет в последние 0,3 с паузы после очка, игроки встают на позиции в темноте,
+            //     картинка возвращается за 0,4 с
+            if (view.phase == MatchPhase.Point && view.phaseTime < 0.3f) dip = Mathf.Max(dip, 1f - Mathf.Clamp01(view.phaseTime / 0.3f));
+            else if (prevPhase == MatchPhase.Point && view.phase == MatchPhase.Serve) { dip = 1f; dipIn = 0f; }
+            else if (dip > 0f) { dipIn += dt; dip = Mathf.Max(0f, 1f - dipIn / 0.4f); }
+            prevPhase = view.phase;
+            float dk = dip * dip * (3f - 2f * dip);
+            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f - dk * 6f);
         }
 
         float Noise(float t, float seedOff) => (Mathf.PerlinNoise(t, noiseSeed + seedOff * 17.3f) - 0.5f) * 2f;
