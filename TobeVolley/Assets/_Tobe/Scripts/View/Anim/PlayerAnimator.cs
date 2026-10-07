@@ -84,7 +84,7 @@ namespace Tobe.View
         bool stanceCtx, forceRun;
         float recvW, setW, blockW2, approachW, approachMul = 1f;
         bool prevAir, hadAir;
-        float blockW, airW, airLin, airU, maxVy, lastVy, landT = 99f, landImpact;
+        float blockW, airW, airLin, airT, airU, maxVy, lastVy, landT = 99f, landImpact;
         MotionClip airClip;
         MotionClip actClip; float actT, actW; bool actFull;
         PoseAccum acc2;
@@ -276,7 +276,8 @@ namespace Tobe.View
             UpdateKinematics(dt);
 
             // ---- air / landing bookkeeping
-            if (air && !prevAir) { airW = Mathf.Max(airW, 0f); maxVy = Mathf.Max(worldVel.y, 3.5f); airU = 0f; hadAir = true; PickAirClip(); }
+            if (air && !prevAir) { airW = Mathf.Max(airW, 0f); maxVy = Mathf.Max(worldVel.y, 3.5f); airU = 0f; hadAir = true; airT = 0f; PickAirClip(); }
+            if (air) airT += dt;
             if (air) { maxVy = Mathf.Max(maxVy, worldVel.y); lastVy = worldVel.y; }
             if (!air && prevAir && hadAir) { landT = 0f; landImpact = Mathf.Clamp01(Mathf.Abs(lastVy) / 7f); }
             prevAir = air;
@@ -568,11 +569,16 @@ namespace Tobe.View
             if (blockW > 0.001f) acc.Add(cJumpB, JumpTime(cJumpB), w * blockW);   // basketball jump-shot: both arms overhead
         }
 
+        const float PushOff = 0.1f;
+
         float JumpTime(MotionClip c)
         {
             // уже на земле: продолжаем клип после кадра касания в реальном темпе — там записана настоящая амортизация
             if (!air && hadAir) return Mathf.Min(c.touch / c.fps + landT, c.duration);
+            // толчок: первые 0,1 с полёта клип идёт от нижней точки приседа к отрыву — тело уже поднимается, ноги разгибаются,
+            // и стопы будто отталкиваются от пола (без задержки прыжка, тайминг атаки не меняется)
             float fr = airU < 0.5f ? Mathf.Lerp(c.launch, c.apex, airU * 2f) : Mathf.Lerp(c.apex, c.touch, (airU - 0.5f) * 2f);
+            if (airT < PushOff) fr = Mathf.Lerp(c.low, fr, AnimMath.Smooth01(airT / PushOff));   // плавно вливается в обычный ход прыжка
             return fr / c.fps;
         }
 

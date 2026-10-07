@@ -67,8 +67,35 @@ namespace Tobe.UI
         Text hintText;
         float hintT;
 
+        // линии скорости по краям экрана на рывке (как в аниме при быстром беге)
+        SpeedLinesGraphic dashL, dashR;
+        float dashA;
+
+        void BuildDashLines()
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                var g = UiKit.SpeedLines(Rt, side == 0 ? "DashL" : "DashR", new Color(1f, 1f, 1f, 0f), 18, 0.9f);
+                var rt = (RectTransform)g.transform;
+                rt.anchorMin = new Vector2(side == 0 ? 0f : 0.82f, 0.1f); rt.anchorMax = new Vector2(side == 0 ? 0.18f : 1f, 0.9f);
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
+                g.seed = 11 + side * 17;
+                if (side == 0) dashL = g; else dashR = g;
+            }
+        }
+
+        void UpdateDashLines(MatchView v, float dt)
+        {
+            float want = 0f;
+            if (v.TryGetLocal(out var me) && !me.air) want = Mathf.Clamp01((new Vector2(me.vel.x, me.vel.z).magnitude - 5f) / 2f) * 0.55f;
+            dashA = Mathf.MoveTowards(dashA, want, dt * (want > dashA ? 3f : 1.5f));
+            foreach (var g in new[] { dashL, dashR })
+                if (g != null) { var c = g.color; c.a = dashA; g.color = c; g.enabled = dashA > 0.01f; }
+        }
+
         protected override void Build()
         {
+            BuildDashLines();
             BuildScoreboard();
             BuildLocalPanel();
             BuildCrosshair();
@@ -361,6 +388,7 @@ namespace Tobe.UI
             UpdatePoint(dt);
             UpdateCutin(dt);
             UpdateHint(dt);
+            UpdateDashLines(v, dt);
         }
 
         void UpdateScoreboard(MatchView v, float dt)
