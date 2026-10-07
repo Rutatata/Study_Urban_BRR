@@ -74,6 +74,13 @@ namespace Tobe.View
         }
 
         // ---------------------------------------------------------------- Humanoid AnimationClips (Resources/Anim)
+        /// <summary>Клипы набора Quaternius Universal Animation Library (CC0) -> имена анимаций игры.</summary>
+        static readonly Dictionary<string, string> QuaterniusNames = new Dictionary<string, string>
+        {
+            // стойка idle берётся из Mixamo (idle.fbx), у Quaternius — шаг, бег, рывок, приземление
+            { "Walk_Loop", "walk" }, { "Jog_Fwd_Loop", "run" }, { "Sprint_Loop", "sprint" }, { "Jump_Land", "land" },
+        };
+
         /// <summary>"Model@ready" / "ready" / "Ready" -> "ready"; null when the name is not one of the known clip names.</summary>
         static string HumanoidKey(string clipName)
         {
@@ -81,6 +88,9 @@ namespace Tobe.View
             string n = clipName.Trim();
             int at = n.LastIndexOf('@');
             if (at >= 0) n = n.Substring(at + 1);
+            int bar = n.LastIndexOf('|');                       // «Armature|Idle_Loop» (Quaternius)
+            if (bar >= 0) n = n.Substring(bar + 1);
+            if (QuaterniusNames.TryGetValue(n, out var qn)) return qn;
             n = n.ToLowerInvariant().Replace(' ', '_').Replace('-', '_');
             return Array.IndexOf(HumanoidNames, n) >= 0 ? n : null;
         }
@@ -114,7 +124,7 @@ namespace Tobe.View
                 yield return null;
             }
             try { rig.Dispose(); } catch (Exception) { }
-            Debug.Log("[Tobe] Humanoid clips baked: " + chosen.Count);
+            Debug.Log("[Tobe] Humanoid clips baked: " + chosen.Count + " (" + string.Join(", ", System.Linq.Enumerable.Select(chosen, kv => kv.Key + "=" + kv.Value.name)) + ")");
         }
 
         IEnumerator BakeHumanoid(string name, AnimationClip src, HumanoidRig rig)
@@ -158,7 +168,9 @@ namespace Tobe.View
             {
                 try
                 {
-                    var en = new Entry { name = name, loop = HumanoidLoops.Contains(name), jsonFps = outFps, jsonFrames = n };
+                    var en = new Entry { name = name, loop = HumanoidLoops.Contains(name), jsonFps = outFps, jsonFrames = n,
+                        // клипы «на месте» (Mixamo In Place, Quaternius): скорость не вычислить из траектории — задаём типичную, м/с
+                        jsonSpeed = name == "walk" ? 1.4f : name == "run" ? 3.4f : name == "sprint" ? 6.2f : name == "backpedal" ? 2.2f : name.StartsWith("shuffle") ? 2.4f : 0f };
                     clip = PostProcess(en, mus, bp, br, hips, n, outFps);
                     if (clip != null) clip.humanoid = true;
                 }

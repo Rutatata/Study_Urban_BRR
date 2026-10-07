@@ -592,7 +592,7 @@ namespace Tobe.View
             switch (pose)
             {
                 case PoseId.Dive: c = cDive; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 0.9f, 1f, 2.2f); break;
-                case PoseId.Celebrate: c = null; break;   // свои волейбольные празднования (EvalOverrides), а не танец из мокапа
+                case PoseId.Celebrate: c = cCelebrate != null && cCelebrate.humanoid && myId % 3 != 1 ? cCelebrate : null; full = true; t = pt; break;   // празднование Mixamo; вариант «крик» — свой (EvalOverrides)
                 case PoseId.Sad: c = cSad; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
                 case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
                 case PoseId.Set: c = cSet; full = air; if (c != null) t = pt * c.duration / 0.45f; break;
@@ -685,7 +685,8 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Celebrate:
-                    {   // три варианта, у каждого игрока свой
+                    if (!actWanted)
+                    {   // свои позы, когда нет клипа Mixamo (или вариант «крик»)
                         float hop = Mathf.Abs(Mathf.Sin(pt * 8.5f));
                         float pump = 0.5f + 0.5f * Mathf.Sin(pt * 8.5f + 1.2f);
                         tgt.wR = tgt.wL = 1f;
@@ -850,7 +851,7 @@ namespace Tobe.View
             if (w < 0.01f || hips == null || ulR == null || ulL == null || llR == null || llL == null || ftR == null || ftL == null) return;
             float leg = legLocal;
             float footHalf = hipHalf + 0.19f * leg;
-            float crouch = Mathf.Lerp(0.84f, 0.88f, gait.moveAmt);
+            float crouch = Mathf.Lerp(0.915f, 0.93f, gait.moveAmt);   // стойка выше: колени лишь слегка согнуты (раньше 0.84 — «вечный полуприсед»)
             if (pose == PoseId.Bump) crouch -= 0.08f; else if (pose == PoseId.Set) crouch += 0.04f;   // приём: глубоко в коленях; передача: выше
             float homeZ = 0.10f * leg;                                   // feet slightly ahead of the pelvis (hips back, weight on the balls of the feet)
             float dx = footHalf - hipHalf;
@@ -900,7 +901,7 @@ namespace Tobe.View
             float sep = Vector3.Dot(pR - pL, right);
             // норма: стоя ~ ширина плеч, на бегу уже (стопы ближе к центру), в воздухе ноги слегка разведены
             float run = Mathf.Clamp01((speed - 1.5f) / 3f);
-            float want = air ? hipW * 1.25f : Mathf.Lerp(hipW * 1.9f, hipW * 0.55f, run);
+            float want = air ? hipW * 1.1f : Mathf.Lerp(hipW * 1.55f, hipW * 0.5f, run);   // мягче: без «колеса»
             if (pose == PoseId.Dive) want = hipW * 0.8f;
             float need = Mathf.Max(0f, want - sep);
             // быстро догоняем, когда ноги начинают сходиться, и мягко отпускаем

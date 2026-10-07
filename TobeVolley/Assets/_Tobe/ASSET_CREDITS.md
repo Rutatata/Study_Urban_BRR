@@ -24,6 +24,10 @@ ui_whoosh.wav: сгенерирован процедурно (numpy) самим 
 
 Модели orion и seedsan (роботы) убраны из игры 05.10.2026, вместо них шесть аниме-моделей VRoid с лицензией CC0 из того же репозитория.
 
+## Анимации (Assets/_Tobe/Resources/Anim/)
+- quaternius_ual1.fbx — Universal Animation Library [Standard] by Quaternius, CC0 1.0 (https://quaternius.itch.io/universal-animation-library). Используются шаг, бег, рывок, приземление.
+- idle.fbx, celebrate.fbx, sad.fbx — Mixamo (Adobe), скачаны владельцем проекта; лицензия Mixamo разрешает использование в играх.
+
 ## Motion capture (Assets/StreamingAssets/Motions/)
 "The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217."
 CMU Graphics Lab Motion Capture Database, terms: "free for all uses" (research and commercial). BVH conversion by Bruce Hahne (cgspeed.com, 2010 Motionbuilder-friendly release; READMEFIRST.txt confirms free use incl. commercial), obtained from the GitHub mirror https://github.com/una-dinosauria/cmu-mocap.

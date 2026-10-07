@@ -65,6 +65,12 @@ namespace Tobe.EditorTools
             mi.importAnimation = true;
         }
 
+        /// <summary>Клипы Quaternius Universal Animation Library (CC0) -> имена анимаций игры. Остальные клипы набора игра не трогает.</summary>
+        static readonly System.Collections.Generic.Dictionary<string, string> Rename = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "Idle_Loop", "idle" }, { "Walk_Loop", "walk" }, { "Jog_Fwd_Loop", "run" }, { "Sprint_Loop", "sprint" }, { "Jump_Land", "land" },
+        };
+
         void ApplyClips(ModelImporter mi)
         {
             var src = mi.defaultClipAnimations;
@@ -76,6 +82,7 @@ namespace Tobe.EditorTools
             {
                 var c = src[i];
                 if (src.Length == 1) c.name = key;                    // single take (Mixamo): the clip takes the file name
+                else if (Rename.TryGetValue(c.name.Substring(c.name.LastIndexOf('|') + 1), out var rn)) c.name = rn;   // набор с многими клипами (Quaternius, «Armature|Idle_Loop»): имена -> наши
                 string ck = src.Length == 1 ? key : c.name.ToLowerInvariant();
                 bool l = src.Length == 1 ? loop : IsLoop(ck);
                 c.loopTime = l;
