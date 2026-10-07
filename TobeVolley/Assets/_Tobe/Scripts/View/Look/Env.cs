@@ -56,6 +56,8 @@ namespace Tobe.View
     public static class Figures
     {
         public enum Pose { Stand, Sit, Cheer, Clap, Coach }
+        /// <summary>Пока задано (на время постройки зала), люди рисуются аниме-спрайтами, а не коробками.</summary>
+        public static CrowdSprites Sprites;
 
         public static readonly Color[] HairPalette =
         {
@@ -75,6 +77,20 @@ namespace Tobe.View
             float s = scale;
             Color shoe = new Color(0.9f, 0.9f, 0.92f);
             bool sit = pose == Pose.Sit;
+            if (Sprites != null)
+            {   // аниме-фигурка вместо коробок; стоящим — ноги-бруски под фигуркой
+                int variant = Mathf.Abs((int)(pos.x * 7.3f + pos.z * 3.1f)) % 8;
+                float phase = Mathf.Repeat(pos.x * 0.37f + pos.z * 0.71f, 1f);
+                if (!sit)
+                {
+                    P(b, m, pos, q, new Vector3(-0.1f * s, 0.4f * s, 0f), new Vector3(0.15f * s, 0.8f * s, 0.17f * s), pants);
+                    P(b, m, pos, q, new Vector3(0.1f * s, 0.4f * s, 0f), new Vector3(0.15f * s, 0.8f * s, 0.17f * s), pants);
+                    P(b, m, pos, q, new Vector3(-0.1f * s, 0.04f * s, 0.05f * s), new Vector3(0.16f * s, 0.08f * s, 0.28f * s), shoe);
+                    P(b, m, pos, q, new Vector3(0.1f * s, 0.04f * s, 0.05f * s), new Vector3(0.16f * s, 0.08f * s, 0.28f * s), shoe);
+                }
+                Sprites.Add(sit ? pos : pos + Vector3.up * 0.74f * s, shirt, skin, hair, variant, phase, s * 1.05f);
+                return;
+            }
             float hip = sit ? 0.02f * s : 0.46f * s;
             if (sit)
             {

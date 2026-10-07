@@ -16,6 +16,7 @@ namespace Tobe.View
         void Update()
         {
             float e = ArenaBuilder.Excitement;
+            Shader.SetGlobalFloat("_TobeExcite", e);   // болельщики-спрайты прыгают и вскидывают руки в шейдере
             ArenaBuilder.Cheer(-Time.deltaTime * 0.3f);
             float amp = 0.015f + 0.16f * Mathf.Clamp01(e);
             float freq = 1.6f + 4.5f * Mathf.Clamp01(e);

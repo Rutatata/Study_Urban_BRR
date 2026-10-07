@@ -25,10 +25,12 @@ namespace Tobe.View
             var live = root.gameObject.AddComponent<ArenaLive>();
 
             BuildAtmosphere(root);
+            Figures.Sprites = new CrowdSprites();
             CourtProps.Build(root, live);
             BuildNet(root);
             Gym.Build(root, live);
             Stands.Build(root, live);
+            Figures.Sprites.Flush(root, "FigureSprites"); Figures.Sprites = null;
             BuildLights(root);
             BuildVolume(root);
         }

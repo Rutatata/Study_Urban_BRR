@@ -76,8 +76,7 @@ namespace Tobe.View
             float yaw = Mathf.Atan2(-outDir.x, -outDir.z) * Mathf.Rad2Deg;      // people look toward the court
             var q = Quaternion.Euler(0f, yaw, 0f);
             float[] aisles = { -0.33f, 0f, 0.33f };
-            var cb = new MeshBatch("CrowdChunk");
-            int inChunk = 0;
+            var sprites = new CrowdSprites();
             int count = Mathf.FloorToInt(length / Spacing);
             for (int i = 0; i < Hall.Rows; i++)
             {
@@ -105,23 +104,7 @@ namespace Tobe.View
                     Color skin = Skin[rng.Next(Skin.Length)];
                     Color hair = Figures.HairPalette[rng.Next(Figures.HairPalette.Length)];
                     float hh = 0.92f + (float)rng.NextDouble() * 0.16f;
-                    bool arms = rng.NextDouble() < 0.2;
-                    // body
-                    cb.Box(crowdMat, p + q * new Vector3(0, 0.27f * hh, 0), new Vector3(0.44f, 0.54f * hh, 0.26f), shirt, q, true, true);
-                    cb.Box(crowdMat, p + q * new Vector3(0, 0.54f * hh + 0.13f, 0.01f), new Vector3(0.24f, 0.25f, 0.24f), skin, q, true, true);
-                    cb.Box(crowdMat, p + q * new Vector3(0, 0.54f * hh + 0.27f, 0f), new Vector3(0.26f, 0.09f, 0.26f), hair, q, true, true);
-                    if (rng.NextDouble() < 0.45) cb.Box(crowdMat, p + q * new Vector3(0, 0.54f * hh + 0.17f, -0.1f), new Vector3(0.26f, 0.2f, 0.07f), hair, q, true, true);
-                    if (arms)
-                    {
-                        cb.Box(crowdMat, p + q * new Vector3(-0.27f, 0.54f * hh + 0.14f, 0.02f), new Vector3(0.09f, 0.42f, 0.09f), shirt, q * Quaternion.Euler(0, 0, 14f), true, true);
-                        cb.Box(crowdMat, p + q * new Vector3(0.27f, 0.54f * hh + 0.14f, 0.02f), new Vector3(0.09f, 0.42f, 0.09f), shirt, q * Quaternion.Euler(0, 0, -14f), true, true);
-                    }
-                    if (++inChunk >= PerChunk)
-                    {
-                        var t = cb.Flush(parent);
-                        anim.Register(t, (float)rng.NextDouble() * 6.28f, 0.7f + (float)rng.NextDouble() * 0.6f);
-                        inChunk = 0;
-                    }
+                    sprites.Add(p, shirt, skin, hair, rng.Next(8), (float)rng.NextDouble(), hh * 1.05f);
                 }
                 // front rail on the first row, back rail on the last
                 if (i == 0)
@@ -130,11 +113,7 @@ namespace Tobe.View
                     structure.Box(Env.Steel, rp, absOut * 0.06f + absAlong * length + Vector3.up * 0.06f);
                 }
             }
-            if (inChunk > 0)
-            {
-                var t = cb.Flush(parent);
-                anim.Register(t, (float)rng.NextDouble() * 6.28f, 0.7f + (float)rng.NextDouble() * 0.6f);
-            }
+            sprites.Flush(parent, "CrowdSprites" + standId);
 
             // supporter flags in the stands (waving): both end stands, 7 per team-ish
             int nFlags = standId >= 2 ? 8 : 5;
