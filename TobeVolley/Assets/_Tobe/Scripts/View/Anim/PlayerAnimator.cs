@@ -583,7 +583,7 @@ namespace Tobe.View
         }
 
         // ================================================================== action layer: clips (humanoid / mocap) timed by poseT
-        bool actWanted;
+        bool actWanted, moving;
 
         void SelectAction(float dt)
         {
@@ -602,6 +602,11 @@ namespace Tobe.View
                 case PoseId.ServeToss: c = air ? (cServeJ ?? cServeF) : cServeF; full = air; if (c != null) t = Mathf.Min(pt / 0.8f, 1f) * 0.5f * c.duration; break;
                 case PoseId.ServeHit: c = air ? (cServeJ ?? cServeF) : cServeF; full = air; if (c != null) t = (0.5f + Mathf.Min(pt / 0.45f, 1f) * 0.5f) * c.duration; break;
             }
+            // игрок двигается по земле: позы на всё тело не держат ноги, иначе персонаж скользит, как на коньках.
+            // Празднование / огорчение прерываются, остальные действия остаются только в верхней части тела.
+            moving = !air && speed > 1.2f;
+            if (moving && (pose == PoseId.Celebrate || pose == PoseId.Sad)) c = null;
+            if (moving) full = false;
             actWanted = c != null;
             if (c != null) { if (actClip != c) { actClip = c; } actT = t; actFull = full; actW = Mathf.MoveTowards(actW, 1f, dt / (full ? 0.09f : 0.07f)); }
             else
@@ -685,7 +690,7 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Celebrate:
-                    if (!actWanted)
+                    if (!actWanted && !moving)
                     {   // свои позы, когда нет клипа Mixamo (или вариант «крик»)
                         float hop = Mathf.Abs(Mathf.Sin(pt * 8.5f));
                         float pump = 0.5f + 0.5f * Mathf.Sin(pt * 8.5f + 1.2f);
@@ -713,7 +718,7 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Sad:
-                    if (!actWanted)
+                    if (!actWanted && !moving)
                     {   // hands on knees, head down
                         tgt.wR = tgt.wL = 1f; tgt.armFrame = 1f; tgt.uR = tgt.uL = V(0.12f, -0.97f, 0.22f); tgt.lR = tgt.lL = V(0.05f, -0.95f, 0.30f);
                         tgt.hips = V(14, 0, 0); tgt.spine = V(18, 0, 0); tgt.chest = V(14, 0, 0); tgt.neck = V(12, 0, 0); tgt.head = V(22, 0, 0);
