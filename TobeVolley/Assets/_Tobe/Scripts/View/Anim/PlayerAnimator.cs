@@ -586,7 +586,7 @@ namespace Tobe.View
             switch (pose)
             {
                 case PoseId.Dive: c = cDive; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 0.9f, 1f, 2.2f); break;
-                case PoseId.Celebrate: c = cCelebrate; full = true; t = pt; break;
+                case PoseId.Celebrate: c = null; break;   // свои волейбольные празднования (EvalOverrides), а не танец из мокапа
                 case PoseId.Sad: c = cSad; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
                 case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
                 case PoseId.Set: c = cSet; full = air; if (c != null) t = pt * c.duration / 0.45f; break;
@@ -679,13 +679,30 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Celebrate:
-                    if (!actWanted)
-                    {   // fist pump + hop: both fists drive up in the beat of the jump
-                        float hop = Mathf.Abs(Mathf.Sin(pt * 9f));
-                        float pump = 0.5f + 0.5f * Mathf.Sin(pt * 9f + 1.2f);
-                        tgt.wR = tgt.wL = 1f; tgt.uR = tgt.uL = V(0.7f, 0.55f + 0.2f * pump, 0.1f); tgt.lR = tgt.lL = V(0.15f, 1f, 0.15f + 0.3f * (1f - pump));
-                        tgt.legW = hop; tgt.gUR = tgt.gUL = V(0.05f, -0.95f, 0.35f * hop); tgt.gLR = tgt.gLL = V(0.02f, -0.9f, -0.45f * hop);
-                        tgt.lift = hop * 0.14f; tgt.spine = V(-5, 0, 0); tgt.chest = V(-4, 0, 0); tgt.head = V(-12, 0, 0);
+                    {   // три варианта, у каждого игрока свой
+                        float hop = Mathf.Abs(Mathf.Sin(pt * 8.5f));
+                        float pump = 0.5f + 0.5f * Mathf.Sin(pt * 8.5f + 1.2f);
+                        tgt.wR = tgt.wL = 1f;
+                        switch (myId % 3)
+                        {
+                            case 0: // прыжки, оба кулака вверх в такт
+                                tgt.uR = tgt.uL = V(0.55f, 0.75f + 0.15f * pump, 0.1f); tgt.lR = tgt.lL = V(0.1f, 1f, 0.12f + 0.3f * (1f - pump));
+                                tgt.legW = hop; tgt.gUR = tgt.gUL = V(0.06f, -0.95f, 0.35f * hop); tgt.gLR = tgt.gLL = V(0.02f, -0.9f, -0.45f * hop);
+                                tgt.lift = hop * 0.16f; tgt.spine = V(-6, 0, 0); tgt.chest = V(-5, 0, 0); tgt.head = V(-14, 0, 0);
+                                break;
+                            case 1: // кулак высоко, вторая рука на поясе, голова откинута — крик
+                                tgt.uR = V(0.2f, 0.97f, 0.1f); tgt.lR = V(0.05f, 1f, 0.05f);
+                                tgt.uL = V(0.75f, -0.6f, -0.1f); tgt.lL = V(-0.85f, -0.3f, 0.2f);
+                                tgt.spine = V(-8, 0, -4); tgt.chest = V(-10, -10, -3); tgt.neck = V(-12, 0, 0); tgt.head = V(-18 - 6f * pump, 0, 0);
+                                tgt.lift = 0.03f * pump;
+                                break;
+                            default: // «дай пять»: рука с раскрытой ладонью вперёд-вверх к партнёру, лёгкий подскок
+                                tgt.uR = V(0.45f, 0.8f, 0.35f); tgt.lR = V(0.2f, 0.85f, 0.45f);
+                                tgt.uL = V(0.35f, -0.4f, 0.4f); tgt.lL = V(-0.2f, 0.6f, 0.75f);
+                                tgt.spine = V(-3, 18, 0); tgt.chest = V(-4, 12, 0); tgt.head = V(-8, -6, 0);
+                                tgt.lift = 0.06f * hop;
+                                break;
+                        }
                     }
                     break;
                 case PoseId.Sad:
