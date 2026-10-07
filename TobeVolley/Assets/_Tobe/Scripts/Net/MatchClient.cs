@@ -171,13 +171,14 @@ namespace Tobe.Net
                 var dir = Quaternion.Euler(0, GameHub.CameraYaw, 0) * new Vector3(x, 0, y);
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
                 sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
-                if (kb.spaceKey.wasPressedThisFrame || mouse != null && mouse.rightButton.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
+                if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
                 if (kb.eKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.cKey.wasPressedThisFrame) cmd.callCount++;
                 if (kb.qKey.wasPressedThisFrame) cmd.specialCount++;
                 bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
                 bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;
                 if (hitDown) cmd.hitPressCount++;
+                if (mouse != null && mouse.rightButton.wasPressedThisFrame || kb.fKey.wasPressedThisFrame) cmd.setPressCount++;   // передача сверху (ПКМ или F)
                 if (hitUp) cmd.hitReleaseCount++;
                 cmd.hitHeld = mouse != null && mouse.leftButton.isPressed || kb.jKey.isPressed;
             }

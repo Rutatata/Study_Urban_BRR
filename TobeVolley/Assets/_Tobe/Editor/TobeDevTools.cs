@@ -53,6 +53,9 @@ namespace Tobe.EditorTools
             Debug.Log($"[Tobe] Витрина: игрок {a[0]}, клип {a[1]}, время {Tobe.View.PlayerAnimator.DevShowTime}");
         }
 
+        [MenuItem("Tobe/Dev/Инерция поз: вкл-выкл")]
+        static void ToggleInertia() { Tobe.View.PlayerAnimator.InertiaOn = !Tobe.View.PlayerAnimator.InertiaOn; Debug.Log("[Tobe] Инерция поз: " + Tobe.View.PlayerAnimator.InertiaOn); }
+
         [MenuItem("Tobe/Dev/Звуки: что загружено")]
         static void DumpAudio()
         {

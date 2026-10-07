@@ -231,6 +231,7 @@ namespace Tobe
         public bool sprint;
         public Vector3 aim;           // floor aim point
         public ushort jumpCount, hitPressCount, hitReleaseCount, diveCount, callCount, specialCount; // edge counters
+        public ushort setPressCount;  // ПКМ: передача сверху (ЛКМ = приём снизу, в прыжке — удар)
         public bool hitHeld;
         // Movement is simulated on the owning client (responsive, like Rematch) and validated by the server.
         public Vector3 clientPos, clientVel;

@@ -33,7 +33,7 @@ namespace Tobe.UI
         RectTransform energyRt, qChip;
 
         // prompt (key chip + text)
-        RectTransform promptRoot, chipLkm, chipSpace;
+        RectTransform promptRoot, chipLkm, chipPkm, chipSpace;
         Text promptText;
         string promptShown = "";
         RectTransform promptChipShown;
@@ -180,8 +180,9 @@ namespace Tobe.UI
             promptRoot = UiKit.NewRect("Prompt", Rt);
             UiKit.At(promptRoot, UiKit.BC, new Vector2(0, 235), new Vector2(10, 70));
             chipLkm = UiKit.KeyChip(promptRoot, "ЛКМ", 62, UiKit.Orange);
+            chipPkm = UiKit.KeyChip(promptRoot, "ПКМ", 62, UiKit.Gold);
             chipSpace = UiKit.KeyChip(promptRoot, "ПРОБЕЛ", 62, UiKit.Orange);
-            foreach (var c in new[] { chipLkm, chipSpace }) { c.anchorMin = c.anchorMax = new Vector2(0.5f, 0.5f); c.pivot = new Vector2(0, 0.5f); c.gameObject.SetActive(false); }
+            foreach (var c in new[] { chipLkm, chipPkm, chipSpace }) { c.anchorMin = c.anchorMax = new Vector2(0.5f, 0.5f); c.pivot = new Vector2(0, 0.5f); c.gameObject.SetActive(false); }
             promptText = UiKit.Label(promptRoot, "", 60, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true, true);
             var pr = promptText.rectTransform;
             pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f); pr.pivot = new Vector2(0, 0.5f); pr.sizeDelta = new Vector2(900, 80);
@@ -287,7 +288,7 @@ namespace Tobe.UI
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(700, 150));
             hintRoot = p.rectTransform;
             hintText = UiKit.Label(p.transform,
-                "WASD — бег   Shift — рывок   Мышь — камера\nЛКМ — мяч (держи на подаче — сила)   Пробел — прыжок\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
+                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (держи на подаче — сила)   ПКМ / F — передача сверху\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
                 20, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiKit.Pad(hintText.rectTransform, 36, 8, 20, 8);
             var cg = p.gameObject.AddComponent<CanvasGroup>();
@@ -465,8 +466,8 @@ namespace Tobe.UI
                     if (pl.kind == PlanKind.None || pl.playerId != v.localPlayerId) continue;
                     switch (pl.kind)
                     {
-                        case PlanKind.Receive: s = "ПРИЁМ!"; chip = chipLkm; c = UiKit.Cyan; break;
-                        case PlanKind.Set: s = "ПАС — В СТОРОНУ ПРИЦЕЛА"; chip = chipLkm; c = UiKit.Gold; break;
+                        case PlanKind.Receive: s = "ПРИЁМ СНИЗУ!"; chip = chipLkm; c = UiKit.Cyan; break;
+                        case PlanKind.Set: s = "ПЕРЕДАЧА — В СТОРОНУ ПРИЦЕЛА"; chip = chipPkm; c = UiKit.Gold; break;
                         case PlanKind.Attack:
                             if (lp.air) { s = "БЕЙ!"; chip = chipLkm; c = UiKit.Orange; }
                             else if (pl.timeLeft < 0.55f) { s = "ПРЫГАЙ!"; chip = chipSpace; c = UiKit.Orange; }
@@ -482,6 +483,7 @@ namespace Tobe.UI
                 promptShown = s; promptChipShown = chip; promptText.text = s;
                 chipLkm.gameObject.SetActive(chip == chipLkm);
                 chipSpace.gameObject.SetActive(chip == chipSpace);
+                chipPkm.gameObject.SetActive(chip == chipPkm);
                 float tw = promptText.preferredWidth;
                 float cw = chip != null ? chip.sizeDelta.x + 18f : 0f;
                 float x0 = -(cw + tw) * 0.5f;

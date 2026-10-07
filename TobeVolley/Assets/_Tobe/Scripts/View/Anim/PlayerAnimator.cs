@@ -303,6 +303,7 @@ namespace Tobe.View
 
             // ---- override layer (key poses, stance, torso)
             EvalOverrides(dt, tm);
+            Inertia(dt);
             Quaternion Q = Quaternion.Euler(0f, bodyOff, 0f);             // the body may face the ball while the view yaw follows the velocity
             hp.bodyPosition = Q * bpos;
             hp.bodyRotation = Q * (cur.pitch != 0f ? Quaternion.Euler(cur.pitch, 0f, 0f) * brot : brot);
@@ -748,6 +749,52 @@ namespace Tobe.View
                 float k = blendDur > 1e-4f ? AnimMath.Smooth01(blendT / blendDur) : 1f;
                 PoseOv.Blend(cur, from, tgt, k);
             }
+        }
+
+        // ================================================================== инерция: захлёст и запаздывание
+        // Позы сменяют друг друга не «по линейке»: каждая часть тела догоняет свою цель через пружину. Плечо быстрее,
+        // предплечье и кисть отстают и доходят с лёгким перелётом, корпус и голова запаздывают за бёдрами. На ударе
+        // пружины жёстче, чтобы хлёст остался резким.
+        struct Spr { public Vector3 x, v; public bool on; }
+        Spr sUR, sLR, sUL, sLL, sGUR, sGLR, sGUL, sGLL, sHips, sSpine, sChest, sNeck, sHead;
+
+        static Vector3 Spring(ref Spr s, Vector3 target, float hz, float zeta, float dt, bool snap)
+        {
+            if (!s.on || snap) { s.x = target; s.v = Vector3.zero; s.on = true; return target; }
+            float w = 2f * Mathf.PI * hz;
+            int n = Mathf.Max(1, Mathf.CeilToInt(dt / 0.008f));           // мелкие шаги: устойчиво при любом FPS
+            float h = dt / n;
+            for (int i = 0; i < n; i++)
+            {
+                s.v += ((target - s.x) * (w * w) - s.v * (2f * zeta * w)) * h;
+                s.x += s.v * h;
+            }
+            return s.x;
+        }
+
+        public static bool InertiaOn = true;   // переключатель для замеров (меню Tobe/Dev)
+
+        void Inertia(float dt)
+        {
+            if (dt <= 0f || !InertiaOn) return;
+            bool whip = pose == PoseId.Spike || pose == PoseId.ServeHit || pose == PoseId.Block;
+            float k = whip ? 2.2f : 1f;
+            bool snapR = cur.wR < 0.02f, snapL = cur.wL < 0.02f, snapG = cur.legW < 0.02f;
+            // руки: плечо — 4 Гц почти без перелёта, предплечье — 3,2 Гц с небольшим перелётом (захлёст)
+            cur.uR = Spring(ref sUR, cur.uR, 4.0f * k, 0.8f, dt, snapR).normalized;
+            cur.lR = Spring(ref sLR, cur.lR, 3.2f * k, 0.55f, dt, snapR).normalized;
+            cur.uL = Spring(ref sUL, cur.uL, 4.0f * k, 0.8f, dt, snapL).normalized;
+            cur.lL = Spring(ref sLL, cur.lL, 3.2f * k, 0.55f, dt, snapL).normalized;
+            cur.gUR = Spring(ref sGUR, cur.gUR, 5f * k, 0.75f, dt, snapG).normalized;
+            cur.gLR = Spring(ref sGLR, cur.gLR, 4.2f * k, 0.6f, dt, snapG).normalized;
+            cur.gUL = Spring(ref sGUL, cur.gUL, 5f * k, 0.75f, dt, snapG).normalized;
+            cur.gLL = Spring(ref sGLL, cur.gLL, 4.2f * k, 0.6f, dt, snapG).normalized;
+            // корпус: бёдра ведут, грудь и голова догоняют
+            cur.hips = Spring(ref sHips, cur.hips, 4.5f * k, 1f, dt, false);   // бёдра без перелёта — не покачиваются
+            cur.spine = Spring(ref sSpine, cur.spine, 3.6f * k, 0.7f, dt, false);
+            cur.chest = Spring(ref sChest, cur.chest, 3.0f * k, 0.62f, dt, false);
+            cur.neck = Spring(ref sNeck, cur.neck, 3.2f * k, 0.7f, dt, false);
+            cur.head = Spring(ref sHead, cur.head, 2.8f * k, 0.65f, dt, false);
         }
 
         // ================================================================== applying overrides to bones
