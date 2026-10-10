@@ -223,7 +223,9 @@ namespace Tobe.Net
             if (air || recT > 0 || diveT > 0 || me.pose == PoseId.Stun) return;
             var st = Styles.Get(me.profile.style).stats;
             float jumpH = 0.5f + st.jump * 0.065f, run = new Vector2(vel.x, vel.z).magnitude;
-            vel.y = Mathf.Sqrt(2 * Court.PlayerGravity * jumpH) * (1 + Mathf.Min(run, 6) * 0.012f);
+            float tired = Mathf.Lerp(0.85f, 1f, Mathf.Clamp01(stamina / 40f));   // выносливость ниже 40 — прыжок ниже (спецификация, 4.8)
+            vel.y = Mathf.Sqrt(2 * Court.PlayerGravity * jumpH * tired) * (1 + Mathf.Min(run, 6) * 0.012f);
+            stamina = Mathf.Max(0f, stamina - 12f);
             air = true;
         }
         void TryDive(Vector2 mv)
@@ -231,6 +233,7 @@ namespace Tobe.Net
             if (air || diveT > 0 || recT > 0) return;
             if (mv.sqrMagnitude < 0.01f) mv = new Vector2(Mathf.Sin(GameHub.CameraYaw * Mathf.Deg2Rad), Mathf.Cos(GameHub.CameraYaw * Mathf.Deg2Rad));
             mv.Normalize();
+            stamina = Mathf.Max(0f, stamina - 20f);
             diveT = 0.5f; diving = true; vel.x = mv.x * 6.5f; vel.z = mv.y * 6.5f;
         }
         void WriteLocal(MatchView v, int id)
