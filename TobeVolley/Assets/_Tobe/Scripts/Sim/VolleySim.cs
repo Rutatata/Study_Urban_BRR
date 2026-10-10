@@ -47,6 +47,7 @@ namespace Tobe.Sim
         public string kind = "";
         public float hitT, power;
         public SimPlayer superBy; public bool mini;
+        public bool floater;   // подача-планер: мяч «гуляет» в полёте
     }
 
     public sealed class Plan
@@ -434,14 +435,21 @@ namespace Tobe.Sim
             p.SetPose(ball.pos.y > 1.6f ? PoseId.Set : PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Bump, 0.3f);
         }
-        void DoServe(SimPlayer p, float power, Vector3? aim, bool special)
+        void DoServe(SimPlayer p, float power, Vector3? aim, bool special, float late = 0f)
         {
             int o = Other(p.team);
+            // тип подачи: снизу — медленно и надёжно; планер — мяч гуляет; в прыжке — быстро, но поздний удар уводит в аут или сетку
+            int kind = special ? 2 : p.isBot ? (p.st.serve >= 8 ? 2 : 1) : Mathf.Min((int)p.lastCmd.serveType, 2);
+            if (kind == 0) power = Mathf.Min(power, 0.4f);
             var target = aim.HasValue && Court.OnSide(o, aim.Value.z) ? new Vector3(aim.Value.x, R, aim.Value.z)
                 : new Vector3(Rnd(0.8f, 8.2f), R, Court.WorldZ(o, Rnd(3, 8.3f)));
-            float T = special ? 0.62f : Mathf.Lerp(1.75f, 0.85f, power) - (p.isBot ? p.st.serve * 0.02f : 0);
-            T = SafeT(target, T);
+            float T = special ? 0.62f : Mathf.Lerp(1.75f, kind == 2 ? 0.72f : 0.85f, power) - (p.isBot ? p.st.serve * 0.02f : 0);
+            float err = late * (kind == 2 ? 2.2f : kind == 1 ? 1.1f : 0.3f);
+            target.x += Rnd(-err, err); target.z += Court.Fwd(p.team) * Rnd(-err * 0.3f, err);
+            if (kind == 2 && late > 0.8f) { target = new Vector3(ball.pos.x, NH * 0.5f, NY + Court.Fwd(p.team) * 0.6f); T = 0.35f; }
+            else T = SafeT(target, T);
             Launch(target, T);
+            ball.floater = kind == 1 && !special;
             ball.kind = "serve"; ball.power = Hyp(target.x - ball.pos.x, target.z - ball.pos.z) / T;
             ball.lastP = p; ball.lastTeam = p.team; touches[p.team] = 0; touches[o] = 0;
             p.SetPose(PoseId.ServeHit, 0.4f);
@@ -456,6 +464,7 @@ namespace Tobe.Sim
             float sp = ball.vel.magnitude;
             float q = 0.45f + p.st.receive * 0.05f - Mathf.Max(0, sp - 11) * 0.03f + (p.isBot ? Bots.rec : 0.04f) + posQ * 0.25f;
             if (ball.superBy != null) q -= ball.mini ? 0.25f : 0.55f;
+            if (ball.floater && ball.kind == "serve") q -= 0.08f;
             return q;
         }
         void TryReceive(SimPlayer p, float d, float rad, Vector3? toward, bool auto, float penalty = 0f)
@@ -694,6 +703,8 @@ namespace Tobe.Sim
         {
             u.serveCharging = false;
             float power = Mathf.Clamp(u.serveHold / 0.9f, 0.1f, 1f);
+            float late = ball.vel.y < 0 ? Mathf.Clamp01((2.4f - ball.pos.y) / 1.0f) : 0f;   // ударил по уже упавшему мячу
+            if (late > 0.3f) Popup("ПОЗДНО ПО МЯЧУ", Grey);
             var aim = u.lastCmd.aim;
             Vector3? target = Court.OnSide(Other(u.team), aim.z) ? aim : (Vector3?)null;
             if (u.armed > 0 && u.energy >= 100 && u.Style.finisherKind == FinisherKind.Serve)
@@ -703,7 +714,7 @@ namespace Tobe.Sim
                 UseFinisher(u, () => DoServe(u, 1, target, true));
                 return;
             }
-            DoServe(u, power, target, false);
+            DoServe(u, power, target, false, late);
         }
 
         // ================= bots =================
@@ -864,6 +875,7 @@ namespace Tobe.Sim
             float pz = b.pos.z;
             b.hitT += dt;
             b.vel.y -= GB * dt;
+            if (b.floater && b.kind == "serve") b.vel.x += Mathf.Sin(b.hitT * 9f) * 10f * dt;   // планер: боковое «дрожание»
             b.pos += b.vel * dt;
 
             if (b.live && (pz - NY) * (b.pos.z - NY) <= 0 && pz != b.pos.z)
@@ -1014,17 +1026,14 @@ namespace Tobe.Sim
             }
             if (server == null) return;
             if (server.serveCharging) server.serveHold += dt;
-            if (!server.isBot && server.connected && ball.held == server && phaseT < -8f)
-            {   // 8 seconds to serve
-                phase = MatchPhase.Rally; Fault(server.team, "8 СЕКУНД НА ПОДАЧУ"); return;
-            }
+
             if (server.isBot && phaseT <= 0.6f && ball.held != null)
             {
                 ball.held = null; ball.vel = new Vector3(0, 4.6f, 0); ball.pos.y = 1.8f; server.SetPose(PoseId.ServeToss, 1f);
                 if (server.st.serve >= 8) Jump(server, 0.8f);
             }
-            if (!server.isBot && !server.connected && phaseT <= -3f && ball.held != null)
-            {   // disconnected human server: auto-serve
+            if (!server.isBot && phaseT <= -3f && ball.held == server)
+            {   // спецификация: автоподача через 3 с (и за отключившегося)
                 ball.held = null; DoServe(server, 0.5f, null, false); return;
             }
             UpdateBall(dt);

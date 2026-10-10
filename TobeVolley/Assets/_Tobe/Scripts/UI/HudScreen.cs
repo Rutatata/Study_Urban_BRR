@@ -288,7 +288,7 @@ namespace Tobe.UI
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(700, 150));
             hintRoot = p.rectTransform;
             hintText = UiKit.Label(p.transform,
-                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (держи на подаче — сила)   ПКМ / F — передача сверху (держи — выше)\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
+                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (подача: держи — сила, 1/2/3 — тип)   ПКМ / F — передача сверху (держи — выше)\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
                 20, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiKit.Pad(hintText.rectTransform, 36, 8, 20, 8);
             var cg = p.gameObject.AddComponent<CanvasGroup>();
@@ -477,6 +477,8 @@ namespace Tobe.UI
                     }
                     if (s.Length > 0) break;
                 }
+                if (s.Length == 0 && v.phase == MatchPhase.Serve && v.serverPlayerId == v.localPlayerId)
+                {   s = "ПОДАЧА " + InputCmd.ServeNames[Tobe.Net.MatchClient.ServeType] + " — 1/2/3 ТИП, ДЕРЖИ — СИЛА"; chip = chipLkm; c = UiKit.Gold; }
             }
             if (s != promptShown || chip != promptChipShown)
             {

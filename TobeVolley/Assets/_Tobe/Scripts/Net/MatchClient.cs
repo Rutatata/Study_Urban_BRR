@@ -20,6 +20,7 @@ namespace Tobe.Net
         public static bool DevSprint;
         /// <summary>Тестовый прыжок из DevProbe: true = прыгнуть в этом кадре (сбрасывается после чтения).</summary>
         public static bool DevJump;
+        public static byte ServeType = 1;   // выбранный тип подачи, его же показывает HUD
 
         // local movement state
         Vector3 pos, vel;
@@ -174,6 +175,10 @@ namespace Tobe.Net
                 if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
                 if (kb.eKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.cKey.wasPressedThisFrame) cmd.callCount++;
+                if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;
+                if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
+                if (kb.digit3Key.wasPressedThisFrame) ServeType = 2;
+                cmd.serveType = ServeType;
                 if (kb.qKey.wasPressedThisFrame) cmd.specialCount++;
                 bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
                 bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;
