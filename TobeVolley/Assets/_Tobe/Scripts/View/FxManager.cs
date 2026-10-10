@@ -234,12 +234,22 @@ namespace Tobe.View
             }
         }
 
+        // hit-stop (спецификация, 5.3): картинка на миг замирает в момент мощного удара. Симуляция идёт по unscaled-времени,
+        // поэтому матч и сеть не останавливаются — замирают только анимации, частицы и сглаживание, потом догоняют.
+        float hitStopUntil;
+        public void HitStop(float sec)
+        {
+            hitStopUntil = Mathf.Max(hitStopUntil, Time.unscaledTime + sec);
+            Time.timeScale = 0.03f;
+        }
+
         void OnEnable() { GameHub.OnEvent += OnEvent; }
-        void OnDisable() { GameHub.OnEvent -= OnEvent; }
+        void OnDisable() { GameHub.OnEvent -= OnEvent; Time.timeScale = 1f; }
         void OnDestroy() { if (Instance == this) Instance = null; }
 
         void Update()
         {
+            if (Time.timeScale < 1f && Time.unscaledTime >= hitStopUntil) Time.timeScale = 1f;
             float dt = Time.unscaledDeltaTime;
             for (int i = 0; i < rings.Length; i++)
             {
@@ -338,6 +348,7 @@ namespace Tobe.View
                 if (p > 0.5f) CameraRig.Instance.Shake((attack ? 0.18f : 0.08f) + (p - 0.5f) * (attack ? 0.5f : 0.2f));
                 if (attack && p > 0.6f) CameraRig.Instance.Punch(0.35f + (p - 0.6f) * 1.4f);
                 if (attack && p > 0.9f) CameraRig.Instance.Flash(0.25f);
+                if (attack && p > 0.85f) HitStop(0.06f + (p - 0.85f) * 0.2f);
             }
         }
 
@@ -385,6 +396,7 @@ namespace Tobe.View
 
         void BlockFx(GameEvent e)
         {
+            HitStop(0.07f);
             for (int i = 0; i < 14; i++)
             {
                 Vector3 v = Random.onUnitSphere * Random.Range(3f, 6f);
