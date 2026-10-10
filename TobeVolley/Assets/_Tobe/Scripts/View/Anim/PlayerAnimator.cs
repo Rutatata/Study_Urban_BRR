@@ -318,7 +318,31 @@ namespace Tobe.View
             AntiCross(dt);
             Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
+            OnTwos(dt);
             firstFrame = false;
+        }
+
+        // спецификация 5.3: в кульминации (удар и блок в прыжке) поза обновляется 12 раз в секунду — «на двойках», как в аниме
+        Transform[] twosBones; Quaternion[] twosRot; Vector3 twosHips; float twosT;
+        void OnTwos(float dt)
+        {
+            bool on = air && (pose == PoseId.Spike || pose == PoseId.SpikeWind || pose == PoseId.Block);
+            if (twosBones == null)
+            {
+                var l = new System.Collections.Generic.List<Transform>();
+                for (int i = 0; i < (int)HumanBodyBones.LastBone; i++) { var t = anim.GetBoneTransform((HumanBodyBones)i); if (t != null) l.Add(t); }
+                twosBones = l.ToArray(); twosRot = new Quaternion[twosBones.Length];   // [0] — бёдра, они есть всегда
+            }
+            twosT -= dt;
+            if (!on || twosT <= 0f)
+            {
+                twosT = on ? 1f / 12f : 0f;
+                for (int i = 0; i < twosBones.Length; i++) twosRot[i] = twosBones[i].localRotation;
+                twosHips = twosBones[0].localPosition;
+                return;
+            }
+            for (int i = 0; i < twosBones.Length; i++) twosBones[i].localRotation = twosRot[i];
+            twosBones[0].localPosition = twosHips;
         }
 
         void OnPoseChange(int cls)
