@@ -56,19 +56,19 @@ namespace Tobe
         public static readonly StyleDef[] All =
         {
             new StyleDef { style = PlayStyle.Setter, name = "Связующий", desc = "Мозг команды: точные передачи, быстрые комбинации.",
-                stats = new Stats(5, 6, 6, 10, 5, 8, 7), finisherName = "Пас-гильотина", finisherQuote = "Я отдам мяч туда, где ты будешь!",
+                stats = new Stats(5, 6, 6, 10, 5, 8, 7), finisherName = "Нить судьбы", finisherQuote = "Мяч сам найдёт твою руку.",
                 finisherKind = FinisherKind.Set, c1 = new Color(0.2f, 0.45f, 1f), c2 = new Color(0.8f, 0.95f, 1f) },
             new StyleDef { style = PlayStyle.Outside, name = "Доигровщик", desc = "Универсал: сильная атака и надёжный приём.",
-                stats = new Stats(8, 7, 7, 5, 6, 7, 7), finisherName = "Удар аса", finisherQuote = "Дай мне мяч. Я пробью.",
+                stats = new Stats(8, 7, 7, 5, 6, 7, 7), finisherName = "Гром с неба", finisherQuote = "Подними — я закончу.",
                 finisherKind = FinisherKind.Spike, c1 = new Color(1f, 0.45f, 0.1f), c2 = new Color(1f, 0.85f, 0.3f) },
             new StyleDef { style = PlayStyle.Middle, name = "Центральный", desc = "Прыжок выше всех: быстрые атаки и стена на блоке.",
-                stats = new Stats(7, 10, 4, 4, 9, 5, 9), finisherName = "Странная быстрая", finisherQuote = "Я могу взлететь!",
+                stats = new Stats(7, 10, 4, 4, 9, 5, 9), finisherName = "Молния-ноль", finisherQuote = "Быстрее, чем ты моргнёшь!",
                 finisherKind = FinisherKind.Spike, c1 = new Color(1f, 0.55f, 0f), c2 = new Color(1f, 1f, 0.6f) },
             new StyleDef { style = PlayStyle.Opposite, name = "Диагональный", desc = "Пушка команды: убойная атака и подача.",
-                stats = new Stats(10, 8, 4, 4, 7, 9, 6), finisherName = "Левая пушка", finisherQuote = "Сила — это всё, что нужно.",
+                stats = new Stats(10, 8, 4, 4, 7, 9, 6), finisherName = "Левый метеор", finisherQuote = "Блок? Пробью насквозь.",
                 finisherKind = FinisherKind.Serve, c1 = new Color(0.6f, 0.2f, 1f), c2 = new Color(1f, 0.3f, 0.5f) },
             new StyleDef { style = PlayStyle.Libero, name = "Либеро", desc = "Страж площадки: поднимает невозможные мячи.",
-                stats = new Stats(2, 6, 10, 7, 2, 6, 10), finisherName = "Роллинг Сандер", finisherQuote = "За моей спиной мяч не упадёт!",
+                stats = new Stats(2, 6, 10, 7, 2, 6, 10), finisherName = "Кувырок-спасатель", finisherQuote = "Пока я здесь, мяч живёт.",
                 finisherKind = FinisherKind.Dig, c1 = new Color(0.2f, 1f, 0.6f), c2 = new Color(1f, 1f, 1f) },
         };
         public static StyleDef Get(PlayStyle s) => All[(int)s];
@@ -76,7 +76,7 @@ namespace Tobe
 
     public static class TeamLook
     {
-        public static readonly string[] Names = { "КАРАСУ", "АОБА" };
+        public static readonly string[] Names = { "ХИБАРИ", "КАЙРЮ" };   // свои школы: ничего узнаваемого из аниме
         public static readonly Color[] Shirt = { new Color(0.14f, 0.14f, 0.17f), new Color(0.95f, 0.95f, 0.97f) };
         public static readonly Color[] Trim = { new Color(1f, 0.5f, 0.05f), new Color(0.1f, 0.7f, 0.7f) };
         public static readonly Color[] Shorts = { new Color(0.14f, 0.14f, 0.17f), new Color(0.1f, 0.35f, 0.45f) };

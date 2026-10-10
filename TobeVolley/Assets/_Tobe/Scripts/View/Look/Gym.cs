@@ -202,11 +202,11 @@ namespace Tobe.View
             // team 0 end wall (z low) faces +Z
             float zf0 = Hall.Z0 + 0.12f, zf1 = Hall.Z1 - 0.12f;
             Banner(cloth, parent, new Vector3(4.5f, yc, zf0), Vector3.forward, 4.6f, 8.6f, black, orange, orange, "飛\nべ", 0.32f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "烏\n野", 0.24f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "雲\n雀", 0.24f);
             Banner(cloth, parent, new Vector3(10.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "繋\nげ", 0.24f);
             // team 1 end wall (z high) faces -Z
             Banner(cloth, parent, new Vector3(4.5f, yc, zf1), Vector3.back, 4.6f, 8.6f, white, teal, new Color(0.05f, 0.45f, 0.5f), "繋\nげ", 0.32f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "青\n城", 0.24f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "海\n竜", 0.24f);
             Banner(cloth, parent, new Vector3(10.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "必\n勝", 0.24f);
             // side walls between the windows
             string[] words = { "飛べ", "繋げ", "全力", "勝利", "一球", "不屈" };

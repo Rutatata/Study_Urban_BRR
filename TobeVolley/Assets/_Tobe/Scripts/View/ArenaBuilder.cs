@@ -1,4 +1,4 @@
-// Builds the stylized indoor arena (Haikyuu-style tournament gym, Rematch-style cel look): lighting, post FX and the
+// Builds the stylized indoor arena (anime-style school tournament gym, Rematch-style cel look): lighting, post FX and the
 // hall pieces from View/Look (Gym, Stands, CourtProps). Keeps the public API used elsewhere (Adjust, BloomFx, Cheer, Excitement).
 using UnityEngine;
 using UnityEngine.Rendering;

@@ -29,7 +29,8 @@ namespace Tobe.Sim
         // human input state
         public InputCmd lastCmd;
         public ushort seenHitPress, seenHitRelease, seenCall, seenSpecial, seenSetPress;
-        public bool hitSet;   // последнее нажатие касания: true = передача сверху (ПКМ), false = приём снизу / удар (ЛКМ)
+        public bool hitSet;
+        public float timingErr;   // оценка тайминга нажатия: секунды до идеальной высоты мяча (+ рано, - поздно)   // последнее нажатие касания: true = передача сверху (ПКМ), false = приём снизу / удар (ЛКМ)
         public float hitBuf, serveHold;
         public bool serveCharging;
 
@@ -91,7 +92,7 @@ namespace Tobe.Sim
         public static readonly PlayStyle[] BotStyles4 = { PlayStyle.Setter, PlayStyle.Outside, PlayStyle.Middle, PlayStyle.Libero };
         public static PlayStyle BotStyleFor(int teamSize, int slot) =>
             teamSize >= 6 ? BotStyles6[slot % 6] : teamSize == 4 ? BotStyles4[slot % 4] : BotStyles3[slot % 3];
-        static readonly string[] BotNames = { "Кагеяма-бот", "Хината-бот", "Нишиноя-бот", "Танака-бот", "Цукки-бот", "Асахи-бот", "Ойкава-бот", "Ивайзуми-бот", "Куроо-бот", "Кенма-бот", "Бокуто-бот", "Акааши-бот" };
+        static readonly string[] BotNames = { "Сора-бот", "Рэн-бот", "Хару-бот", "Юки-бот", "Кай-бот", "Мио-бот", "Тайга-бот", "Нао-бот", "Рику-бот", "Сэна-бот", "Акира-бот", "Хикари-бот" };
 
         public SimPlayer AddPlayer(byte id, int team, int slot, PlayerProfile prof, bool bot, ulong clientId)
         {
@@ -376,7 +377,7 @@ namespace Tobe.Sim
                 p.blockJumpAt = tHit - tPeak + 0.04f + Rnd(-0.06f, 0.08f) / Bots.block;
             }
         }
-        void DoSpike(SimPlayer p, float q, Vector3? aim, bool special)
+        void DoSpike(SimPlayer p, float q, Vector3? aim, bool special, bool tipBtn = false)
         {
             if (ball.pos.y > NH + 0.05f)
             {
@@ -401,7 +402,7 @@ namespace Tobe.Sim
                 target.x += Rnd(-e, e); target.z += Rnd(-e, e);
             }
             float S = (12.5f + p.st.spike * 1.25f) * (0.7f + 0.35f * q) * (special ? 1.35f : 1f);
-            bool tip = p.isBot && !special && Random.value < 0.08f;
+            bool tip = tipBtn || p.isBot && !special && Random.value < 0.08f;   // игрок: ПКМ в прыжке; бот: изредка сам
             if (tip) { target = new Vector3(Mathf.Clamp(p.pos.x + Rnd(-2, 2), 0.5f, 8.5f), R, Court.WorldZ(o, Rnd(1.2f, 2.2f))); S = 6; }
             float dist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
             float T = SafeT(target, Mathf.Max(0.12f, dist / S));
@@ -479,6 +480,32 @@ namespace Tobe.Sim
             if (p.diveT > 0 && Random.value < 0.5f) Popup("ВЫТАЩИЛ!", new Color(0.25f, 1f, 0.7f));
             DoPass(p, Mathf.Clamp(q, 0.1f, 1f), toward);
         }
+        // ---------------- тайминг (спецификация, 4.2) ----------------
+        /// <summary>Идеальная высота контакта: приём снизу — у пояса, передача — над головой.</summary>
+        static float IdealY(SimPlayer u, bool set) => set ? 2.25f : 0.9f;
+
+        /// <summary>Секунды до момента, когда мяч опустится до высоты y: + нажали рано, - поздно (мяч уже ниже).</summary>
+        float TimingErr(float y)
+        {
+            if (!ball.live || ball.held != null) return 0f;
+            if (ball.pos.y >= y) { PredictY(y, out float t); return t; }
+            return -(y - ball.pos.y) / Mathf.Max(1f, -ball.vel.y);
+        }
+
+        /// <summary>0 Perfect, 1 Good, 2 Bad, 3 Miss; mul — множитель качества касания.
+        /// Окна 40 / 90 / 160 мс шире у игрока с хорошим статом, а сильный мяч сужает Perfect.</summary>
+        int Grade(SimPlayer u, bool set, out float mul)
+        {
+            float stat = set ? u.st.set : u.st.receive;
+            float w = 1f + stat * 0.03f;
+            float hard = Mathf.Clamp(11f / Mathf.Max(1f, ball.vel.magnitude), 0.6f, 1f);
+            float e = Mathf.Abs(u.timingErr);
+            if (e <= 0.040f * w * hard) { mul = 1.08f; return 0; }
+            if (e <= 0.090f * w) { mul = 0.9f; return 1; }
+            if (e <= 0.160f * w) { mul = 0.62f; return 2; }
+            mul = 0f; return 3;
+        }
+
         /// <summary>Неверное касание (не та кнопка под высоту мяча): мяч уходит криво, засчитывается касание.</summary>
         void BadTouch(SimPlayer p, string why)
         {
@@ -560,11 +587,19 @@ namespace Tobe.Sim
             bool setBtn = u.hitSet;
             float by = ball.pos.y;
             if (!ri.air && setBtn && by < 1.35f) { BadTouch(u, "НИЗКО ДЛЯ ПАСА"); return; }
-            if (n == 1 && !ri.air && !setBtn) { TryReceive(u, ri.d, ri.rad, aimOwn ? aim : (Vector3?)null, auto, by > 1.9f ? 0.3f : 0f); return; }
+            float tq = 1f;
+            if (!ri.air)
+            {   // тайминг нажатия (спецификация, 4.2): Perfect / Good / Bad / Miss
+                int g = Grade(u, setBtn, out tq);
+                if (g == 3) { BadTouch(u, u.timingErr > 0 ? "МИМО: РАНО" : "МИМО: ПОЗДНО"); return; }
+                if (g == 0) Popup("ИДЕАЛЬНО!", Gold);
+                else if (g == 2) Popup(u.timingErr > 0 ? "РАНО" : "ПОЗДНО", Grey);
+            }
+            if (n == 1 && !ri.air && !setBtn) { TryReceive(u, ri.d, ri.rad, aimOwn ? aim : (Vector3?)null, auto, (by > 1.9f ? 0.3f : 0f) + (1f - tq)); return; }
             if (!RegisterTouch(u)) return;
             if (!ri.air && setBtn)
             {   // передача сверху: точнее всего, но только по высокому мячу
-                float q = Mathf.Clamp(0.55f + u.st.set * 0.05f + Quality(ri.d, ri.rad) * 0.25f - (by < 1.7f ? 0.2f : 0f), 0.1f, 1f);
+                float q = Mathf.Clamp((0.55f + u.st.set * 0.05f + Quality(ri.d, ri.rad) * 0.25f - (by < 1.7f ? 0.2f : 0f)) * tq, 0.1f, 1f);
                 SimPlayer mate = aimOwn ? NearestFree(tm, aim, u) : null;
                 if (n < 3 && aimOwn)
                 {
@@ -577,6 +612,7 @@ namespace Tobe.Sim
             }
             if (ri.air)
             {
+                if (setBtn && !aimOwn) { DoSpike(u, 0.8f, aim, false, true); return; }   // ПКМ в прыжке над чужой половиной — обманка
                 if (setBtn && aimOwn && n < 3)
                 {
                     var mate = NearestFree(tm, aim, u);
@@ -589,7 +625,7 @@ namespace Tobe.Sim
             }
             if (n == 2 && aimOwn)
             {
-                float q = Mathf.Clamp(0.3f + u.st.set * 0.03f + Quality(ri.d, ri.rad) * 0.2f, 0.1f, 0.75f);   // пас снизу: заметно хуже передачи сверху
+                float q = Mathf.Clamp((0.3f + u.st.set * 0.03f + Quality(ri.d, ri.rad) * 0.2f) * tq, 0.1f, 0.75f);   // пас снизу: заметно хуже передачи сверху
                 SimPlayer mate = null; float bd = 1e9f;
                 foreach (var p in players)
                     if (p.team == tm && p != u && p.profile.style != PlayStyle.Libero) { float d = Hyp(p.pos.x - aim.x, p.pos.z - aim.z); if (d < bd) { bd = d; mate = p; } }
@@ -603,8 +639,8 @@ namespace Tobe.Sim
         /// <summary>Apply the latest input of a connected human (called every server tick before Step).</summary>
         public void ApplyHuman(SimPlayer u, InputCmd c, float dt)
         {
-            if (c.hitPressCount != u.seenHitPress) { u.seenHitPress = c.hitPressCount; u.hitSet = false; OnHumanPress(u); }
-            if (c.setPressCount != u.seenSetPress) { u.seenSetPress = c.setPressCount; if (phase == MatchPhase.Rally) { u.hitSet = true; u.hitBuf = 0.35f; } }
+            if (c.hitPressCount != u.seenHitPress) { u.seenHitPress = c.hitPressCount; u.hitSet = false; u.timingErr = TimingErr(IdealY(u, false)); OnHumanPress(u); }
+            if (c.setPressCount != u.seenSetPress) { u.seenSetPress = c.setPressCount; if (phase == MatchPhase.Rally) { u.hitSet = true; u.hitBuf = 0.35f; u.timingErr = TimingErr(IdealY(u, true)); } }
             if (c.hitReleaseCount != u.seenHitRelease) { u.seenHitRelease = c.hitReleaseCount; OnHumanRelease(u); }
             if (c.callCount != u.seenCall) { u.seenCall = c.callCount; u.callT = 2.5f; Ev(GameEventType.Popup, "ДАЙ МНЕ!", Orange, default, u, 0); }
             if (c.specialCount != u.seenSpecial)
