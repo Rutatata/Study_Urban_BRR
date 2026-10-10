@@ -179,6 +179,7 @@ namespace Tobe.Net
                 if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
                 if (kb.digit3Key.wasPressedThisFrame) ServeType = 2;
                 cmd.serveType = ServeType;
+                cmd.fatigue = (byte)Mathf.Clamp(100f - stamina, 0f, 100f);
                 if (kb.qKey.wasPressedThisFrame) cmd.specialCount++;
                 bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
                 bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;

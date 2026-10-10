@@ -511,7 +511,7 @@ namespace Tobe.Sim
         int Grade(SimPlayer u, bool set, out float mul)
         {
             float stat = set ? u.st.set : u.st.receive;
-            float w = 1f + stat * 0.03f;
+            float w = (1f + stat * 0.03f) * Mathf.Lerp(0.7f, 1f, (100 - u.lastCmd.fatigue) / 40f);   // уставший (ниже 40) — окна уже
             float hard = Mathf.Clamp(11f / Mathf.Max(1f, ball.vel.magnitude), 0.6f, 1f);
             float e = Mathf.Abs(u.timingErr);
             if (e <= 0.040f * w * hard) { mul = 1.08f; return 0; }
