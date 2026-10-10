@@ -19,6 +19,7 @@ namespace Tobe.Sim
 
         public Vector3 pos, vel;
         public bool air, sprint, blockJump;
+        public float airAt;   // время отрыва от пола (для слияния двойного блока)
         public float dvx, dvz;
         public float diveT, recT, stunT, armed, callT, poseT, stamina = 100, energy;
         public PoseId pose = PoseId.Idle;
@@ -679,6 +680,7 @@ namespace Tobe.Sim
                 u.vel = c.clientVel; u.pos = np;
                 bool wasAir = u.air;
                 u.air = c.clientAir && np.y > 0.01f;
+                if (u.air && !wasAir) u.airAt = t;
                 if (u.air && !wasAir) u.blockJump = Mathf.Abs(u.pos.z - NY) < 1.2f && ball.lastTeam != u.team;
                 if (c.clientDiving && u.diveT <= 0) u.diveT = 0.5f;
                 if (!c.clientDiving && u.diveT > 0.1f) u.diveT = 0.1f;
@@ -729,7 +731,7 @@ namespace Tobe.Sim
             if (p.air || p.recT > 0 || p.stunT > 0) return;
             float run = Hyp(p.vel.x, p.vel.z);
             p.vel.y = Mathf.Sqrt(2 * GP * p.jumpH * k) * (1 + Mathf.Min(run, 6) * 0.012f);
-            p.air = true; p.blockJump = false;
+            p.air = true; p.blockJump = false; p.airAt = t;
         }
         void Dive(SimPlayer p, float dx, float dz)
         {
@@ -905,7 +907,8 @@ namespace Tobe.Sim
                         if (p.team != def || !p.air || Mathf.Abs(p.pos.z - NY) > 0.9f) continue;
                         if (p.profile.style == PlayStyle.Libero && teamSize >= 6) continue;   // libero may not block
                         float top = p.pos.y + p.reach + 0.3f, bot = p.pos.y + p.reach - 0.55f;
-                        if (Mathf.Abs(b.pos.x - p.pos.x) < 0.65f && b.pos.y > bot && b.pos.y < top) { b.blockChecked = true; BlockHit(p); break; }
+                        int wall = Wall(p);
+                        if (Mathf.Abs(b.pos.x - p.pos.x) < (wall > 0 ? 1.0f : 0.65f) && b.pos.y > bot && b.pos.y < top) { b.blockChecked = true; BlockHit(p, wall); break; }
                     }
             }
             if (b.pos.y <= R && b.vel.y < 0)
@@ -917,7 +920,15 @@ namespace Tobe.Sim
             if (b.pos.x < -7 || b.pos.x > Court.Width + 7) b.vel.x *= -0.5f;
             if (b.pos.z < -6 || b.pos.z > Court.Length + 6) b.vel.z *= -0.5f;
         }
-        void BlockHit(SimPlayer p)
+        // спецификация 4.5: прыгнувшие рядом в пределах 150 мс сливают зоны в одну стену
+        int Wall(SimPlayer p)
+        {
+            int n = 0;
+            foreach (var q in players)
+                if (q != p && q.team == p.team && q.air && Mathf.Abs(q.pos.z - NY) < 0.9f && Mathf.Abs(q.pos.x - p.pos.x) < 1.4f && Mathf.Abs(q.airAt - p.airAt) <= 0.15f) n++;
+            return n;
+        }
+        void BlockHit(SimPlayer p, int wall = 0)
         {
             var b = ball; var attacker = b.lastP; float sp = Hyp(b.vel.x, b.vel.z);
             p.SetPose(PoseId.Block, 0.4f);
@@ -930,7 +941,7 @@ namespace Tobe.Sim
                 return;
             }
             RegisterTouch(p, true);
-            float pk = special ? 1 : Mathf.Clamp(0.32f + p.st.block * 0.045f * Bots.block - (sp - 14) * 0.02f, 0.08f, 0.85f);
+            float pk = special ? 1 : Mathf.Clamp(0.32f + p.st.block * 0.045f * Bots.block - (sp - 14) * 0.02f + wall * 0.12f, 0.08f, 0.92f);
             float r = Random.value;
             Ev(GameEventType.Block, null, Color.white, b.pos, p);
             if (r < pk)
@@ -940,7 +951,7 @@ namespace Tobe.Sim
                 const float T = 0.32f;
                 b.vel = new Vector3((tx - b.pos.x) / T, (R - b.pos.y + 0.5f * GB * T * T) / T, (tz - b.pos.z) / T);
                 if (special) { p.energy = 0; p.armed = 0; freezeT = 1.0f; pendingAfterFreeze = null; Ev(GameEventType.Cutin, p.Style.finisherName, p.Style.c1, p.pos, p, (int)FinisherKind.Block, 1f); }
-                Popup(special ? p.Style.finisherName.ToUpper() : "БЛОК!", p.team == 0 ? Cyan : Pink);
+                Popup(special ? p.Style.finisherName.ToUpper() : wall >= 2 ? "ТРОЙНОЙ БЛОК!" : wall == 1 ? "ДВОЙНОЙ БЛОК!" : "БЛОК!", p.team == 0 ? Cyan : Pink);
                 slowT = 0.35f;
             }
             else if (r < pk + 0.35f) { b.vel = new Vector3(b.vel.x * 0.25f, 3.8f, b.vel.z * 0.2f); Popup("СМЯГЧИЛ", Grey); }
