@@ -355,6 +355,11 @@ namespace Tobe.Sim
                 else if (sp.x < 6) { target = new Vector3(4.0f, tz, Court.WorldZ(tm, 0.55f)); T = 0.62f; }
                 else { target = new Vector3(8.1f, tz, Court.WorldZ(tm, 0.7f)); T = 0.95f; }
             }
+            if (!freak && !p.isBot && p.lastCmd.setHeld)
+            {   // ПКМ держали до касания: высокая и длинная передача — больше времени на разбег
+                T *= 1.4f; target.z -= Court.Fwd(tm) * 0.6f;
+                Popup("ВЫСОКАЯ!", Grey);
+            }
             float err = freak ? 0 : (1 - q) * 1.3f;
             target.x += Rnd(-err, err); target.z -= Court.Fwd(tm) * Rnd(0, err * 0.6f);
             Launch(target, T);

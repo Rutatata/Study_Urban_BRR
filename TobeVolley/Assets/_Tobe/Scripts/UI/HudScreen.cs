@@ -288,7 +288,7 @@ namespace Tobe.UI
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(700, 150));
             hintRoot = p.rectTransform;
             hintText = UiKit.Label(p.transform,
-                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (держи на подаче — сила)   ПКМ / F — передача сверху\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
+                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (держи на подаче — сила)   ПКМ / F — передача сверху (держи — выше)\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
                 20, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiKit.Pad(hintText.rectTransform, 36, 8, 20, 8);
             var cg = p.gameObject.AddComponent<CanvasGroup>();
@@ -467,7 +467,7 @@ namespace Tobe.UI
                     switch (pl.kind)
                     {
                         case PlanKind.Receive: s = "ПРИЁМ СНИЗУ!"; chip = chipLkm; c = UiKit.Cyan; break;
-                        case PlanKind.Set: s = "ПЕРЕДАЧА — В СТОРОНУ ПРИЦЕЛА"; chip = chipPkm; c = UiKit.Gold; break;
+                        case PlanKind.Set: s = "ПЕРЕДАЧА — В СТОРОНУ ПРИЦЕЛА (ДЕРЖИ — ВЫШЕ)"; chip = chipPkm; c = UiKit.Gold; break;
                         case PlanKind.Attack:
                             if (lp.air) { s = "БЕЙ!"; chip = chipLkm; c = UiKit.Orange; }
                             else if (pl.timeLeft < 0.55f) { s = "ПРЫГАЙ!"; chip = chipSpace; c = UiKit.Orange; }

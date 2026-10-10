@@ -181,6 +181,7 @@ namespace Tobe.Net
                 if (mouse != null && mouse.rightButton.wasPressedThisFrame || kb.fKey.wasPressedThisFrame) cmd.setPressCount++;   // передача сверху (ПКМ или F)
                 if (hitUp) cmd.hitReleaseCount++;
                 cmd.hitHeld = mouse != null && mouse.leftButton.isPressed || kb.jKey.isPressed;
+                cmd.setHeld = mouse != null && mouse.rightButton.isPressed || kb.fKey.isPressed;
             }
             cmd.move = mv; cmd.sprint = sprint;
             if (dt <= 0) return;
