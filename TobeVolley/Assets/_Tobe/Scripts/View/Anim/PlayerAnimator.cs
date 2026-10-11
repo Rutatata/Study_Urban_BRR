@@ -316,6 +316,7 @@ namespace Tobe.View
             ApplyGait(Rb, Q, legIkW);
             ApplyArms(Rb);
             ReachBall();
+            Smear();
             AntiCross(dt);
             Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
@@ -896,6 +897,25 @@ namespace Tobe.View
             if (!ball.live) return;
             ReachArm(uaR, Bone(HumanBodyBones.RightHand), ball.pos);
             if (both) ReachArm(uaL, Bone(HumanBodyBones.LeftHand), ball.pos);
+        }
+        // спецификация 5.3: кадр-«размазка» — короткий светлый след за кистью на взмахе удара и подачи
+        TrailRenderer smear;
+        void Smear()
+        {
+            if (smear == null)
+            {
+                var hand = Bone(HumanBodyBones.RightHand);
+                if (hand == null) return;
+                smear = new GameObject("Smear").AddComponent<TrailRenderer>();
+                smear.transform.SetParent(hand, false);
+                smear.time = 0.09f; smear.minVertexDistance = 0.02f; smear.widthMultiplier = 0.16f;
+                smear.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+                smear.sharedMaterial = Mats.Particle("ball_trail_core", ProcTex.TrailTex, true);   // тот же материал, что у следа мяча
+                smear.startColor = new Color(1f, 1f, 1f, 0.55f); smear.endColor = new Color(1f, 1f, 1f, 0f);
+                smear.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                smear.emitting = false;
+            }
+            smear.emitting = (pose == PoseId.Spike || pose == PoseId.ServeHit) && poseAge < 0.14f;
         }
         void ReachArm(B ua, Transform hand, Vector3 ballPos)
         {
