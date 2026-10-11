@@ -269,6 +269,21 @@ namespace Tobe.Sim
             }
             return best;
         }
+        // как в настоящей игре: мяч берёт хозяин зоны (по месту в расстановке); не успевает — ближайший.
+        // Человек всё равно может отбить любой мяч, если успеет первым (HumanHit не требует плана).
+        SimPlayer ZoneOwner(int team, Vector3 at, float ct, SimPlayer exclude)
+        {
+            SimPlayer best = null; float bd = 1e9f;
+            foreach (var p in players)
+            {
+                if (p.team != team || p == exclude || p.stunT > 0 || !p.connected && !p.isBot) continue;
+                var sp = SlotPos(p.slot);
+                float d = Hyp(sp.x - at.x, Court.WorldZ(team, sp.y) - at.z);
+                if (d < bd) { bd = d; best = p; }
+            }
+            if (best == null || best.pos.y > 0.3f || FlatDist(best, at) / best.spd > ct + 0.3f) return NearestFree(team, at, exclude);
+            return best;
+        }
         SimPlayer SetterOf(int team, SimPlayer exclude)
         {
             foreach (var p in players)
@@ -288,7 +303,7 @@ namespace Tobe.Sim
             if (!Court.OnSide(team, C.z)) return;
             if (!Court.InCourt(L.x, L.z, 0.15f) && n == 0 && Random.value < 0.85f) { plans[team] = new Plan { kind = PlanKind.Leave }; return; }
             var excl = ball.lastP != null && ball.lastP.team == team && !ball.blockTouch ? ball.lastP : null;
-            var p = NearestFree(team, C, excl);
+            var p = n == 1 ? NearestFree(team, C, excl) : ZoneOwner(team, C, ct, excl);
             if (p == null) return;
             plans[team] = new Plan { kind = n == 0 ? PlanKind.Receive : n == 1 ? PlanKind.Set : PlanKind.Over, p = p, point = C, t = t + ct };
         }
