@@ -50,3 +50,5 @@ Processing: trimmed, heading normalised to +Z, decimated 120 -> 30 fps, finger j
 | throw_overhead | 124_01 | baseball pitch |
 | high_five | 20_11 | high-five, walk (subject A) |
 Rejected: Bandai Namco motion dataset (CC BY-NC-ND).
+
+11.10.2026: все 9 моделей VRoid переодеты в волейбольную форму скриптом TobeVolley/Tools/blender/volley_uniform.py (футболка, шорты и кроссовки выращены из кожи тела, исходная одежда удалена). Лицензия CC0 это разрешает.
