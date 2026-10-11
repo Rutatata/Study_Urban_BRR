@@ -315,6 +315,7 @@ namespace Tobe.View
             ApplyLegs(Rb);
             ApplyGait(Rb, Q, legIkW);
             ApplyArms(Rb);
+            ReachBall();
             AntiCross(dt);
             Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
@@ -884,6 +885,25 @@ namespace Tobe.View
             if (cur.armFrame > 0.001f) D = Quaternion.Slerp(D, Quaternion.identity, Mathf.Clamp01(cur.armFrame));
             Limb(uaR, cur.uR, cur.wR, D, R); Limb(laR, cur.lR, cur.wR, D, R);
             Limb(uaL, cur.uL, cur.wL, D, R); Limb(laL, cur.lL, cur.wL, D, R);
+        }
+
+        // спецификация 5.2: в момент касания рука доводится к мячу (упрощённый IK: поворот плеча, сгиб локтя сохраняется)
+        void ReachBall()
+        {
+            bool both = pose == PoseId.Set || pose == PoseId.Bump || pose == PoseId.Block;
+            if (!both && pose != PoseId.Spike && pose != PoseId.SpikeWind) return;
+            var ball = GameHub.View.ball;
+            if (!ball.live) return;
+            ReachArm(uaR, Bone(HumanBodyBones.RightHand), ball.pos);
+            if (both) ReachArm(uaL, Bone(HumanBodyBones.LeftHand), ball.pos);
+        }
+        void ReachArm(B ua, Transform hand, Vector3 ballPos)
+        {
+            if (ua == null || hand == null) return;
+            Vector3 sh = ua.t.position, cur = hand.position - sh, want = ballPos - sh;
+            float w = 0.7f * AnimMath.Smooth01((1.3f - want.magnitude) / 0.6f);   // ближе 0,7 м — полный довод, дальше 1,3 м — ничего
+            if (w < 0.01f || cur.sqrMagnitude < 1e-6f) return;
+            ua.t.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(cur, want), w) * ua.t.rotation;
         }
 
         /// <summary>Points a limb segment along dir (frame D, x mirrored for the left side), blended with the mocap pose by w.</summary>
