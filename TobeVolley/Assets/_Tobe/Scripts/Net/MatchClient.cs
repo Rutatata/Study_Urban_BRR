@@ -173,14 +173,14 @@ namespace Tobe.Net
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
                 sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
                 if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
-                if (kb.eKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
-                if (kb.cKey.wasPressedThisFrame) cmd.callCount++;
+                if (kb.eKey.wasPressedThisFrame || kb.leftCtrlKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
+                if (kb.qKey.wasPressedThisFrame) cmd.callCount++;   // спецификация: Q — вызов паса, Ctrl — нырок, R — добивание
                 if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;
                 if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
                 if (kb.digit3Key.wasPressedThisFrame) ServeType = 2;
                 cmd.serveType = ServeType;
                 cmd.fatigue = (byte)Mathf.Clamp(100f - stamina, 0f, 100f);
-                if (kb.qKey.wasPressedThisFrame) cmd.specialCount++;
+                if (kb.rKey.wasPressedThisFrame) cmd.specialCount++;
                 bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
                 bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;
                 if (hitDown) cmd.hitPressCount++;

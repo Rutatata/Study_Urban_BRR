@@ -168,7 +168,7 @@ namespace Tobe.UI
             UiKit.At(energyBar.rectTransform, UiKit.TL, new Vector2(130, -76), new Vector2(370, 22));
             energyRt = energyBar.rectTransform;
 
-            qChip = UiKit.KeyChip(p.transform, "Q", 34, UiKit.Orange);
+            qChip = UiKit.KeyChip(p.transform, "R", 34, UiKit.Orange);
             UiKit.AtP(qChip, UiKit.BL, UiKit.BL, new Vector2(46, 12), qChip.sizeDelta);
             localPrompt = UiKit.Label(p.transform, "", 22, UiKit.Gold, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, false, true);
             UiKit.At(localPrompt.rectTransform, UiKit.BL, new Vector2(100, 12), new Vector2(400, 34));
@@ -288,7 +288,7 @@ namespace Tobe.UI
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(700, 150));
             hintRoot = p.rectTransform;
             hintText = UiKit.Label(p.transform,
-                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (подача: держи — сила, 1/2/3 — тип)   ПКМ / F — передача сверху (держи — выше)\nE — нырок   C — «Дай мне!»   Q — добивание   Esc — меню",
+                "WASD — бег   Shift — рывок   Мышь — камера   Пробел — прыжок / блок\nЛКМ — приём снизу, в прыжке — удар (подача: держи — сила, 1/2/3 — тип)   ПКМ / F — передача сверху (держи — выше)\nCtrl / E — нырок   Q — «Дай мне!»   R — добивание   Esc — меню",
                 20, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiKit.Pad(hintText.rectTransform, 36, 8, 20, 8);
             var cg = p.gameObject.AddComponent<CanvasGroup>();
