@@ -184,7 +184,7 @@ namespace Tobe.View
 
         static int AppearKey(in PlayerProfile p, int team)
         {
-            unchecked { return (((p.height * 31 + p.build) * 31 + p.skin) * 31 + p.eyes) * 31 + (p.gear | CharacterAppearance.DevExtraGear) + team * 7919 + p.hair * 104729; }
+            unchecked { return (((p.height * 31 + p.build) * 31 + p.skin) * 31 + p.eyes) * 31 + (p.gear | CharacterAppearance.DevExtraGear) + team * 7919 + p.hair * 104729 + (p.kitShirt * 13 + p.kitShorts * 17 + p.kitNumber * 19) * 1000003; }
         }
 
         /// <summary>Uses PlayerAnimator once the mocap is loaded and the model is a usable humanoid, otherwise the procedural poser.</summary>

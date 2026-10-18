@@ -28,9 +28,9 @@ namespace Tobe.View
             modelRoot.transform.localScale = state.baseScale * profile.HeightScale;
 
             bool libero = profile.style == PlayStyle.Libero;
-            Color shirt = libero ? TeamLook.Trim[team] : TeamLook.Shirt[team];
+            Color shirt = TeamLook.Kit(profile.kitShirt, libero ? TeamLook.Trim[team] : TeamLook.Shirt[team]);   // своя форма — вкладка «ФОРМА»
             Color trim = libero ? TeamLook.Shirt[team] : TeamLook.Trim[team];
-            Color shorts = TeamLook.Shorts[team];
+            Color shorts = TeamLook.Kit(profile.kitShorts, TeamLook.Shorts[team]);
             Color hair = Pick(TeamLook.HairPresets, profile.hair);
             Color skin = Pick(TeamLook.SkinTones, profile.skin);
             Color eye = Pick(TeamLook.EyeColors, profile.eyes);
@@ -471,7 +471,8 @@ namespace Tobe.View
             int n = Mathf.Clamp(p.number, (byte)0, (byte)99);
             float S = g.S;
             Vector3 P = Vector3.Lerp(g.hips.position, g.neck.position, 0.64f);
-            Color numCol = Luma(shirt) > 0.5f ? Color.Lerp(trim, new Color(0.05f, 0.1f, 0.2f), 0.35f) : (Luma(trim) > 0.35f ? trim : Color.white);
+            Color numCol = p.kitNumber > 0 ? TeamLook.Kit(p.kitNumber, trim)
+                : Luma(shirt) > 0.5f ? Color.Lerp(trim, new Color(0.05f, 0.1f, 0.2f), 0.35f) : (Luma(trim) > 0.35f ? trim : Color.white);
             Color outline = Luma(numCol) > 0.5f ? new Color(0.05f, 0.05f, 0.08f) : Color.white;
             float back = g.fallback ? 0.2f : 0.115f, front = g.fallback ? 0.2f : 0.125f;
             MeasureTorso(g, P, ref back, ref front);

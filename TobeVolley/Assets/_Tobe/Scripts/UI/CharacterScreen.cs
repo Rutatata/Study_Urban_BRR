@@ -15,7 +15,7 @@ namespace Tobe.UI
         }
 
         static readonly string[] StatLabels = { "АТАКА", "ПРЫЖОК", "ПРИЁМ", "ПАС", "БЛОК", "ПОДАЧА", "СКОРОСТЬ" };
-        static readonly string[] TabNames = { "ИГРОК", "ВНЕШНОСТЬ", "ЭКИПИРОВКА" };
+        static readonly string[] TabNames = { "ИГРОК", "ВНЕШНОСТЬ", "ФОРМА", "ЭКИПИРОВКА" };
 
         readonly GearDef[] Gears =
         {
@@ -33,15 +33,15 @@ namespace Tobe.UI
         Text loadingText, plateNick, plateNum, bigNum, savedText, modelText, numberText, heightText, buildText;
         RectTransform plateIcon, plateRoot;
         InputField nick;
-        Button[] tabBtn = new Button[3];
-        RectTransform[] tabRoot = new RectTransform[3];
+        Button[] tabBtn = new Button[4];
+        RectTransform[] tabRoot = new RectTransform[4];
         int tab;
         Button[] styleBtn;
         Text styleName, styleDesc, finName, finQuote;
         SegBarGraphic[] statBar = new SegBarGraphic[7];
         Text[] statVal = new Text[7];
         SlantGraphic styleStripe, styleHead;
-        Outline[] skinFrame, hairFrame, eyeFrame;
+        Outline[] skinFrame, hairFrame, eyeFrame, kitShirtFrame, kitShortsFrame, kitNumFrame;
         Slider heightSlider, buildSlider;
         bool building = true, suppress;
         float savedT = -10f;
@@ -134,11 +134,11 @@ namespace Tobe.UI
             var panel = UiKit.MakePanel(Rt, "RightPanel", new Vector2(1020, 800), 0f, UiKit.Panel, UiKit.Cyan);
             UiKit.At(panel.rectTransform, UiKit.TL, new Vector2(830, -140), new Vector2(1020, 800));
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 int idx = i;
-                var b = UiKit.MakeButton(panel.transform, TabNames[i], new Vector2(310, 62), UiKit.Purple, () => SetTab(idx), 28, 16f);
-                UiKit.At(b.GetComponent<RectTransform>(), UiKit.TL, new Vector2(36 + i * 322, -24), new Vector2(310, 62));
+                var b = UiKit.MakeButton(panel.transform, TabNames[i], new Vector2(230, 62), UiKit.Purple, () => SetTab(idx), 24, 16f);
+                UiKit.At(b.GetComponent<RectTransform>(), UiKit.TL, new Vector2(36 + i * 240, -24), new Vector2(230, 62));
                 tabBtn[i] = b;
                 var root = UiKit.NewRect("Tab" + i, panel.transform);
                 UiKit.At(root, UiKit.TL, new Vector2(40, -108), new Vector2(940, 670));
@@ -146,7 +146,8 @@ namespace Tobe.UI
             }
             BuildTabPlayer(tabRoot[0]);
             BuildTabLook(tabRoot[1]);
-            BuildTabGear(tabRoot[2]);
+            BuildTabKit(tabRoot[2]);
+            BuildTabGear(tabRoot[3]);
         }
 
         static Text Cap(Transform p, string text, Vector2 pos, float w = 500)
@@ -259,6 +260,22 @@ namespace Tobe.UI
                 frames[i] = fr;
             }
             return frames;
+        }
+
+        // ---------- tab: kit (своя форма; первый образец — «как у команды»)
+        void BuildTabKit(RectTransform root)
+        {
+            var cols = new Color[TeamLook.KitColors.Length + 1];
+            cols[0] = new Color(0.5f, 0.5f, 0.55f, 0.35f);   // «цвет команды»
+            for (int i = 0; i < TeamLook.KitColors.Length; i++) cols[i + 1] = TeamLook.KitColors[i];
+            Cap(root, "ФУТБОЛКА  (первый — цвет команды)", new Vector2(0, 0), 900);
+            kitShirtFrame = Swatches(root, cols, -32, i => { draft.kitShirt = (byte)i; Refresh(true); });
+            Cap(root, "ШОРТЫ", new Vector2(0, -120));
+            kitShortsFrame = Swatches(root, cols, -152, i => { draft.kitShorts = (byte)i; Refresh(true); });
+            Cap(root, "НОМЕР (печать на футболке)", new Vector2(0, -240), 900);
+            kitNumFrame = Swatches(root, cols, -272, i => { draft.kitNumber = (byte)i; Refresh(true); });
+            var note = UiKit.Label(root, "Номер меняется на вкладке «ИГРОК». Своя форма видна всем игрокам матча.", 20, UiKit.Dim, TextAnchor.UpperLeft, FontStyle.Italic);
+            UiKit.At(note.rectTransform, UiKit.TL, new Vector2(0, -370), new Vector2(900, 60));
         }
 
         // ---------- tab: gear
@@ -375,7 +392,7 @@ namespace Tobe.UI
 
         void RefreshTabs()
         {
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < tabBtn.Length; i++)
             {
                 tabRoot[i].gameObject.SetActive(i == tab);
                 UiKit.SetButtonColor(tabBtn[i], i == tab ? UiKit.Orange : UiKit.Purple);
@@ -423,6 +440,7 @@ namespace Tobe.UI
             modelText.text = (names != null && names.Length > 0 && draft.model < names.Length ? names[draft.model] : "Модель " + (draft.model + 1)).ToUpperInvariant()
                 + "   " + (draft.model + 1) + "/" + ModelCount();
             Frames(skinFrame, draft.skin); Frames(hairFrame, draft.hair); Frames(eyeFrame, draft.eyes);
+            Frames(kitShirtFrame, draft.kitShirt); Frames(kitShortsFrame, draft.kitShorts); Frames(kitNumFrame, draft.kitNumber);
             heightSlider.value = draft.height; buildSlider.value = draft.build;
             int cm = Mathf.RoundToInt(180f * draft.HeightScale);
             heightText.text = "РОСТ   " + cm + " СМ";

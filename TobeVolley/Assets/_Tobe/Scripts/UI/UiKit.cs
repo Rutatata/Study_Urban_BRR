@@ -57,6 +57,9 @@ namespace Tobe.UI
                     p.height = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.height", p.height), 0, 255);
                     p.build = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.build", p.build), 0, 255);
                     p.eyes = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.eyes", p.eyes), 0, TeamLook.EyeColors.Length - 1);
+                    p.kitShirt = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.kitShirt", 0), 0, TeamLook.KitColors.Length);
+                    p.kitShorts = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.kitShorts", 0), 0, TeamLook.KitColors.Length);
+                    p.kitNumber = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.kitNumber", 0), 0, TeamLook.KitColors.Length);
                     p.gear = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.gear", p.gear), 0, 255);
                 }
             }
@@ -77,6 +80,7 @@ namespace Tobe.UI
                 PlayerPrefs.SetInt("tobe.height", p.height);
                 PlayerPrefs.SetInt("tobe.build", p.build);
                 PlayerPrefs.SetInt("tobe.eyes", p.eyes);
+                PlayerPrefs.SetInt("tobe.kitShirt", p.kitShirt); PlayerPrefs.SetInt("tobe.kitShorts", p.kitShorts); PlayerPrefs.SetInt("tobe.kitNumber", p.kitNumber);
                 PlayerPrefs.SetInt("tobe.gear", p.gear);
                 PlayerPrefs.Save();
             }

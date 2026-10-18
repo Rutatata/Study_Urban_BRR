@@ -88,6 +88,14 @@ namespace Tobe
         {
             new Color(0.35f, 0.22f, 0.12f), new Color(0.15f, 0.15f, 0.2f), new Color(0.2f, 0.45f, 0.85f), new Color(0.85f, 0.55f, 0.1f), new Color(0.25f, 0.6f, 0.35f), new Color(0.6f, 0.2f, 0.25f),
         };
+        /// <summary>Палитра своей формы (футболка, шорты, номер).</summary>
+        public static readonly Color[] KitColors =
+        {
+            new Color(0.96f, 0.96f, 0.94f), new Color(0.1f, 0.1f, 0.13f), new Color(1f, 0.47f, 0.07f), new Color(0.13f, 0.82f, 0.78f),
+            new Color(0.9f, 0.15f, 0.2f), new Color(0.15f, 0.35f, 0.9f), new Color(0.98f, 0.82f, 0.2f), new Color(0.3f, 0.75f, 0.3f),
+            new Color(0.55f, 0.25f, 0.85f), new Color(0.95f, 0.5f, 0.7f), new Color(0.45f, 0.48f, 0.55f), new Color(0.05f, 0.2f, 0.4f),
+        };
+        public static Color Kit(byte idx, Color team) => idx == 0 ? team : KitColors[(idx - 1) % KitColors.Length];
         public static readonly Color[] HairPresets =
         {
             new Color(1f, 0.5f, 0.1f), new Color(0.08f, 0.08f, 0.1f), new Color(0.95f, 0.85f, 0.45f), new Color(0.75f, 0.75f, 0.8f),
@@ -110,6 +118,8 @@ namespace Tobe
         public byte build;      // 0..255 -> slim..athletic (shoulder/limb thickness)
         public byte eyes;       // index into TeamLook.EyeColors
         public byte gear;       // bitmask of Gear flags
+        // --- своя форма (вкладка «ФОРМА»): 0 — цвет команды, иначе 1 + индекс TeamLook.KitColors
+        public byte kitShirt, kitShorts, kitNumber;
         public float HeightScale => 0.92f + height / 255f * 0.16f;
     }
 
