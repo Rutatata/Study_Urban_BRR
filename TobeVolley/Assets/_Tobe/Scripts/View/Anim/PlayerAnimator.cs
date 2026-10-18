@@ -618,7 +618,7 @@ namespace Tobe.View
             float pt = poseAge;
             switch (pose)
             {
-                case PoseId.Dive: c = cDive; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 0.9f, 1f, 2.2f); break;
+                case PoseId.Dive: break;   // клип dive — кувырок через голову, в волейболе так не ныряют; своя поза (EvalOverrides)
                 case PoseId.Celebrate: c = cCelebrate != null && cCelebrate.humanoid && myId % 3 != 1 ? cCelebrate : null; full = true; t = pt; break;   // празднование Mixamo; вариант «крик» — свой (EvalOverrides)
                 case PoseId.Sad: c = cSad; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
                 case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
@@ -710,10 +710,7 @@ namespace Tobe.View
                 case PoseId.Dive:
                     if (!actWanted)
                     {
-                        tgt.pitch = 78f; tgt.wR = tgt.wL = 1f;
-                        tgt.uR = tgt.uL = V(0.12f, 1f, 0.2f); tgt.lR = tgt.lL = V(0.08f, 1f, 0.25f);
-                        tgt.legW = 1f; tgt.gUR = V(0.1f, -1f, -0.1f); tgt.gLR = V(0.08f, -0.75f, -0.7f); tgt.gUL = V(0.1f, -1f, 0.05f); tgt.gLL = V(0.05f, -1f, -0.2f);
-                        tgt.neck = V(-15, 0, 0); tgt.head = V(-25, 0, 0);
+                        VolleyKeys.Seq(tgt, pt, VolleyKeys.kDive, VolleyKeys.tDive, VolleyKeys.eDive);
                     }
                     break;
                 case PoseId.Celebrate:
