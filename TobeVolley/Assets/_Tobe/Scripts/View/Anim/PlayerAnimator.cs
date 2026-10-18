@@ -325,10 +325,10 @@ namespace Tobe.View
         }
 
         // спецификация 5.3: в кульминации (удар и блок в прыжке) поза обновляется 12 раз в секунду — «на двойках», как в аниме
-        Transform[] twosBones; Quaternion[] twosRot; Vector3 twosHips; float twosT;
+        Transform[] twosBones; Quaternion[] twosRot; float twosT;
         void OnTwos(float dt)
         {
-            bool on = air && (pose == PoseId.Spike || pose == PoseId.SpikeWind || pose == PoseId.Block);
+            bool on = air && (pose == PoseId.Spike || pose == PoseId.SpikeWind);   // блок без «двоек»: он короткий, рывки там только мешали
             if (twosBones == null)
             {
                 var l = new System.Collections.Generic.List<Transform>();
@@ -340,11 +340,9 @@ namespace Tobe.View
             {
                 twosT = on ? 1f / 12f : 0f;
                 for (int i = 0; i < twosBones.Length; i++) twosRot[i] = twosBones[i].localRotation;
-                twosHips = twosBones[0].localPosition;
                 return;
             }
-            for (int i = 0; i < twosBones.Length; i++) twosBones[i].localRotation = twosRot[i];
-            twosBones[0].localPosition = twosHips;
+            for (int i = 0; i < twosBones.Length; i++) twosBones[i].localRotation = twosRot[i];   // положение бёдер не держим — тело летит плавно
         }
 
         void OnPoseChange(int cls)
@@ -596,7 +594,7 @@ namespace Tobe.View
             if (blockW > 0.001f) acc.Add(cJumpB, JumpTime(cJumpB), w * blockW);   // basketball jump-shot: both arms overhead
         }
 
-        const float PushOff = 0.1f;
+        const float PushOff = 0.18f;
 
         float JumpTime(MotionClip c)
         {
@@ -605,7 +603,7 @@ namespace Tobe.View
             // толчок: первые 0,1 с полёта клип идёт от нижней точки приседа к отрыву — тело уже поднимается, ноги разгибаются,
             // и стопы будто отталкиваются от пола (без задержки прыжка, тайминг атаки не меняется)
             float fr = airU < 0.5f ? Mathf.Lerp(c.launch, c.apex, airU * 2f) : Mathf.Lerp(c.apex, c.touch, (airU - 0.5f) * 2f);
-            if (airT < PushOff) fr = Mathf.Lerp(c.low, fr, AnimMath.Smooth01(airT / PushOff));   // плавно вливается в обычный ход прыжка
+            if (airT < PushOff) fr = Mathf.Lerp(Mathf.Lerp(c.low, c.launch, 0.5f), fr, AnimMath.Smooth01(airT / PushOff));   // с полуприседа: иначе бёдра выстреливают вверх быстрее тела
             return fr / c.fps;
         }
 
