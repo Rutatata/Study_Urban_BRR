@@ -188,6 +188,7 @@ namespace Tobe.Net
                 if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; if (!air) cmd.blockIntent = false; TryJump(me); }
                 if (kb.cKey.wasPressedThisFrame && !air) { cmd.jumpCount++; cmd.blockIntent = true; TryJump(me); }   // блок — свой прыжок
                 if (kb.eKey.wasPressedThisFrame) cmd.bumpPressCount++;   // приём снизу
+                if (kb.gKey.wasPressedThisFrame) cmd.emoteCount++;       // «дай пять» напарнику
                 if (kb.leftCtrlKey.wasPressedThisFrame || kb.rightCtrlKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.qKey.wasPressedThisFrame) cmd.callCount++;   // спецификация: Q — вызов паса, Ctrl — нырок, R — добивание
                 if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;

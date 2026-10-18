@@ -33,7 +33,7 @@ namespace Tobe.UI
         RectTransform energyRt, qChip;
 
         // prompt (key chip + text)
-        RectTransform promptRoot, chipLkm, chipPkm, chipSpace, chipE, chipC;
+        RectTransform promptRoot, chipLkm, chipPkm, chipSpace, chipE, chipC, chipG;
         Text promptText;
         string promptShown = "";
         RectTransform promptChipShown;
@@ -256,7 +256,8 @@ namespace Tobe.UI
             chipSpace = UiKit.KeyChip(promptRoot, "ПРОБЕЛ", 62, UiKit.Orange);
             chipE = UiKit.KeyChip(promptRoot, "E", 62, UiKit.Cyan);
             chipC = UiKit.KeyChip(promptRoot, "C", 62, UiKit.Danger);
-            foreach (var c in new[] { chipLkm, chipPkm, chipSpace, chipE, chipC }) { c.anchorMin = c.anchorMax = new Vector2(0.5f, 0.5f); c.pivot = new Vector2(0, 0.5f); c.gameObject.SetActive(false); }
+            chipG = UiKit.KeyChip(promptRoot, "G", 62, UiKit.Gold);
+            foreach (var c in new[] { chipLkm, chipPkm, chipSpace, chipE, chipC, chipG }) { c.anchorMin = c.anchorMax = new Vector2(0.5f, 0.5f); c.pivot = new Vector2(0, 0.5f); c.gameObject.SetActive(false); }
             promptText = UiKit.Label(promptRoot, "", 60, Color.white, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic, true, true);
             var pr = promptText.rectTransform;
             pr.anchorMin = pr.anchorMax = new Vector2(0.5f, 0.5f); pr.pivot = new Vector2(0, 0.5f); pr.sizeDelta = new Vector2(900, 80);
@@ -559,6 +560,16 @@ namespace Tobe.UI
                     var op = v.plans[1 - Mathf.Clamp(lp.team, 0, 1)];
                     if (op.kind == PlanKind.Attack) { s = "БЛОК!"; chip = chipC; c = UiKit.Danger; }
                 }
+                if (s.Length == 0 && v.phase == MatchPhase.Point && !lp.air && lp.pose != PoseId.HighFive)
+                {   // перерыв: напарник рядом — можно дать пять
+                    for (int k = 0; k < v.players.Length; k++)
+                    {
+                        var q = v.players[k];
+                        if (q.id == lp.id || q.team != lp.team) continue;
+                        float dx = q.pos.x - lp.pos.x, dz = q.pos.z - lp.pos.z;
+                        if (dx * dx + dz * dz < 9f) { s = "ДАЙ ПЯТЬ"; chip = chipG; c = UiKit.Gold; break; }
+                    }
+                }
                 if (s.Length == 0 && v.phase == MatchPhase.Serve && v.serverPlayerId == v.localPlayerId)
                 {   s = "ПОДАЧА: " + InputCmd.ServeNames[Tobe.Net.MatchClient.ServeType] + " (1/2/3)"; chip = chipLkm; c = UiKit.Gold; }
             }
@@ -570,6 +581,7 @@ namespace Tobe.UI
                 chipPkm.gameObject.SetActive(chip == chipPkm);
                 chipE.gameObject.SetActive(chip == chipE);
                 chipC.gameObject.SetActive(chip == chipC);
+                chipG.gameObject.SetActive(chip == chipG);
                 float tw = promptText.preferredWidth;
                 float cw = chip != null ? chip.sizeDelta.x + 18f : 0f;
                 float x0 = -(cw + tw) * 0.5f;

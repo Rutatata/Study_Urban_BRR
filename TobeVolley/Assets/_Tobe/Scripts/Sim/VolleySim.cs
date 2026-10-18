@@ -30,7 +30,7 @@ namespace Tobe.Sim
 
         // human input state
         public InputCmd lastCmd;
-        public ushort seenHitPress, seenHitRelease, seenCall, seenSpecial, seenSetPress, seenBump;
+        public ushort seenHitPress, seenHitRelease, seenCall, seenSpecial, seenSetPress, seenBump, seenEmote;
         public float hintT;   // пауза между подсказками «не та кнопка»
         public bool hitSet, hitBump;   // последняя кнопка касания: ПКМ — передача, E — приём, ЛКМ — удар
         public float timingErr;   // оценка тайминга нажатия: секунды до идеальной высоты мяча (+ рано, - поздно)   // последнее нажатие касания: true = передача сверху (ПКМ), false = приём снизу / удар (ЛКМ)
@@ -728,6 +728,7 @@ namespace Tobe.Sim
             if (c.bumpPressCount != u.seenBump) { u.seenBump = c.bumpPressCount; if (phase == MatchPhase.Rally) { u.hitSet = false; u.hitBump = true; u.hitBuf = 0.35f; u.timingErr = TimingErr(IdealY(u, false)); } }
             if (c.setPressCount != u.seenSetPress) { u.seenSetPress = c.setPressCount; if (phase == MatchPhase.Rally) { u.hitSet = true; u.hitBuf = 0.35f; u.timingErr = TimingErr(IdealY(u, true)); } }
             if (c.hitReleaseCount != u.seenHitRelease) { u.seenHitRelease = c.hitReleaseCount; OnHumanRelease(u); }
+            if (c.emoteCount != u.seenEmote) { u.seenEmote = c.emoteCount; HighFiveRequest(u); }
             if (c.callCount != u.seenCall) { u.seenCall = c.callCount; u.callT = 2.5f; Ev(GameEventType.Popup, "ДАЙ МНЕ!", Orange, default, u, 0); }
             if (c.specialCount != u.seenSpecial)
             {
@@ -897,6 +898,22 @@ namespace Tobe.Sim
             p.yaw = Mathf.LerpAngle(p.yaw, face, 1 - Mathf.Exp(-12f * dt));
         }
 
+        /// <summary>Игрок жмёт G в перерыве: ближайший напарник (до 3 м) — рядом хлопаем сразу, дальше бот подбегает (в паузе после очка).</summary>
+        void HighFiveRequest(SimPlayer u)
+        {
+            if (phase != MatchPhase.Point && phase != MatchPhase.Serve || u.air) return;
+            SimPlayer m = null; float bd = 3f;
+            foreach (var q in players) if (q != u && q.team == u.team && !q.air) { float d = FlatDist(q, u.pos); if (d < bd) { bd = d; m = q; } }
+            if (m == null) { Ev(GameEventType.Popup, "РЯДОМ НИКОГО", Grey, default, u, 2); return; }
+            if (bd < 1.0f || !m.isBot || phase != MatchPhase.Point) { Clap(u, m); return; }
+            m.mate = u; m.celebrate = Mathf.Max(m.celebrate, 1f);   // бот подбежит (StepPoint), хлопок — по прибытии
+        }
+        void Clap(SimPlayer a, SimPlayer b)
+        {
+            a.yaw = Mathf.Atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z) * Mathf.Rad2Deg; b.yaw = a.yaw + 180f;
+            a.SetPose(PoseId.HighFive, 1.0f); b.SetPose(PoseId.HighFive, 1.0f);
+            Ev(GameEventType.Sound, "bump", null, (a.pos + b.pos) * 0.5f + Vector3.up * 1.6f, a, 0, 0.6f);
+        }
         void PairHighFive(int team)
         {   // двое ближайших ботов-победителей (не дальше 6 м) идут «давать пять»; иногда никто — чтобы не было одинаково
             SimPlayer a = null, b = null; float bd = 6f;
@@ -1134,6 +1151,7 @@ namespace Tobe.Sim
                             {   // «дай пять»: подбегают друг к другу и хлопают ладонями
                                 var m = p.mate; float d = FlatDist(p, m.pos);
                                 if (d > 0.8f) Seek(p, (p.pos.x + m.pos.x) * 0.5f, (p.pos.z + m.pos.z) * 0.5f, 0.3f);
+                                else if (!m.isBot) { Clap(p, m); p.mate = null; }
                                 else { p.yaw = Mathf.Atan2(m.pos.x - p.pos.x, m.pos.z - p.pos.z) * Mathf.Rad2Deg; p.SetPose(PoseId.HighFive, 1.0f); p.mate = null; }
                             }
                             else if (p.celebrate > 0 && p.pose != PoseId.HighFive && !p.air && Random.value < dt * 1.5f) { p.vel.y = 4; p.air = true; }
