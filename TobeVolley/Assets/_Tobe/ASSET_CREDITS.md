@@ -52,3 +52,8 @@ Processing: trimmed, heading normalised to +Z, decimated 120 -> 30 fps, finger j
 Rejected: Bandai Namco motion dataset (CC BY-NC-ND).
 
 11.10.2026: все 9 моделей VRoid переодеты в волейбольную форму скриптом TobeVolley/Tools/blender/volley_uniform.py (футболка, шорты и кроссовки выращены из кожи тела, исходная одежда удалена). Лицензия CC0 это разрешает.
+
+Модели с VRoid Hub (скачаны 18.10.2026 с аккаунта владельца проекта; условия на сайте и в файле: использование — все, корпоративное и личное коммерческое — разрешено, изменение — разрешено, повторное распространение — разрешено, указание автора — не требуется). Переодеты в волейбольную форму скриптом Tools/blender/volley_uniform.py.
+| hayato.vrm | ハヤト «ベスト» | Free Slope | https://hub.vroid.com/en/characters/1716753838659693331/models/7120739048128891672 |
+| brown.vrm | ブラウン | MIYATA | https://hub.vroid.com/en/characters/5476710490111424016/models/555525349023348109 |
+| chiharu.vrm | 三里千春 «制服Ver» | 神狐魔桃ドラン | https://hub.vroid.com/en/characters/7745807238812810862/models/4886324391800312915 |
