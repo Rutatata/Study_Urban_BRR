@@ -822,8 +822,9 @@ namespace Tobe.View
                     {   // раздевалка: сидит на скамейке (стопы на полу ставит слой Plant), предплечья на коленях, медленно оглядывается
                         tgt.legW = 1f; tgt.gUR = tgt.gUL = V(0.1f, -0.08f, 1f); tgt.gLR = tgt.gLL = V(0.04f, -1f, 0.06f);
                         tgt.wR = tgt.wL = 1f; tgt.armFrame = 1f;
-                        tgt.uR = tgt.uL = V(0.25f, -0.8f, 0.55f); tgt.lR = tgt.lL = V(-0.15f, -0.25f, 0.96f);
-                        tgt.spine = V(10, 0, 0); tgt.chest = V(6, 0, 0); tgt.neck = V(4, 0, 0);
+                        // предплечья лежат на бёдрах, кисти свисают у колен — поза отдыхающего спортсмена
+                        tgt.uR = tgt.uL = V(0.22f, -0.85f, 0.48f); tgt.lR = tgt.lL = V(-0.08f, -0.55f, 0.83f);
+                        tgt.spine = V(14, 0, 0); tgt.chest = V(8, 0, 0); tgt.neck = V(2, 0, 0);
                         tgt.head = V(4f + 4f * Mathf.Sin(pt * 0.5f), 22f * Mathf.Sin(pt * 0.31f), 0);
                     }
                     break;

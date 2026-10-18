@@ -15,8 +15,8 @@ namespace Tobe.View
         public static float DevSpeed = 1f;   // проверка по кадрам: замедлить выход
 
         static readonly Vector3 Origin = new Vector3(140f, 0f, 0f);   // далеко за стенами зала
-        static readonly Vector3 SeatLocal = new Vector3(-1.55f, 0f, 0f), DoorLocal = new Vector3(0.4f, 0f, 5.6f);
-        const float StandT = 0.45f, WalkSpeed = 2.6f, WhiteStart = 1.5f, WhiteDur = 0.7f;
+        static readonly Vector3 SeatLocal = new Vector3(-1.86f, 0f, 0f), DoorLocal = new Vector3(0.4f, 0f, 5.6f);   // таз на сиденье (скамейка x −2,16…−1,74)
+        const float StandT = 0.6f, RunSpeed = 3.4f, Accel = 6.8f, WhiteStart = 1.7f, WhiteDur = 0.7f;   // скорость = скорость записи бега (иначе ноги скользят), разгон за 0,5 с
 
         Transform roomRoot; PlayerView pv; Light doorLight; Material doorMat;
         bool exiting; float exitT; Action onExit; bool fired;
@@ -118,8 +118,11 @@ namespace Tobe.View
                 if (exitT < StandT) { pose = PoseId.Idle; yaw = Mathf.LerpAngle(90f, YawTo(SeatLocal, DoorLocal), exitT / StandT); }
                 else
                 {
-                    Vector3 path = DoorLocal - SeatLocal; float len = path.magnitude, d = Mathf.Min(len, walkT * WalkSpeed);
-                    pos = SeatLocal + path / len * d; vel = d < len ? path / len * WalkSpeed : Vector3.zero;
+                    // равноускоренный разгон до RunSpeed, затем ровный бег
+                    float tAcc = RunSpeed / Accel, dist = walkT < tAcc ? 0.5f * Accel * walkT * walkT : 0.5f * Accel * tAcc * tAcc + RunSpeed * (walkT - tAcc);
+                    float spd = Mathf.Min(RunSpeed, Accel * walkT);
+                    Vector3 path = DoorLocal - SeatLocal; float len = path.magnitude, d = Mathf.Min(len, dist);
+                    pos = SeatLocal + path / len * d; vel = d < len ? path / len * spd : Vector3.zero;
                     pose = PoseId.Run; yaw = YawTo(SeatLocal, DoorLocal);
                 }
                 Whiteout = Mathf.Clamp01((exitT - WhiteStart) / WhiteDur);
