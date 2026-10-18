@@ -42,7 +42,7 @@ namespace Tobe.UI
             bgStripe1 = s3.rectTransform;
 
             // logo
-            var kanji = UiKit.Label(Rt, "FLY!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true, true);
+            var kanji = UiKit.Label(Rt, "ЛЕТИ!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true, true);
             UiKit.At(kanji.rectTransform, UiKit.TL, new Vector2(110, -40), new Vector2(900, 230));
             kanji.horizontalOverflow = HorizontalWrapMode.Overflow;
             var title = UiKit.Label(Rt, "TOBE VOLLEY", 92, Color.white, TextAnchor.UpperLeft, FontStyle.BoldAndItalic, true, true);
@@ -84,8 +84,13 @@ namespace Tobe.UI
             UiKit.At(bc.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(575, h));
             y -= h + gap;
 
-            var bk = UiKit.MakeButton(Rt, "УПРАВЛЕНИЕ", new Vector2(575, h), UiKit.Purple, () => controlsPanel.gameObject.SetActive(true), 30);
-            UiKit.At(bk.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(575, h));
+            var bk = UiKit.MakeButton(Rt, "УПРАВЛЕНИЕ", new Vector2(375, h), UiKit.Purple, () => controlsPanel.gameObject.SetActive(true), 30);
+            UiKit.At(bk.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(375, h));
+            // язык: русский → английский → японский (название — на своём языке; подпись обновляет RefreshProfile)
+            var bl = UiKit.MakeButton(Rt, Loc.LangNames[(int)Loc.Cur], new Vector2(190, h), UiKit.Cyan, () => Loc.Set((Lang)(((int)Loc.Cur + 1) % 3)), 26);
+            langText = bl.GetComponentInChildren<Text>();
+            UiKit.SetButtonColor(bl, UiKit.Cyan, UiKit.Navy);
+            UiKit.At(bl.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 385, y), new Vector2(190, h));
             y -= h + gap;
 
             var bq = UiKit.MakeButton(Rt, "ВЫХОД", new Vector2(575, h), new Color(0.55f, 0.15f, 0.25f), OnQuit, 30);
@@ -162,8 +167,13 @@ namespace Tobe.UI
             UiKit.SetButtonColor(btn6, teamSize == 6 ? UiKit.Gold : UiKit.Purple, teamSize == 6 ? UiKit.Navy : Color.white);
         }
 
+        void OnEnable() { Loc.Changed += RefreshProfile; }
+        void OnDisable() { Loc.Changed -= RefreshProfile; }
+
+        Text langText;
         void RefreshProfile()
         {
+            if (langText != null) langText.text = Loc.LangNames[(int)Loc.Cur];
             var p = GameHub.LocalProfile;
             var st = Styles.Get(p.style);
             profileText.text = p.nick + "  #" + p.number + "\n<size=28><color=#FFD23F>" + st.name.ToUpperInvariant() + "</color></size>";

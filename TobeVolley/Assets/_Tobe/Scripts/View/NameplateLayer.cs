@@ -18,7 +18,7 @@ namespace Tobe.View
             public Text label;
             public string text;
             public float width;
-            public string srcNick; public int srcNum = -1, srcTeam = -1;
+            public string srcNick; public int srcNum = -1, srcTeam = -1; public Lang srcLang;
             public Text shout; public float shoutUntil;   // реплика над головой («МОЙ!», «ДАВАЙ!»)   // из чего собран текст — пересобираем только при смене
             public int team = -1;
         }
@@ -54,6 +54,7 @@ namespace Tobe.View
             var canvas = gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 50;          // below the HUD / menus (UiRoot = 100)
+            gameObject.AddComponent<LocPass>();
             root = (RectTransform)transform;
 
             loadingGo = new GameObject("Loading", typeof(RectTransform));
@@ -205,11 +206,11 @@ namespace Tobe.View
         {
             int team = Mathf.Clamp(s.team, 0, 1);
             Color accent = TeamLook.Trim[team];
-            if (!ReferenceEquals(pl.srcNick, s.profile.nick) || pl.srcNum != s.profile.number || pl.srcTeam != team)
+            if (!ReferenceEquals(pl.srcNick, s.profile.nick) || pl.srcNum != s.profile.number || pl.srcTeam != team || pl.srcLang != Loc.Cur)
             {   // строка собиралась каждый кадр для каждого игрока — лишний мусор для сборщика памяти
-                pl.srcNick = s.profile.nick; pl.srcNum = s.profile.number; pl.srcTeam = team;
+                pl.srcNick = s.profile.nick; pl.srcNum = s.profile.number; pl.srcTeam = team; pl.srcLang = Loc.Cur;
                 Color num = Color.Lerp(accent, Color.white, 0.25f);
-                string txt = "<color=#" + ColorUtility.ToHtmlStringRGB(num) + ">" + s.profile.number + "</color>  " + ShortNick(s.profile.nick);
+                string txt = "<color=#" + ColorUtility.ToHtmlStringRGB(num) + ">" + s.profile.number + "</color>  " + ShortNick(Loc.T(s.profile.nick));   // имена ботов и «Игрок123» — на языке игры
                 pl.text = txt;
                 pl.label.text = txt;
                 pl.width = Mathf.Max(70f, pl.label.preferredWidth + 26f);

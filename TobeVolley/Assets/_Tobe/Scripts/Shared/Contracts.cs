@@ -43,9 +43,12 @@ namespace Tobe
     public sealed class StyleDef
     {
         public PlayStyle style;
-        public string name, desc;
+        public string nameRu, descRu, finNameRu, finQuoteRu;   // русский текст; показывается на языке игры
+        public string name => Loc.T(nameRu);
+        public string desc => Loc.T(descRu);
+        public string finisherName => Loc.T(finNameRu);
+        public string finisherQuote => Loc.T(finQuoteRu);
         public Stats stats;
-        public string finisherName, finisherQuote;
         public FinisherKind finisherKind;
         public Color c1, c2;
     }
@@ -55,20 +58,20 @@ namespace Tobe
     {
         public static readonly StyleDef[] All =
         {
-            new StyleDef { style = PlayStyle.Setter, name = "Связующий", desc = "Мозг команды: точные передачи, быстрые комбинации.",
-                stats = new Stats(5, 6, 6, 10, 5, 8, 7), finisherName = "Нить судьбы", finisherQuote = "Мяч сам найдёт твою руку.",
+            new StyleDef { style = PlayStyle.Setter, nameRu = "Связующий", descRu = "Мозг команды: точные передачи, быстрые комбинации.",
+                stats = new Stats(5, 6, 6, 10, 5, 8, 7), finNameRu = "Нить судьбы", finQuoteRu = "Мяч сам найдёт твою руку.",
                 finisherKind = FinisherKind.Set, c1 = new Color(0.2f, 0.45f, 1f), c2 = new Color(0.8f, 0.95f, 1f) },
-            new StyleDef { style = PlayStyle.Outside, name = "Доигровщик", desc = "Универсал: сильная атака и надёжный приём.",
-                stats = new Stats(8, 7, 7, 5, 6, 7, 7), finisherName = "Гром с неба", finisherQuote = "Подними — я закончу.",
+            new StyleDef { style = PlayStyle.Outside, nameRu = "Доигровщик", descRu = "Универсал: сильная атака и надёжный приём.",
+                stats = new Stats(8, 7, 7, 5, 6, 7, 7), finNameRu = "Гром с неба", finQuoteRu = "Подними — я закончу.",
                 finisherKind = FinisherKind.Spike, c1 = new Color(1f, 0.45f, 0.1f), c2 = new Color(1f, 0.85f, 0.3f) },
-            new StyleDef { style = PlayStyle.Middle, name = "Центральный", desc = "Прыжок выше всех: быстрые атаки и стена на блоке.",
-                stats = new Stats(7, 10, 4, 4, 9, 5, 9), finisherName = "Молния-ноль", finisherQuote = "Быстрее, чем ты моргнёшь!",
+            new StyleDef { style = PlayStyle.Middle, nameRu = "Центральный", descRu = "Прыжок выше всех: быстрые атаки и стена на блоке.",
+                stats = new Stats(7, 10, 4, 4, 9, 5, 9), finNameRu = "Молния-ноль", finQuoteRu = "Быстрее, чем ты моргнёшь!",
                 finisherKind = FinisherKind.Spike, c1 = new Color(1f, 0.55f, 0f), c2 = new Color(1f, 1f, 0.6f) },
-            new StyleDef { style = PlayStyle.Opposite, name = "Диагональный", desc = "Пушка команды: убойная атака и подача.",
-                stats = new Stats(10, 8, 4, 4, 7, 9, 6), finisherName = "Левый метеор", finisherQuote = "Блок? Пробью насквозь.",
+            new StyleDef { style = PlayStyle.Opposite, nameRu = "Диагональный", descRu = "Пушка команды: убойная атака и подача.",
+                stats = new Stats(10, 8, 4, 4, 7, 9, 6), finNameRu = "Левый метеор", finQuoteRu = "Блок? Пробью насквозь.",
                 finisherKind = FinisherKind.Serve, c1 = new Color(0.6f, 0.2f, 1f), c2 = new Color(1f, 0.3f, 0.5f) },
-            new StyleDef { style = PlayStyle.Libero, name = "Либеро", desc = "Страж площадки: поднимает невозможные мячи.",
-                stats = new Stats(2, 6, 10, 7, 2, 6, 10), finisherName = "Кувырок-спасатель", finisherQuote = "Пока я здесь, мяч живёт.",
+            new StyleDef { style = PlayStyle.Libero, nameRu = "Либеро", descRu = "Страж площадки: поднимает невозможные мячи.",
+                stats = new Stats(2, 6, 10, 7, 2, 6, 10), finNameRu = "Кувырок-спасатель", finQuoteRu = "Пока я здесь, мяч живёт.",
                 finisherKind = FinisherKind.Dig, c1 = new Color(0.2f, 1f, 0.6f), c2 = new Color(1f, 1f, 1f) },
         };
         public static StyleDef Get(PlayStyle s) => All[(int)s];

@@ -1,0 +1,303 @@
+# русский	английский	японский — таблица перевода (Core/Loc.cs). {0} — подставляемая часть, \n — перенос строки
+Прыжок (атака)	Jump (attack)	ジャンプ（アタック）
+Блок у сетки	Block at the net	ネット際でブロック
+Приём снизу	Bump (dig)	レシーブ
+Передача сверху	Overhead set	トス（オーバーハンド）
+Удар в прыжке / подача	Spike / serve	スパイク / サーブ
+Нырок	Dive	ダイブ
+Рывок	Sprint	ダッシュ
+«Дай мне!»	"Give it to me!"	「こっちだ！」
+Добивание	Finisher	必殺技
+Дать пять	High five	ハイタッチ
+Тип подачи (геймпад)	Serve type (gamepad)	サーブの種類（ゲームパッド）
+Пауза / меню	Pause / menu	ポーズ / メニュー
+ЛКМ	LMB	左クリック
+ПКМ	RMB	右クリック
+СКМ	MMB	中クリック
+ПРОБЕЛ	SPACE	スペース
+Л. СТИК	L. STICK	Lスティック
+П. СТИК	R. STICK	Rスティック
+Л. стик	L. stick	Lスティック
+П. стик	R. stick	Rスティック
+Мышь	Mouse	マウス
+бег (относительно камеры)	run (relative to camera)	移動（カメラ基準）
+рывок	sprint	ダッシュ
+камера и прицел (на подаче — куда летит мяч)	camera and aim (on serve — where the ball goes)	カメラと照準（サーブ時はボールの方向）
+приём снизу	bump	レシーブ
+передача сверху (только по высокому мячу; держи — выше и дальше)	overhead set (high balls only; hold — higher and farther)	トス（高いボールのみ。長押しで高く遠く）
+прыжок для атаки	jump to attack	アタックのジャンプ
+в прыжке — удар; на подаче держи — сила ({0} — тип подачи)	in the air — spike; on serve hold — power ({0} — serve type)	空中でスパイク。サーブ時は長押しでパワー（{0}で種類）
+блок у сетки	block at the net	ネット際でブロック
+нырок	dive	ダイブ
+дать пять напарнику (в перерыве)	high five a teammate (between points)	仲間とハイタッチ（ラリーの合間）
+зарядить добивание	charge the finisher	必殺技をチャージ
+меню	menu	メニュー
+ — бег   	 — run   	：移動   
+ — рывок   	 — sprint   	：ダッシュ   
+ — камера и прицел\n	 — camera and aim\n	：カメラと照準\n
+ — приём   	 — bump   	：レシーブ   
+ — пас (держи — выше)   	 — set (hold — higher)   	：トス（長押しで高く）   
+ — блок\n	 — block\n	：ブロック\n
+ — прыжок   	 — jump   	：ジャンプ   
+ — удар в прыжке / подача (	 — spike / serve (	：スパイク / サーブ（
+ — тип)\n	 — type)\n	で種類）\n
+ — нырок   	 — dive   	：ダイブ   
+ — «Дай мне!»   	 — "Mine!"   	：「こっちだ！」   
+ — пять   	 — high five   	：ハイタッチ   
+ — добивание   	 — finisher   	：必殺技   
+ — меню	 — menu	：メニュー
+КЛАВИАТУРА И МЫШЬ	KEYBOARD & MOUSE	キーボードとマウス
+ГЕЙМПАД	GAMEPAD	ゲームパッド
+Бег — WASD / стрелки или левый стик.  Камера и прицел — мышь или правый стик.  Тип подачи — 1/2/3 на клавиатуре.	Run — WASD / arrows or left stick.  Camera and aim — mouse or right stick.  Serve type — 1/2/3 on the keyboard.	移動：WASD / 矢印キー または 左スティック。  カメラと照準：マウス または 右スティック。  サーブの種類：キーボードの 1/2/3。
+ЧУВСТВИТЕЛЬНОСТЬ СТИКА: {0}	STICK SENSITIVITY: {0}	スティック感度：{0}
+ЧУВСТВИТЕЛЬНОСТЬ МЫШИ: {0}	MOUSE SENSITIVITY: {0}	マウス感度：{0}
+Нажми кнопку на геймпаде для «{0}»	Press a gamepad button for "{0}"	「{0}」に割り当てるボタンを押してください
+Нажми клавишу или кнопку мыши для «{0}»	Press a key or mouse button for "{0}"	「{0}」に割り当てるキーかマウスボタンを押してください
+Нажми на кнопку действия, чтобы назначить другую.	Click an action to assign another button.	アクションをクリックしてボタンを変更します。
+Игрок{0}	Player{0}	プレイヤー{0}
+{0} (бот)	{0} (bot)	{0}（BOT）
+МАТЧ НАЧАЛСЯ!	MATCH START!	試合開始！
+Тренировка: боты выходят на площадку...	Practice: the bots are taking the court...	練習：BOTがコートに入ります...
+Ищем игроков: {0}/{1}. Через {2} c свободные места займут боты	Looking for players: {0}/{1}. Bots fill open spots in {2} s	プレイヤーを募集中：{0}/{1}。{2}秒後に空きはBOTが入ります
+Подключение к сервисам...	Connecting to services...	サービスに接続中...
+Поиск матча {0}...	Searching for a {0} match...	{0}の試合を検索中...
+Матч создан — ждём игроков	Match created — waiting for players	試合を作成しました。プレイヤーを待っています
+Подключились к матчу	Joined the match	試合に参加しました
+Создаём приватный матч...	Creating a private match...	プライベートマッチを作成中...
+Код матча: {0}	Match code: {0}	試合コード：{0}
+Входим по коду...	Joining by code...	コードで参加中...
+Онлайн недоступен: {0}\nПривяжи проект к Unity Gaming Services (см. README). Тренировка работает офлайн.	Online unavailable: {0}\nLink the project to Unity Gaming Services (see README). Practice works offline.	オンラインは利用できません：{0}\nプロジェクトを Unity Gaming Services に接続してください（README参照）。練習はオフラインで遊べます。
+Не удалось запустить локальный матч: порты 7777-7790 заняты	Could not start a local match: ports 7777-7790 are busy	ローカル試合を開始できません：ポート7777-7790が使用中です
+Тренировка с ботами	Practice with bots	BOTと練習
+Онлайн недоступен: привяжи проект к Unity Gaming Services (см. README). Тренировка работает офлайн.	Online unavailable: link the project to Unity Gaming Services (see README). Practice works offline.	オンラインは利用できません：Unity Gaming Services に接続してください（README参照）。練習はオフラインで遊べます。
+Связующий	Setter	セッター
+Мозг команды: точные передачи, быстрые комбинации.	The team's brain: precise sets, fast combos.	チームの司令塔：正確なトスと速いコンビ。
+Нить судьбы	Thread of Fate	運命の糸
+Мяч сам найдёт твою руку.	The ball will find your hand.	ボールが君の手を見つける。
+Доигровщик	Outside Hitter	ウイングスパイカー
+Универсал: сильная атака и надёжный приём.	All-rounder: strong attack and solid receive.	万能型：強いアタックと安定したレシーブ。
+Гром с неба	Thunder from the Sky	天からの雷
+Подними — я закончу.	Get it up — I'll finish it.	上げてくれ、俺が決める。
+Центральный	Middle Blocker	ミドルブロッカー
+Прыжок выше всех: быстрые атаки и стена на блоке.	Jumps highest: quick attacks and a wall at the net.	誰よりも高く跳ぶ：速攻とブロックの壁。
+Молния-ноль	Zero Lightning	ゼロの稲妻
+Быстрее, чем ты моргнёшь!	Faster than you can blink!	まばたきより速く！
+Диагональный	Opposite	オポジット
+Пушка команды: убойная атака и подача.	The team's cannon: killer attack and serve.	チームの大砲：強烈なアタックとサーブ。
+Левый метеор	Left Meteor	レフトメテオ
+Блок? Пробью насквозь.	A block? I'll smash right through.	ブロック？ぶち抜く。
+Либеро	Libero	リベロ
+Страж площадки: поднимает невозможные мячи.	Guardian of the court: digs impossible balls.	コートの守護神：不可能なボールも拾う。
+Кувырок-спасатель	Rescue Roll	救いの回転レシーブ
+Пока я здесь, мяч живёт.	While I'm here, the ball stays alive.	俺がいる限り、ボールは落ちない。
+СВ	S	S
+ДО	OH	WS
+ЦН	MB	MB
+ДГ	OP	OP
+ЛБ	L	Li
+ХИБАРИ	HIBARI	雲雀
+КАЙРЮ	KAIRYU	海竜
+СНИЗУ	UNDERHAND	アンダー
+ПЛАНЕР	FLOAT	フローター
+В ПРЫЖКЕ	JUMP SERVE	ジャンプ
+Сора-бот	Sora-bot	ソラBOT
+Рэн-бот	Ren-bot	レンBOT
+Хару-бот	Haru-bot	ハルBOT
+Юки-бот	Yuki-bot	ユキBOT
+Кай-бот	Kai-bot	カイBOT
+Мио-бот	Mio-bot	ミオBOT
+Тайга-бот	Taiga-bot	タイガBOT
+Нао-бот	Nao-bot	ナオBOT
+Рику-бот	Riku-bot	リクBOT
+Сэна-бот	Sena-bot	セナBOT
+Акира-бот	Akira-bot	アキラBOT
+Хикари-бот	Hikari-bot	ヒカリBOT
+МОЙ!	MINE!	オーライ！
+БЕРУ!	GOT IT!	取る！
+Я!	ME!	俺だ！
+ДЕРЖУ!	I'VE GOT IT!	任せろ！
+ДАВАЙ!	COME ON!	いけ！
+ПАС!	SET!	トス！
+ЕСТЬ!	YES!	よし！
+МНЕ!	TO ME!	こっち！
+ОТКРЫТ!	OPEN!	空いてる！
+ВЫШЕ!	HIGHER!	もっと高く！
+БЕЙ МНЕ!	SET ME!	俺に上げろ！
+ДВОЙНОЕ КАСАНИЕ	DOUBLE CONTACT	ダブルコンタクト
+ЧЕТЫРЕ КАСАНИЯ	FOUR HITS	フォアヒット
+СТРАННАЯ БЫСТРАЯ!	FREAK QUICK!	変人速攻！
+ВЫСОКАЯ!	HIGH SET!	高いトス！
+ЛИБЕРО НЕ АТАКУЕТ	LIBERO CAN'T ATTACK	リベロはアタック不可
+ОШИБКА ЗАДНЕЙ ЛИНИИ	BACK-ROW FAULT	バックアタック反則
+ОБМАНКА!	TIP!	フェイント！
+ИДЕАЛЬНО!	PERFECT!	完璧！
+СНЕСЛО!	BLOWN AWAY!	弾かれた！
+КРИВОЙ ПРИЁМ	SHANKED!	レシーブ乱れ
+ВЫТАЩИЛ!	SAVED!	拾った！
+ПРИЁМ — E,  ПАС — ПКМ	BUMP — E,  SET — RMB	レシーブ：E、トス：右クリック
+НИЗКО ДЛЯ ПАСА	TOO LOW TO SET	トスには低すぎる
+МИМО: РАНО	MISS: EARLY	ミス：早い
+МИМО: ПОЗДНО	MISS: LATE	ミス：遅い
+РАНО	EARLY	早い
+ПОЗДНО	LATE	遅い
+ДАЙ МНЕ!	GIVE IT TO ME!	こっちだ！
+ПОЗДНО ПО МЯЧУ	LATE ON THE BALL	タイミングが遅い
+РЯДОМ НИКОГО	NOBODY NEARBY	近くに誰もいない
+ПО ТРОСУ!	OFF THE TAPE!	ネットイン！
+В СЕТКУ!	INTO THE NET!	ネット！
+МИМО АНТЕНН	OUTSIDE THE ANTENNA	アンテナの外
+В ТЕЛО!	OFF THE BODY!	体に当たった！
+ПРОБИЛ БЛОК!	BLOCK BROKEN!	ブロックを破った！
+ТРОЙНОЙ БЛОК!	TRIPLE BLOCK!	3枚ブロック！
+ДВОЙНОЙ БЛОК!	DOUBLE BLOCK!	2枚ブロック！
+БЛОК!	BLOCK!	ブロック！
+СМЯГЧИЛ	SOFT BLOCK	ワンタッチ
+ОТ БЛОКА В АУТ	BLOCK OUT	ブロックアウト
+ОЧКО!	POINT!	得点！
+ЭЙС!	ACE!	サービスエース！
+ДОБИВАНИЕ!!	FINISHER!!	必殺技！！
+УБОЙНЫЙ!	KILL!	決まった！
+ОТ БЛОКА!	OFF THE BLOCK!	ブロックに当たった！
+АУТ!	OUT!	アウト！
+БУМ!!	BOOM!!	ドン!!
+БАХ!	SMASH!	バシッ!
+БУМ!	BOOM!	ドンッ!
+СТОП!	BLOCK!	ガッ!
+ВЖУХ!	DIVE!	ズザッ!
+ТУК!	POP!	ポンッ!
+БА-БАХ!	WHAM!	ドガァッ!
+БДЫЩ!!	KA-BOOM!!	ズドン!!
+ТРАХ!!	BANG!!	バァン!!
+ЛЕТИ!	FLY!	飛べ!
+ЛЕТИ	FLY	飛べ
+ВОЛЕЙБОЛ	VOLLEY	バレー
+АТАКА!	SPIKE!	スパイク!
+ЛЕГЕНДА	LEGEND	伝説
+ПРЫЖОК	JUMP	ジャンプ
+ВМЕСТЕ	RALLY	繋\nげ
+ПОДАЧА	SERVE	サーブ
+ЛЕТИ\nВЫШЕ	FLY\nHIGH	飛\nべ
+ВПЕРЁД!	WIN!	必\n勝
+НА\nПРЕДЕЛЕ	ALL\nOUT	全\n力
+ПОБЕДА	VICTORY	勝\n利
+КАЖДЫЙ\nМЯЧ	EVERY\nBALL	一\n球
+НЕ\nСДАВАЙСЯ	NEVER\nQUIT	不\n屈
+АТАКА	ATTACK	アタック
+ПРИЁМ	RECEIVE	レシーブ
+ПАС	SET	トス
+БЛОК	BLOCK	ブロック
+СКОРОСТЬ	SPEED	スピード
+ИГРОК	PLAYER	プレイヤー
+ВНЕШНОСТЬ	LOOKS	外見
+ФОРМА	KIT	ユニフォーム
+ЭКИПИРОВКА	GEAR	装備
+Наколенники	Knee pads	ニーパッド
+Для нырков и приёма	For dives and digs	ダイブとレシーブに
+Повязка	Headband	ヘアバンド
+Держит волосы, добавляет стиля	Keeps hair in place, adds style	髪をまとめてスタイルアップ
+Напульсники	Wristbands	リストバンド
+Классика атакующих	An attacker's classic	アタッカーの定番
+Спорт-очки	Sports glasses	スポーツグラス
+Взгляд снайпера	A sniper's gaze	スナイパーの視線
+Рукав на руку	Arm sleeve	アームスリーブ
+Компрессионный рукав	Compression sleeve	コンプレッションスリーブ
+Тейп на лодыжках	Ankle tape	足首のテーピング
+Для резких остановок	For sharp stops	急停止のために
+ПЕРСОНАЖ	CHARACTER	キャラクター
+РЕДАКТОР ВНЕШНОСТИ И СТИЛЯ ИГРЫ	LOOKS AND PLAY STYLE EDITOR	外見とプレースタイルの編集
+СОХРАНИТЬ	SAVE	保存
+НАЗАД	BACK	戻る
+СБРОС	RESET	リセット
+ЗАГРУЗКА МОДЕЛИ…	LOADING MODEL…	モデル読み込み中…
+ТЯНИ МЫШЬЮ — ПОВЕРНУТЬ	DRAG TO ROTATE	ドラッグで回転
+СЛУЧАЙНО	RANDOM	ランダム
+НИКНЕЙМ	NICKNAME	ニックネーム
+Ник	Nick	名前
+НОМЕР	NUMBER	背番号
+СТИЛЬ ИГРЫ	PLAY STYLE	プレースタイル
+ФИНИШЕР	FINISHER	必殺技
+МОДЕЛЬ	MODEL	モデル
+ТОН КОЖИ	SKIN TONE	肌の色
+ЦВЕТ ВОЛОС	HAIR COLOR	髪の色
+ЦВЕТ ГЛАЗ	EYE COLOR	目の色
+РОСТ	HEIGHT	身長
+ТЕЛОСЛОЖЕНИЕ	BUILD	体格
+ФУТБОЛКА  (первый — цвет команды)	SHIRT  (first — team color)	シャツ（先頭はチームカラー）
+ШОРТЫ	SHORTS	ショーツ
+НОМЕР (печать на футболке)	NUMBER (printed on the shirt)	背番号（シャツにプリント）
+Номер меняется на вкладке «ИГРОК». Своя форма видна всем игрокам матча.	Change the number on the PLAYER tab. Your kit is visible to everyone in the match.	背番号は「プレイヤー」タブで変更。ユニフォームは試合の全員に見えます。
+ЭКИПИРОВКА МЕНЯЕТ ТОЛЬКО ВНЕШНИЙ ВИД	GEAR IS COSMETIC ONLY	装備は見た目だけが変わります
+ВЫКЛ	OFF	オフ
+ВКЛ	ON	オン
+ВСЁ	ALL	すべて
+СНЯТЬ ВСЁ	REMOVE ALL	すべて外す
+СОХРАНЕНО!	SAVED!	保存しました！
+МОДЕЛЬ {0}	MODEL {0}	モデル {0}
+РОСТ   {0} СМ	HEIGHT   {0} CM	身長   {0} CM
+ТЕЛОСЛОЖЕНИЕ   {0}	BUILD   {0}	体格   {0}
+ХУДОЩАВОЕ	SLIM	細身
+СПОРТИВНОЕ	FIT	標準
+АТЛЕТИЧНОЕ	ATHLETIC	がっしり
+«{0}»	"{0}"	「{0}」
+ПОБЕДА!	VICTORY!	勝利！
+ЕЩЁ МАТЧ	PLAY AGAIN	もう一試合
+В МЕНЮ	TO MENU	メニューへ
+ПОРАЖЕНИЕ	DEFEAT	敗北
+МАТЧ ОКОНЧЕН	MATCH OVER	試合終了
+ПОБЕДА: {0}	WINNER: {0}	勝者：{0}
+ПАУЗА	PAUSE	ポーズ
+Матч продолжается	The match goes on	試合は続いています
+ПРОДОЛЖИТЬ	RESUME	再開
+ПОКИНУТЬ МАТЧ	LEAVE MATCH	試合から退出
+ЛОББИ	LOBBY	ロビー
+КОД СЕССИИ	SESSION CODE	セッションコード
+СКОПИРОВАТЬ	COPY	コピー
+БОТ	BOT	BOT
+НАЧАТЬ СЕЙЧАС (боты займут места)	START NOW (bots fill the spots)	今すぐ開始（空きはBOT）
+ПОКИНУТЬ	LEAVE	退出
+Скопировано!	Copied!	コピーしました！
+РЕЖИМ  {0}	MODE  {0}	モード  {0}
+— ожидание —	— waiting —	— 待機中 —
+ДОМАШНЯЯ КОМАНДА	HOME TEAM	ホーム
+ГОСТИ	AWAY TEAM	アウェイ
+ДО {0} ОЧКОВ  ·  {1}	FIRST TO {0}  ·  {1}	{0}点先取  ·  {1}
+аниме-волейбол · онлайн-матчи 3×3 и 6×6	anime volleyball · online matches 3×3 and 6×6	アニメバレーボール · オンライン 3×3 / 6×6
+НАЙТИ МАТЧ	FIND MATCH	試合を探す
+ПРИВАТНЫЙ МАТЧ	PRIVATE MATCH	プライベートマッチ
+КОД	CODE	コード
+ВОЙТИ ПО КОДУ	JOIN BY CODE	コードで参加
+ТРЕНИРОВКА С БОТАМИ	PRACTICE WITH BOTS	BOTと練習
+ОБУЧЕНИЕ	TUTORIAL	入門
+УПРАВЛЕНИЕ	CONTROLS	操作設定
+ВЫХОД	QUIT	終了
+ТВОЙ ИГРОК	YOUR PLAYER	あなたの選手
+ИЗМЕНИТЬ ПЕРСОНАЖА	EDIT CHARACTER	キャラクター編集
+КОД ПРИВАТНОГО МАТЧА	PRIVATE MATCH CODE	プライベートマッチのコード
+ЗАКРЫТЬ	CLOSE	閉じる
+Введи код приватного матча.	Enter the private match code.	プライベートマッチのコードを入力してください。
+Не удалось начать тренировку: {0}	Could not start practice: {0}	練習を開始できません：{0}
+Бегай: WASD, рывок — Shift. Камера — мышью.	Run: WASD, sprint — Shift. Camera — mouse.	移動：WASD、ダッシュ：Shift。カメラ：マウス。
+ПРИЁМ: соперник подаёт в тебя. Встань под мяч и жми E, когда кольцо сойдётся с меткой.	RECEIVE: the opponent serves at you. Get under the ball and press E when the ring meets the mark.	レシーブ：相手が君にサーブする。ボールの下に入り、リングが印に重なったらE。
+ПЕРЕДАЧА: напарник примет мяч, пасуешь ты. Под высокий мяч — ПКМ (держи — выше).	SET: your teammate receives, you set. Under a high ball — RMB (hold — higher).	トス：仲間がレシーブし、君がトスを上げる。高いボールの下で右クリック（長押しで高く）。
+АТАКА: тебе дадут пас. Пробел — прыжок, в прыжке ЛКМ — удар. Направление — камерой.	ATTACK: you'll get a set. Space — jump, LMB in the air — spike. Aim with the camera.	アタック：トスが上がる。スペースでジャンプ、空中で左クリックでスパイク。方向はカメラで。
+БЛОК: встань у сетки напротив атакующего. Загорится «БЛОК!» — жми C.	BLOCK: stand at the net facing the attacker. When BLOCK! lights up — press C.	ブロック：アタッカーの正面でネット際に立つ。「ブロック！」が光ったらC。
+ПОДАЧА: 1/2/3 — тип, камера — куда, держи ЛКМ — сила, отпусти — удар.	SERVE: 1/2/3 — type, camera — where, hold LMB — power, release — hit.	サーブ：1/2/3で種類、カメラで方向、左クリック長押しでパワー、離して打つ。
+ОБУЧЕНИЕ ПРОЙДЕНО! Дальше — обычная тренировка.	TUTORIAL COMPLETE! Regular practice from here.	チュートリアル完了！ここからは通常の練習です。
+ГОТОВО!	DONE!	クリア！
+ОБУЧЕНИЕ · ШАГ {0} ИЗ {1}	TUTORIAL · STEP {0} OF {1}	チュートリアル · ステップ {0}/{1}
+ДО 15	TO 15	15点先取
+ВЫНОС	STAMINA	スタミナ
+ЭНЕРГИЯ	ENERGY	エネルギー
+ОЧКО	POINT	得点
+ОЧКО · {0}	POINT · {0}	得点 · {0}
+ДО {0}	TO {0}	{0}点先取
+{0}  · ВЫ	{0}  · YOU	{0}  · あなた
+ДОБИВАНИЕ ГОТОВО!	FINISHER READY!	必殺技 準備完了！
+ПРИЁМ СНИЗУ!	BUMP!	レシーブ！
+ПЕРЕДАЧА — В СТОРОНУ ПРИЦЕЛА (ДЕРЖИ — ВЫШЕ)	SET — TOWARD YOUR AIM (HOLD — HIGHER)	トス：照準の方向へ（長押しで高く）
+БЕЙ!	HIT!	打て！
+ПРЫГАЙ!	JUMP!	跳べ！
+ПЕРЕБРОСЬ!	SEND IT OVER!	返せ！
+ДАЙ ПЯТЬ	HIGH FIVE	ハイタッチ
+ПОДАЧА: {0} (1/2/3)	SERVE: {0} (1/2/3)	サーブ：{0}（1/2/3）
+ЗАГРУЗКА ИГРОКОВ...	LOADING PLAYERS...	選手を読み込み中...

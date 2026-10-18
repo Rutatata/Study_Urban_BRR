@@ -46,6 +46,7 @@ namespace Tobe.UI
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
+            gameObject.AddComponent<LocPass>();   // все надписи — на выбранном языке
 
             EnsureEventSystem();
 

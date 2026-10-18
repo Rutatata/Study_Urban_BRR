@@ -34,12 +34,14 @@ namespace Tobe.UI
         /// <summary>Строка-подсказка внизу экрана матча.</summary>
         public static string HintLine()
         {
-            string G(Act a) => Controls.Glyph(a);
+            System.Func<Act, string> G;
             bool pad = Controls.UsingGamepad;
-            return (pad ? "Л. стик" : "WASD") + " — бег   " + G(Act.Sprint) + " — рывок   " + (pad ? "П. стик" : "Мышь") + " — камера и прицел\n"
-                + G(Act.Bump) + " — приём   " + G(Act.Set) + " — пас (держи — выше)   " + G(Act.Block) + " — блок\n"
-                + G(Act.Jump) + " — прыжок   " + G(Act.Attack) + " — удар в прыжке / подача (" + (pad ? G(Act.ServeNext) : "1/2/3") + " — тип)\n"
-                + G(Act.Dive) + " — нырок   " + G(Act.Call) + " — «Дай мне!»   " + G(Act.Emote) + " — пять   " + G(Act.Special) + " — добивание   " + G(Act.Pause) + " — меню";
+            string L(string ru) => Loc.T(ru);   // строка составная (кнопки + слова) — переводим по кускам
+            G = a => Loc.T(Controls.Glyph(a));
+            return (pad ? L("Л. стик") : "WASD") + L(" — бег   ") + G(Act.Sprint) + L(" — рывок   ") + (pad ? L("П. стик") : L("Мышь")) + L(" — камера и прицел\n")
+                + G(Act.Bump) + L(" — приём   ") + G(Act.Set) + L(" — пас (держи — выше)   ") + G(Act.Block) + L(" — блок\n")
+                + G(Act.Jump) + L(" — прыжок   ") + G(Act.Attack) + L(" — удар в прыжке / подача (") + (pad ? G(Act.ServeNext) : "1/2/3") + L(" — тип)\n")
+                + G(Act.Dive) + L(" — нырок   ") + G(Act.Call) + L(" — «Дай мне!»   ") + G(Act.Emote) + L(" — пять   ") + G(Act.Special) + L(" — добивание   ") + G(Act.Pause) + L(" — меню");
         }
     }
 
@@ -317,10 +319,11 @@ namespace Tobe.UI
         public static void SetChipText(RectTransform chip, string key)
         {
             if (chip == null) return;
-            var t = chip.GetComponentInChildren<Text>(); if (t == null || t.text == key) return;
+            var t = chip.GetComponentInChildren<Text>(); string shown = Loc.T(key);   // надпись переводит LocPass — сравниваем с переводом
+            if (t == null || t.text == shown) return;
             t.text = key;
             float height = chip.sizeDelta.y; int fs = t.fontSize;
-            chip.sizeDelta = new Vector2(Mathf.Max(height * 1.1f, key.Length * fs * 0.72f + height * 0.7f), height);
+            chip.sizeDelta = new Vector2(Mathf.Max(height * 1.1f, shown.Length * fs * 0.72f + height * 0.7f), height);
         }
 
         public static RectTransform KeyChip(Transform parent, string key, float height, Color? tint = null)

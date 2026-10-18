@@ -468,14 +468,14 @@ namespace Tobe.UI
             UpdateHint(dt);
             UpdateDashLines(v, dt);
             UpdateTutorial(v, dt);
-            if (chipsPad != Controls.UsingGamepad || !chipsInit) RelabelChips();
+            if (chipsPad != Controls.UsingGamepad || !chipsInit || chipsLang != Loc.Cur) RelabelChips();
         }
 
-        bool chipsPad, chipsInit;
+        bool chipsPad, chipsInit; Lang chipsLang;
         /// <summary>Подписи клавиш под текущее устройство (клавиатура+мышь / геймпад) и привязки из меню «Управление».</summary>
         void RelabelChips()
         {
-            chipsPad = Controls.UsingGamepad; chipsInit = true;
+            chipsPad = Controls.UsingGamepad; chipsInit = true; chipsLang = Loc.Cur;
             UiKit.SetChipText(chipLkm, Controls.Glyph(Act.Attack)); UiKit.SetChipText(chipPkm, Controls.Glyph(Act.Set));
             UiKit.SetChipText(chipSpace, Controls.Glyph(Act.Jump)); UiKit.SetChipText(chipE, Controls.Glyph(Act.Bump));
             UiKit.SetChipText(chipC, Controls.Glyph(Act.Block)); UiKit.SetChipText(chipG, Controls.Glyph(Act.Emote));

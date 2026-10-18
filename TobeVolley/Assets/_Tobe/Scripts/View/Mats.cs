@@ -358,7 +358,7 @@ namespace Tobe.View
                     try
                     {
                         jpFont = Font.CreateDynamicFontFromOSFont(
-                            new[] { "Yu Gothic", "Meiryo", "MS Gothic", "Noto Sans CJK JP", "Arial Unicode MS", "Arial" }, 64);
+                            new[] { "Segoe UI", "Arial", "Yu Gothic", "Meiryo", "MS Gothic", "Noto Sans CJK JP", "Arial Unicode MS" }, 64);   // латиница и кириллица — обычным шрифтом (в японских она «широкая»), иероглифы — запасным
                     }
                     catch (Exception) { jpFont = null; }
                     if (jpFont == null) jpFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -367,7 +367,8 @@ namespace Tobe.View
             }
         }
 
-        public static TextMesh Text(Transform parent, string s, float charSize, int fontSize, Color c, TextAnchor anchor = TextAnchor.MiddleCenter)
+        /// <summary>Надпись в мире. Текст русский — показывается на языке игры; fitW/fitH (м) — вписать в рамку (размер подгоняется).</summary>
+        public static TextMesh Text(Transform parent, string s, float charSize, int fontSize, Color c, TextAnchor anchor = TextAnchor.MiddleCenter, float fitW = 0f, float fitH = 0f)
         {
             var go = new GameObject("Text");
             go.transform.SetParent(parent, false);
@@ -384,6 +385,7 @@ namespace Tobe.View
             if (f != null) r.sharedMaterial = f.material;
             r.shadowCastingMode = ShadowCastingMode.Off;
             r.receiveShadows = false;
+            if (!string.IsNullOrEmpty(s)) Loc.TrackWorld(tm, s, fitW, fitH);
             return tm;
         }
     }

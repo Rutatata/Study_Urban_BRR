@@ -188,7 +188,7 @@ namespace Tobe.View
             cloth.Panel(trimMat, pos + facing * 0.03f - Vector3.up * (h * .5f - 0.08f), facing, Vector3.up, w + 0.2f, 0.16f, Color.white, true);
             cloth.Panel(trimMat, pos + facing * 0.03f + Vector3.Cross(Vector3.up, facing) * (w * .5f - 0.06f), facing, Vector3.up, 0.12f, h, Color.white, true);
             cloth.Panel(trimMat, pos + facing * 0.03f - Vector3.Cross(Vector3.up, facing) * (w * .5f - 0.06f), facing, Vector3.up, 0.12f, h, Color.white, true);
-            var tm = Mats.Text(parent, text, charSize, 128, textCol);
+            var tm = Mats.Text(parent, text, charSize, 128, textCol, TextAnchor.MiddleCenter, w * 0.78f, h * 0.8f);   // вписывается в полотно на любом языке
             tm.transform.position = pos + facing * 0.08f;
             tm.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
         }
@@ -201,15 +201,15 @@ namespace Tobe.View
             float yc = 9.8f;
             // team 0 end wall (z low) faces +Z
             float zf0 = Hall.Z0 + 0.12f, zf1 = Hall.Z1 - 0.12f;
-            Banner(cloth, parent, new Vector3(4.5f, yc, zf0), Vector3.forward, 4.6f, 8.6f, black, orange, orange, "FLY\nHIGH", 0.2f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "HIBARI", 0.06f);
-            Banner(cloth, parent, new Vector3(10.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "RALLY", 0.065f);
+            Banner(cloth, parent, new Vector3(4.5f, yc, zf0), Vector3.forward, 4.6f, 8.6f, black, orange, orange, "ЛЕТИ\nВЫШЕ", 0.2f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "ХИБАРИ", 0.2f);
+            Banner(cloth, parent, new Vector3(10.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "ВМЕСТЕ", 0.2f);
             // team 1 end wall (z high) faces -Z
-            Banner(cloth, parent, new Vector3(4.5f, yc, zf1), Vector3.back, 4.6f, 8.6f, white, teal, new Color(0.05f, 0.45f, 0.5f), "RALLY", 0.11f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "KAIRYU", 0.06f);
-            Banner(cloth, parent, new Vector3(10.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "WIN!", 0.09f);
+            Banner(cloth, parent, new Vector3(4.5f, yc, zf1), Vector3.back, 4.6f, 8.6f, white, teal, new Color(0.05f, 0.45f, 0.5f), "ВМЕСТЕ", 0.2f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "КАЙРЮ", 0.2f);
+            Banner(cloth, parent, new Vector3(10.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "ВПЕРЁД!", 0.2f);
             // side walls between the windows
-            string[] words = { "FLY\nHIGH", "RALLY", "ALL\nOUT", "WIN!", "ONE\nBALL", "NEVER\nQUIT" };
+            string[] words = { "ЛЕТИ\nВЫШЕ", "ВМЕСТЕ", "НА\nПРЕДЕЛЕ", "ПОБЕДА", "КАЖДЫЙ\nМЯЧ", "НЕ\nСДАВАЙСЯ" };
             float[] zs = { -6f, 0f, 6f, 12f, 18f, 24f };
             for (int i = 0; i < zs.Length; i++)
             {

@@ -91,7 +91,7 @@ namespace Tobe.View
                 var tm = Mats.Text(parent, "TOBE VOLLEY", 0.16f, 64, new Color(0.85f, 1f, 0.95f, 0.5f));
                 tm.transform.position = new Vector3(4.5f, 0.011f, end == 0 ? -1.5f : 19.5f);
                 tm.transform.rotation = Quaternion.Euler(90f, end == 0 ? 0f : 180f, 0f);
-                var jp = Mats.Text(parent, "FLY", 0.2f, 64, new Color(1f, 0.75f, 0.35f, 0.4f));
+                var jp = Mats.Text(parent, "ЛЕТИ", 0.2f, 64, new Color(1f, 0.75f, 0.35f, 0.4f), TextAnchor.MiddleCenter, 3.2f, 1.6f);
                 jp.transform.position = new Vector3(end == 0 ? 11f : -2f, 0.011f, end == 0 ? 4.5f : 13.5f);
                 jp.transform.rotation = Quaternion.Euler(90f, end == 0 ? 90f : -90f, 0f);
             }
@@ -102,7 +102,7 @@ namespace Tobe.View
         {
             var b = new MeshBatch("AdBoards");
             var back = Env.SteelDark;
-            string[] words = { "TOBE", "VOLLEY", "FLY!", "SPIKE!", "LEGEND", "JUMP", "RALLY", "SERVE" };
+            string[] words = { "TOBE", "ВОЛЕЙБОЛ", "ЛЕТИ!", "АТАКА!", "ЛЕГЕНДА", "ПРЫЖОК", "ВМЕСТЕ", "ПОДАЧА" };
             int idx = 0;
             void Board(Vector3 center, Vector3 facing, bool text)
             {
@@ -110,7 +110,7 @@ namespace Tobe.View
                 b.Panel(Env.Ad(idx % 6), center + facing * 0.005f, facing, Vector3.up, 2.9f, 0.8f, Color.white);
                 if (text && idx % 2 == 0)
                 {
-                    var tm = Mats.Text(parent, words[idx % words.Length], 0.085f, 64, new Color(1f, 1f, 1f));
+                    var tm = Mats.Text(parent, words[idx % words.Length], 0.085f, 64, new Color(1f, 1f, 1f), TextAnchor.MiddleCenter, 2.5f, 0.55f);
                     tm.transform.position = center + facing * 0.03f;
                     tm.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
                 }
@@ -160,7 +160,7 @@ namespace Tobe.View
                 Figures.Person(b, vc, new Vector3(10.75f, 0f, cz), -90f, team == 0 ? new Color(0.1f, 0.1f, 0.13f) : new Color(0.12f, 0.45f, 0.5f),
                     new Color(0.1f, 0.1f, 0.13f), Skin(rng), Figures.HairPalette[rng.Next(Figures.HairPalette.Length)], Figures.Pose.Coach, 1.05f, trim);
                 // team name board behind the bench
-                var tm = Mats.Text(parent, TeamLook.Names[team], 0.07f, 64, trim);
+                var tm = Mats.Text(parent, TeamLook.Names[team], 0.07f, 64, trim, TextAnchor.MiddleCenter, 2.0f, 0.36f);
                 tm.transform.position = new Vector3(12.5f, 1.15f, zc);
                 tm.transform.rotation = Quaternion.Euler(0, -90f, 0);
                 b.Box(Env.Black, new Vector3(12.55f, 1.15f, zc), new Vector3(0.05f, 0.45f, 2.2f));
