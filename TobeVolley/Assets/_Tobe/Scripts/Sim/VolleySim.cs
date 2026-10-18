@@ -49,6 +49,9 @@ namespace Tobe.Sim
         public float hitT, power;
         public SimPlayer superBy; public bool mini;
         public bool floater;   // подача-планер: мяч «гуляет» в полёте
+        // вращение (эффект Магнуса) упрощено до своей «гравитации» у каждого удара: верхнее вращение — мяч ныряет.
+        // Полёт остаётся параболой, поэтому предсказание падения, маркер и боты считают его точно.
+        public float g = Court.BallGravity;
     }
 
     public sealed class Plan
@@ -197,27 +200,28 @@ namespace Tobe.Sim
         float FlatDist(SimPlayer p, Vector3 q) => Hyp(p.pos.x - q.x, p.pos.z - q.z);
         int Other(int team) => 1 - team;
 
-        void Launch(Vector3 target, float T)
+        void Launch(Vector3 target, float T, float g = GB)
         {
-            ball.vel = new Vector3((target.x - ball.pos.x) / T, (target.y - ball.pos.y + 0.5f * GB * T * T) / T, (target.z - ball.pos.z) / T);
+            ball.g = g;
+            ball.vel = new Vector3((target.x - ball.pos.x) / T, (target.y - ball.pos.y + 0.5f * g * T * T) / T, (target.z - ball.pos.z) / T);
             ball.held = null; ball.live = true; ball.blockChecked = false; ball.hitT = 0;
         }
-        bool ClearsNet(Vector3 target, float T)
+        bool ClearsNet(Vector3 target, float T, float g = GB)
         {
             float vz = (target.z - ball.pos.z) / T;
             if (Mathf.Abs(vz) < 1e-3f) return true;
             float tn = (NY - ball.pos.z) / vz;
             if (tn < 0 || tn > T) return true;
-            float vy = (target.y - ball.pos.y + 0.5f * GB * T * T) / T;
-            return ball.pos.y + vy * tn - 0.5f * GB * tn * tn > NH + R + 0.12f;
+            float vy = (target.y - ball.pos.y + 0.5f * g * T * T) / T;
+            return ball.pos.y + vy * tn - 0.5f * g * tn * tn > NH + R + 0.12f;
         }
-        float SafeT(Vector3 target, float T) { int k = 0; while (!ClearsNet(target, T) && k++ < 14) T *= 1.12f; return T; }
+        float SafeT(Vector3 target, float T, float g = GB) { int k = 0; while (!ClearsNet(target, T, g) && k++ < 14) T *= 1.12f; return T; }
         /// <summary>Where/when the ball descends through height y (ignoring drag).</summary>
         public Vector3 PredictY(float y, out float time)
         {
-            var b = ball; float disc = b.vel.y * b.vel.y + 2 * GB * (b.pos.y - y);
+            var b = ball; float disc = b.vel.y * b.vel.y + 2 * b.g * (b.pos.y - y);
             if (disc < 0 || b.held != null) { time = 0; return b.pos; }
-            time = Mathf.Max(0, (b.vel.y + Mathf.Sqrt(disc)) / GB);
+            time = Mathf.Max(0, (b.vel.y + Mathf.Sqrt(disc)) / b.g);
             return new Vector3(b.pos.x + b.vel.x * time, y, b.pos.z + b.vel.z * time);
         }
 
@@ -427,8 +431,9 @@ namespace Tobe.Sim
             bool tip = tipBtn || p.isBot && !special && Random.value < 0.08f;   // игрок: ПКМ в прыжке; бот: изредка сам
             if (tip) { target = new Vector3(Mathf.Clamp(p.pos.x + Rnd(-2, 2), 0.5f, 8.5f), R, Court.WorldZ(o, Rnd(1.2f, 2.2f))); S = 6; }
             float dist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
-            float T = SafeT(target, Mathf.Max(0.12f, dist / S));
-            Launch(target, T);
+            float gs = tip ? GB : 15f;   // атака с верхним вращением ныряет за блок
+            float T = SafeT(target, Mathf.Max(0.12f, dist / S), gs);
+            Launch(target, T, gs);
             ball.power = S; ball.kind = tip ? "tip" : "spike";
             p.SetPose(PoseId.Spike, 0.4f);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Spike, tip ? 0.2f : 0.6f + q * 0.4f);
@@ -462,9 +467,10 @@ namespace Tobe.Sim
             float T = special ? 0.62f : Mathf.Lerp(1.75f, kind == 2 ? 0.72f : 0.85f, power) - (p.isBot ? p.st.serve * 0.02f : 0);
             float err = late * (kind == 2 ? 2.2f : kind == 1 ? 1.1f : 0.3f);
             target.x += Rnd(-err, err); target.z += Court.Fwd(p.team) * Rnd(-err * 0.3f, err);
+            float gs = kind == 2 ? 13.5f : GB;   // подача в прыжке — с верхним вращением
             if (kind == 2 && late > 0.8f) { target = new Vector3(ball.pos.x, NH * 0.5f, NY + Court.Fwd(p.team) * 0.6f); T = 0.35f; }
-            else T = SafeT(target, T);
-            Launch(target, T);
+            else T = SafeT(target, T, gs);
+            Launch(target, T, gs);
             ball.floater = kind == 1 && !special;
             ball.kind = "serve"; ball.power = Hyp(target.x - ball.pos.x, target.z - ball.pos.z) / T;
             ball.lastP = p; ball.lastTeam = p.team; touches[p.team] = 0; touches[o] = 0;
@@ -486,6 +492,13 @@ namespace Tobe.Sim
         void TryReceive(SimPlayer p, float d, float rad, Vector3? toward, bool auto, float penalty = 0f)
         {
             if (!RegisterTouch(p)) return;
+            float sp = ball.vel.magnitude;
+            if (sp > 13f)
+            {   // приём сильного удара: тело гасит его и отъезжает назад
+                var push = new Vector3(ball.vel.x, 0, ball.vel.z).normalized * Mathf.Min(3f, (sp - 13f) * 0.25f);
+                if (p.isBot) { p.vel += push; p.recT = Mathf.Max(p.recT, 0.25f); }
+                else Ev(GameEventType.Recoil, null, null, push, p, 0, 0);
+            }
             float q = ReceiveRoll(p, Quality(d, rad)) - (auto ? 0.1f : 0) - penalty;
             if (p.armed > 0 && p.energy >= 100 && p.Style.finisherKind == FinisherKind.Dig)
             {
@@ -891,14 +904,24 @@ namespace Tobe.Sim
             }
             float pz = b.pos.z;
             b.hitT += dt;
-            b.vel.y -= GB * dt;
+            b.vel.y -= b.g * dt;
             if (b.floater && b.kind == "serve") b.vel.x += Mathf.Sin(b.hitT * 9f) * 10f * dt;   // планер: боковое «дрожание»
             b.pos += b.vel * dt;
 
             if (b.live && (pz - NY) * (b.pos.z - NY) <= 0 && pz != b.pos.z)
             {
-                if (b.pos.y < NH + R && b.pos.y > -1 && b.pos.x > -0.6f && b.pos.x < Court.Width + 0.6f)
+                bool onCourtX = b.pos.x > -0.6f && b.pos.x < Court.Width + 0.6f;
+                if (onCourtX && b.pos.y > NH - 0.06f && b.pos.y < NH + R && Random.value < 0.5f)
+                {   // задел трос: мяч теряет скорость и переваливается на ту сторону
+                    b.g = GB; b.vel = new Vector3(b.vel.x * 0.4f, Mathf.Abs(b.vel.y) * 0.25f + 1.4f, b.vel.z * 0.3f);
+                    Ev(GameEventType.Sound, "net", null, b.pos, null, 0, 0.6f);
+                    Popup("ПО ТРОСУ!", Grey);
+                    touches[0] = touches[1] = 0;
+                    Replan();
+                }
+                else if (b.pos.y < NH + R && b.pos.y > -1 && onCourtX)
                 {
+                    b.g = GB;
                     b.pos.z = pz < NY ? NY - R - 0.01f : NY + R + 0.01f;
                     b.vel = new Vector3(b.vel.x * 0.5f, Mathf.Min(b.vel.y, 0) * 0.3f, -b.vel.z * 0.2f);
                     Ev(GameEventType.Sound, "net", null, b.pos, null, 0, 0.8f);
@@ -926,6 +949,7 @@ namespace Tobe.Sim
                         if (Mathf.Abs(b.pos.x - p.pos.x) < (wall > 0 ? 1.0f : 0.65f) && b.pos.y > bot && b.pos.y < top) { b.blockChecked = true; BlockHit(p, wall); break; }
                     }
             }
+            if (b.live && b.vel.sqrMagnitude > 121f) BodyHit(b);
             if (b.pos.y <= R && b.vel.y < 0)
             {
                 b.pos.y = R;
@@ -942,6 +966,28 @@ namespace Tobe.Sim
             foreach (var q in players)
                 if (q != p && q.team == p.team && q.air && Mathf.Abs(q.pos.z - NY) < 0.9f && Mathf.Abs(q.pos.x - p.pos.x) < 1.4f && Mathf.Abs(q.airAt - p.airAt) <= 0.15f) n++;
             return n;
+        }
+        // быстрый мяч в того, кто его не играл (не хозяин плана и не нажал кнопку), отскакивает от тела; это касание
+        void BodyHit(SimBall b)
+        {
+            foreach (var p in players)
+            {
+                if (p == b.lastP && b.hitT < 0.3f) continue;
+                var pl = plans[p.team];
+                if (pl != null && pl.p == p || !p.isBot && p.hitBuf > 0) continue;
+                float dx = b.pos.x - p.pos.x, dz = b.pos.z - p.pos.z, h = b.pos.y - p.pos.y;
+                if (dx * dx + dz * dz > 0.3f * 0.3f || h < 0.35f || h > 1.6f) continue;
+                var n = new Vector3(dx, 0, dz); n = n.sqrMagnitude > 1e-6f ? n.normalized : -b.vel.normalized;
+                if (Vector3.Dot(b.vel, n) >= 0) continue;
+                if (!RegisterTouch(p)) return;
+                b.g = GB; b.vel = (b.vel - 1.6f * Vector3.Dot(b.vel, n) * n) * 0.45f; b.vel.y = Mathf.Max(b.vel.y, 2.5f);
+                b.pos += n * 0.05f;
+                p.stunT = Mathf.Max(p.stunT, 0.35f);
+                Ev(GameEventType.Sound, "bump", null, b.pos, p, 0, 0.7f);
+                Popup("В ТЕЛО!", Pink);
+                Replan();
+                return;
+            }
         }
         void BlockHit(SimPlayer p, int wall = 0)
         {
@@ -964,7 +1010,7 @@ namespace Tobe.Sim
                 float tx = Mathf.Clamp(b.pos.x + Rnd(-1.5f, 1.5f), 0.3f, Court.Width - 0.3f);
                 float tz = attacker != null ? Court.WorldZ(attacker.team, Rnd(0.6f, 2.6f)) : b.pos.z - Mathf.Sign(b.vel.z) * 2;
                 const float T = 0.32f;
-                b.vel = new Vector3((tx - b.pos.x) / T, (R - b.pos.y + 0.5f * GB * T * T) / T, (tz - b.pos.z) / T);
+                b.g = GB; b.vel = new Vector3((tx - b.pos.x) / T, (R - b.pos.y + 0.5f * GB * T * T) / T, (tz - b.pos.z) / T);
                 if (special) { p.energy = 0; p.armed = 0; freezeT = 1.0f; pendingAfterFreeze = null; Ev(GameEventType.Cutin, p.Style.finisherName, p.Style.c1, p.pos, p, (int)FinisherKind.Block, 1f); }
                 Popup(special ? p.Style.finisherName.ToUpper() : wall >= 2 ? "ТРОЙНОЙ БЛОК!" : wall == 1 ? "ДВОЙНОЙ БЛОК!" : "БЛОК!", p.team == 0 ? Cyan : Pink);
                 slowT = 0.35f;

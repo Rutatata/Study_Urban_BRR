@@ -66,7 +66,11 @@ namespace Tobe.Net
                     GameHub.RaiseRoster();
                     break;
                 case Msg.Event:
-                    foreach (var e in Ser.ReadEvents(data)) GameHub.Raise(e);
+                    foreach (var e in Ser.ReadEvents(data))
+                    {
+                        if (e.type == GameEventType.Recoil && e.playerId == v.localPlayerId) { vel += e.pos; recT = Mathf.Max(recT, 0.25f); }
+                        GameHub.Raise(e);
+                    }
                     break;
             }
         }

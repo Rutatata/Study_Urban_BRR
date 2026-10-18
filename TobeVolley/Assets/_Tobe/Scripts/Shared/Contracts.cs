@@ -189,6 +189,7 @@ namespace Tobe
         Block,        // pos, playerId (blocker)
         MatchEnd,     // intArg = winning team
         Whistle,
+        Recoil,       // playerId: отдача при приёме сильного удара, pos = толчок (м/с) — его применяет клиент этого игрока
     }
 
     [Serializable]
