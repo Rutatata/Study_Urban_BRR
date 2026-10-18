@@ -89,6 +89,8 @@ namespace Tobe.View
             if (m.HasProperty("_ShadeColor")) m.SetColor("_ShadeColor", shade);
             if (flat)
             {
+                var old = m.HasProperty("_BaseMap") ? m.GetTexture("_BaseMap") : null;
+                if (old != null && old.name.StartsWith("shirt_print_")) Object.Destroy(old);   // прошлый принт номера этого игрока
                 if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", Texture2D.whiteTexture);
                 if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", Texture2D.whiteTexture);
                 if (m.HasProperty("_ShadeTex")) m.SetTexture("_ShadeTex", Texture2D.whiteTexture);
@@ -474,10 +476,90 @@ namespace Tobe.View
             float back = g.fallback ? 0.2f : 0.115f, front = g.fallback ? 0.2f : 0.125f;
             MeasureTorso(g, P, ref back, ref front);
 
+            if (PrintNumber(g, n, shirt, numCol, outline, P, back, front)) return;   // форма VRoid: номер печатается в ткань
             var mat = JerseyNumbers.Material(n, numCol, outline, out float aspect);
             const float gap = 0.006f;     // decal floats just above the cloth (+ the ink outline of the shirt material)
             Decal(bone, mat, P - g.fwd * (back + gap * S), Quaternion.LookRotation(g.fwd, Vector3.up), 0.15f * S * aspect, 0.15f * S);
             Decal(bone, mat, P + g.fwd * (front + gap * S) + Vector3.up * 0.06f * S, Quaternion.LookRotation(-g.fwd, Vector3.up), 0.062f * S * aspect, 0.062f * S);
+        }
+
+        /// <summary>Номер как принт: своя текстура футболки игрока (фон — цвет формы, номер на спине и груди), номер рисуется
+        /// прямо в развёртку ткани — по треугольникам спины/груди, без захода на соседние участки атласа.</summary>
+        static bool PrintNumber(Rig g, int n, Color shirt, Color numCol, Color outline, Vector3 P, float back, float front)
+        {
+            try
+            {
+                foreach (var smr in g.root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    var mats = smr.sharedMaterials; int mi = -1;
+                    for (int i = 0; i < mats.Length; i++) if (mats[i] != null && mats[i].name.StartsWith("Uniform_Tops")) { mi = i; break; }
+                    if (mi < 0 || smr.sharedMesh == null || !smr.sharedMesh.isReadable) continue;
+                    var src = smr.sharedMesh; var uv = src.uv; var tri = src.GetTriangles(mi);
+                    var baked = new Mesh(); smr.BakeMesh(baked, true); var vs = baked.vertices; Object.Destroy(baked);
+                    var M = smr.transform.localToWorldMatrix; for (int i = 0; i < vs.Length; i++) vs[i] = M.MultiplyPoint3x4(vs[i]);
+                    if (uv == null || uv.Length != vs.Length) return false;
+                    const int TS = 1024;
+                    var px = new Color32[TS * TS]; Color32 bg = shirt; bg.a = 255;
+                    for (int i = 0; i < px.Length; i++) px[i] = bg;
+                    Color32 fill = numCol, ol = outline; fill.a = ol.a = 255;
+                    float S = g.S; Vector3 right = Vector3.Cross(Vector3.up, g.fwd).normalized;
+                    _ = back; _ = front;
+                    // спина: крупно; грудь: мелко, чуть выше. На груди зеркалим x (смотрим на игрока спереди)
+                    int painted = Paint(px, TS, vs, uv, tri, n, P, -g.fwd, right, 0.15f * S, 0.15f * S, fill, ol, false)
+                                + Paint(px, TS, vs, uv, tri, n, P + Vector3.up * 0.06f * S, g.fwd, right, 0.062f * S, 0.062f * S, fill, ol, true);
+                    if (painted == 0) return false;
+                    var tex = new Texture2D(TS, TS, TextureFormat.RGBA32, true) { name = "shirt_print_" + n, wrapMode = TextureWrapMode.Clamp };
+                    tex.SetPixels32(px); tex.Apply(true, true);
+                    var m = mats[mi];
+                    SetBase(m, Color.white, ShadeOf(Color.white), false);
+                    if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", tex);
+                    if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex);
+                    if (m.HasProperty("_ShadeTex")) m.SetTexture("_ShadeTex", tex);
+                    return true;
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Tobe] номер-принт не вышел, будет наклейка: " + e.Message); }
+            return false;
+        }
+
+        /// <summary>Рисует номер в треугольниках ткани, обращённых в сторону face, внутри рамки w×h вокруг center. Возвращает число закрашенных тексселей.</summary>
+        static int Paint(Color32[] px, int TS, Vector3[] vs, Vector2[] uv, int[] tri, int n, Vector3 center, Vector3 face, Vector3 right, float w0, float h, Color32 fill, Color32 ol, bool mirror)
+        {
+            float digits = n >= 10 ? 7f : 3f, w = h * (digits + 1f) / 6f * 1.0f;   // ширина под 1–2 цифры (клетка 3×5 + отступ)
+            int cnt = 0;
+            for (int t = 0; t + 2 < tri.Length; t += 3)
+            {
+                int a = tri[t], b = tri[t + 1], c = tri[t + 2];
+                Vector3 pa = vs[a], pb = vs[b], pc = vs[c];
+                Vector3 nrm = Vector3.Cross(pb - pa, pc - pa); if (nrm.sqrMagnitude < 1e-12f) continue;
+                if (Vector3.Dot(nrm.normalized, face) < 0.35f) continue;
+                Vector3 cen = (pa + pb + pc) / 3f;
+                // координаты в рамке номера: x — вбок, y — вверх
+                Vector2 Q(Vector3 p) { var d = p - center; float x = Vector3.Dot(d, right); return new Vector2(mirror ? -x : x, d.y); }
+                Vector2 qa = Q(pa), qb = Q(pb), qc = Q(pc), qm = Q(cen);
+                if (Mathf.Abs(qm.x) > w * 0.75f || Mathf.Abs(qm.y) > h * 0.75f) continue;
+                Vector2 ua = uv[a] * TS, ub = uv[b] * TS, uc = uv[c] * TS;
+                int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(ua.x, Mathf.Min(ub.x, uc.x)))), x1 = Mathf.Min(TS - 1, Mathf.CeilToInt(Mathf.Max(ua.x, Mathf.Max(ub.x, uc.x))));
+                int y0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(ua.y, Mathf.Min(ub.y, uc.y)))), y1 = Mathf.Min(TS - 1, Mathf.CeilToInt(Mathf.Max(ua.y, Mathf.Max(ub.y, uc.y))));
+                float den = (ub.y - uc.y) * (ua.x - uc.x) + (uc.x - ub.x) * (ua.y - uc.y);
+                if (Mathf.Abs(den) < 1e-8f) continue;
+                for (int y = y0; y <= y1; y++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        float fx = x + 0.5f, fy = y + 0.5f;
+                        float l1 = ((ub.y - uc.y) * (fx - uc.x) + (uc.x - ub.x) * (fy - uc.y)) / den;
+                        float l2 = ((uc.y - ua.y) * (fx - uc.x) + (ua.x - uc.x) * (fy - uc.y)) / den;
+                        float l3 = 1f - l1 - l2;
+                        if (l1 < -0.02f || l2 < -0.02f || l3 < -0.02f) continue;
+                        Vector2 q = qa * l1 + qb * l2 + qc * l3;
+                        float s = q.x / w + 0.5f, tt = q.y / h + 0.5f;
+                        if (s < 0f || s > 1f || tt < 0f || tt > 1f) continue;
+                        int k = JerseyNumbers.Sample(n, s, tt);
+                        if (k == 0) continue;
+                        px[y * TS + x] = k == 2 ? fill : ol; cnt++;
+                    }
+            }
+            return cnt;
         }
 
         static void Decal(Transform bone, Material mat, Vector3 pos, Quaternion rot, float w, float h)

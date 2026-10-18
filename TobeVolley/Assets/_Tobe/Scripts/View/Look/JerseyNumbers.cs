@@ -60,6 +60,32 @@ namespace Tobe.View
             }, true, TextureWrapMode.Clamp, FilterMode.Bilinear);
         }
 
+        /// <summary>Номер как принт: что в точке (s, t) рамки номера (0..1, t — снизу вверх): 0 — пусто, 1 — обводка, 2 — цифра.
+        /// Считается прямо по глифам, без текстуры (нужно для печати в развёртку футболки).</summary>
+        public static int Sample(int n, float s, float t)
+        {
+            n = Mathf.Clamp(n, 0, 99);
+            string txt = n.ToString(); int d = txt.Length;
+            float cols = d * 3 + (d - 1), pad = 0.5f;            // отступ — полклетки, в нём живёт обводка
+            float gx = s * (cols + 2 * pad) - pad, gy = (1f - t) * (5 + 2 * pad) - pad;
+            int best = 0;
+            for (int i = 0; i < d; i++)
+            {
+                string g = Glyph[txt[i] - '0'];
+                for (int r = 0; r < 5; r++)
+                    for (int c = 0; c < 3; c++)
+                    {
+                        if (g[r * 3 + c] != '1') continue;
+                        float x0 = i * 4 + c, y0 = r;
+                        float dx = Mathf.Max(x0 - gx, 0f, gx - (x0 + 1)), dy = Mathf.Max(y0 - gy, 0f, gy - (y0 + 1));
+                        float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                        if (dist <= 0f) return 2;
+                        if (dist < 0.32f) best = 1;
+                    }
+            }
+            return best;
+        }
+
         /// <summary>Alpha-blended unlit decal material for the number (cached per number + colors).</summary>
         public static Material Material(int n, Color fill, Color outline, out float aspect)
         {
