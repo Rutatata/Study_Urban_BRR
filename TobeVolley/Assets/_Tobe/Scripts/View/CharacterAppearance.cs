@@ -9,6 +9,8 @@ namespace Tobe.View
 {
     public static class CharacterAppearance
     {
+        public static int DevExtraGear;   // меню Tobe/Dev: надеть экипировку всем (для проверки посадки)
+
         // ------------------------------------------------------------------ public API
         /// <summary>Applies the full profile to a loaded model. Safe to call repeatedly (gear / scale are rebuilt, never stacked).
         /// Call it after the model has been parented and normalized to its final size.</summary>
@@ -194,6 +196,7 @@ namespace Tobe.View
             public Transform hips, spine, chest, neck, head, lEye, rEye;
             public Transform uArmL, uArmR, lArmL, lArmR, handL, handR, uLegL, uLegR, lLegL, lLegR, footL, footR;
             public Bounds face; public bool hasFace;
+            public SkinnedMeshRenderer faceRd;   // сетка лица — по ней повязка повторяет форму головы
 
             public Rig(GameObject root, Animator anim)
             {
@@ -234,6 +237,7 @@ namespace Tobe.View
                     bool isFace = n == "face" || n.StartsWith("face.") || n.Contains("face_") && !n.Contains("brow") && !n.Contains("eye");
                     if (!isFace && !(fallback && head != null && rd.transform.IsChildOf(head) && rd.name == "Part")) continue;
                     if (!any) { fb = rd.bounds; any = true; } else fb.Encapsulate(rd.bounds);
+                    if (faceRd == null && isFace) faceRd = rd as SkinnedMeshRenderer;
                 }
                 if (any && fb.size.y > 0.08f * S && fb.size.y < 0.6f * S) { face = fb; hasFace = true; }
             }
@@ -265,7 +269,7 @@ namespace Tobe.View
 
         static Material GearMat(string key, Color c) => Mats.Toon(key, c, new Color(c.r * 0.6f, c.g * 0.6f, Mathf.Min(1f, c.b * 0.72f), 1f), false, null, 0.1f);
 
-        static void Ring(MeshBatch b, Material m, Vector3 center, Vector3 axis, Vector3 refDir, float rx, float rz, float height, float thick, int seg = 24)
+        static void Ring(MeshBatch b, Material m, Vector3 center, Vector3 axis, Vector3 refDir, float rx, float rz, float height, float thick, int seg = 24, float[] rad = null)
         {
             axis.Normalize();
             Vector3 e1 = Vector3.ProjectOnPlane(refDir, axis);
@@ -273,7 +277,13 @@ namespace Tobe.View
             e1.Normalize();
             Vector3 e2 = Vector3.Cross(axis, e1);
             Vector3 hh = axis * height * .5f;
-            Vector3 P(float a, float r) => center + e1 * (Mathf.Cos(a) * (rx + r)) + e2 * (Mathf.Sin(a) * (rz + r));
+            Vector3 P(float a, float r)
+            {
+                if (rad == null) return center + e1 * (Mathf.Cos(a) * (rx + r)) + e2 * (Mathf.Sin(a) * (rz + r));
+                int i = Mathf.RoundToInt(a / (Mathf.PI * 2f) * seg);   // радиус по секторам: в вершине берём больший из двух соседних
+                float rr = Mathf.Max(rad[(i - 1 + seg) % seg], rad[i % seg]) + r;
+                return center + (e1 * Mathf.Cos(a) + e2 * Mathf.Sin(a)) * rr;
+            }
             for (int i = 0; i < seg; i++)
             {
                 float a0 = i / (float)seg * Mathf.PI * 2f, a1 = (i + 1) / (float)seg * Mathf.PI * 2f;
@@ -284,9 +294,59 @@ namespace Tobe.View
             }
         }
 
+        /// <summary>Сечение сетки лица плоскостью y = c.y (точки пересечения рёбер треугольников): радиус головы
+        /// по секторам (+3 мм) и центр по сечению. null — сетки нет или сечение не получилось.</summary>
+        static float[] HeadSlice(SkinnedMeshRenderer smr, ref Vector3 c, Vector3 fwd, int seg)
+        {
+            if (smr == null || smr.sharedMesh == null || !smr.sharedMesh.isReadable) return null;
+            var mesh = new Mesh(); smr.BakeMesh(mesh, true);
+            var vs = mesh.vertices; var tri = mesh.triangles; var M = smr.transform.localToWorldMatrix; Object.Destroy(mesh);
+            for (int i = 0; i < vs.Length; i++) vs[i] = M.MultiplyPoint3x4(vs[i]);
+            float y0 = c.y;
+            var pts = new List<Vector3>();
+            void Edge(Vector3 a, Vector3 b)
+            {
+                float da = a.y - y0, db = b.y - y0;
+                if (da * db < 0f) pts.Add(Vector3.Lerp(a, b, da / (da - db)));
+            }
+            for (int t = 0; t + 2 < tri.Length; t += 3)
+            {
+                Vector3 a = vs[tri[t]], b = vs[tri[t + 1]], d = vs[tri[t + 2]];
+                Edge(a, b); Edge(b, d); Edge(d, a);
+            }
+            if (pts.Count < 8) return null;
+            Vector3 e1 = fwd, e2 = Vector3.Cross(Vector3.up, fwd);
+            float zmin = 1e9f, zmax = -1e9f, xmin = 1e9f, xmax = -1e9f;
+            foreach (var w in pts)
+            {
+                float f = Vector3.Dot(w, e1), sd = Vector3.Dot(w, e2);
+                zmin = Mathf.Min(zmin, f); zmax = Mathf.Max(zmax, f); xmin = Mathf.Min(xmin, sd); xmax = Mathf.Max(xmax, sd);
+            }
+            c = e1 * (0.5f * (zmin + zmax)) + e2 * (0.5f * (xmin + xmax)) + Vector3.up * y0;   // центр — середина сечения, а не лица с носом
+            var rad = new float[seg]; int filled = 0;
+            foreach (var w in pts)
+            {
+                var dd = w - c; float x = Vector3.Dot(dd, e1), z = Vector3.Dot(dd, e2);
+                int k = (int)Mathf.Repeat(Mathf.Floor(Mathf.Atan2(z, x) / (Mathf.PI * 2f) * seg), seg);
+                if (rad[k] == 0f) filled++;
+                rad[k] = Mathf.Max(rad[k], Mathf.Sqrt(x * x + z * z));
+            }
+            if (filled < seg / 2) return null;
+            for (int i = 0; i < seg; i++)
+            {
+                if (rad[i] > 0f) continue;   // пустой сектор (затылок без сетки) — по ближайшим заполненным
+                int a = i, bI = i;
+                while (rad[a = (a - 1 + seg) % seg] == 0f) { }
+                while (rad[bI = (bI + 1) % seg] == 0f) { }
+                rad[i] = 0.5f * (rad[a] + rad[bI]);
+            }
+            for (int i = 0; i < seg; i++) rad[i] += 0.003f;
+            return rad;
+        }
+
         static void BuildGear(Rig g, AppearanceState state, PlayerProfile p, int team, Color shirt, Color trim)
         {
-            var gear = (Gear)p.gear;
+            var gear = (Gear)(p.gear | DevExtraGear);
             float S = g.S;
             float thick = g.fallback ? 1.7f : 1f;      // primitive limbs are fatter than VRoid ones
             Color dark = new Color(0.1f, 0.1f, 0.13f);
@@ -362,7 +422,9 @@ namespace Tobe.View
                     h = Mathf.Max(0.02f, g.face.size.y * 0.13f);
                 }
                 else c += Vector3.up * 0.045f * S;
-                Ring(b, m, c, Vector3.up, g.fwd, rx, rz, h, 0.012f * S);
+                var rad = HeadSlice(g.faceRd, ref c, g.fwd, 24);
+                if (rad != null) Ring(b, m, c, Vector3.up, g.fwd, 0, 0, h, 0.008f * S, 24, rad);
+                else Ring(b, m, c, Vector3.up, g.fwd, rx, rz, h, 0.012f * S);
                 Attach(b.Flush(null, false), g.head);
             }
             if ((gear & Gear.Glasses) != 0 && g.head != null)

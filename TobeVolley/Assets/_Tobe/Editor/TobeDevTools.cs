@@ -56,6 +56,29 @@ namespace Tobe.EditorTools
         [MenuItem("Tobe/Dev/Инерция поз: вкл-выкл")]
         static void ToggleInertia() { Tobe.View.PlayerAnimator.InertiaOn = !Tobe.View.PlayerAnimator.InertiaOn; Debug.Log("[Tobe] Инерция поз: " + Tobe.View.PlayerAnimator.InertiaOn); }
 
+        [MenuItem("Tobe/Dev/Сетка: толчок мячом")]
+        static void PokeNet()
+        {
+            var nc = Object.FindFirstObjectByType<Tobe.View.NetCloth>();
+            if (nc == null) { Debug.Log("[Tobe] Сетки нет (войдите в Play и начните матч)."); return; }
+            nc.Poke(4.5f, 1.9f, 9f);
+            Debug.Log("[Tobe] Сетка: толчок");
+        }
+
+        [MenuItem("Tobe/Dev/Сетка: прогиб сейчас")]
+        static void NetDisp()
+        {
+            var nc = Object.FindFirstObjectByType<Tobe.View.NetCloth>();
+            Debug.Log(nc == null ? "[Tobe] Сетки нет." : $"[Tobe] Сетка: прогиб {nc.MaxDisp * 100f:0.0} см, t={Time.time:0.00}");
+        }
+
+        [MenuItem("Tobe/Dev/Повязка всем: вкл-выкл")]
+        static void ToggleHeadband()
+        {
+            Tobe.View.CharacterAppearance.DevExtraGear ^= (int)Tobe.Gear.Headband;
+            Debug.Log("[Tobe] Повязка всем: " + (Tobe.View.CharacterAppearance.DevExtraGear != 0));
+        }
+
         [MenuItem("Tobe/Dev/Звуки: что загружено")]
         static void DumpAudio()
         {
