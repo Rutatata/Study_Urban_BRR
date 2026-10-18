@@ -365,6 +365,7 @@ namespace Tobe.View
                 case PoseId.Block: case PoseId.Dive: case PoseId.Stun: return 0.1f;
                 case PoseId.SpikeWind: case PoseId.Bump: case PoseId.Set: return 0.12f;
                 case PoseId.Celebrate: return 0.15f;
+                case PoseId.Sit: return 0.45f;   // вставание со скамейки — не рывком
                 default: return 0.2f;
             }
         }
@@ -753,6 +754,15 @@ namespace Tobe.View
                                 tgt.lift = 0.06f * hop;
                                 break;
                         }
+                    }
+                    break;
+                case PoseId.Sit:
+                    {   // раздевалка: сидит на скамейке (стопы на полу ставит слой Plant), предплечья на коленях, медленно оглядывается
+                        tgt.legW = 1f; tgt.gUR = tgt.gUL = V(0.1f, -0.08f, 1f); tgt.gLR = tgt.gLL = V(0.04f, -1f, 0.06f);
+                        tgt.wR = tgt.wL = 1f; tgt.armFrame = 1f;
+                        tgt.uR = tgt.uL = V(0.25f, -0.8f, 0.55f); tgt.lR = tgt.lL = V(-0.15f, -0.25f, 0.96f);
+                        tgt.spine = V(10, 0, 0); tgt.chest = V(6, 0, 0); tgt.neck = V(4, 0, 0);
+                        tgt.head = V(4f + 4f * Mathf.Sin(pt * 0.5f), 22f * Mathf.Sin(pt * 0.31f), 0);
                     }
                     break;
                 case PoseId.HighFive:

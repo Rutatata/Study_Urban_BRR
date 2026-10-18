@@ -140,6 +140,7 @@ namespace Tobe.View
             Quaternion nRot = Quaternion.Slerp(oRot, fRot, w);
 
             // --- aim ray from the (unshaken, non-cinematic) screen center
+            if (!haveLocal && Tobe.View.LockerRoom.TryCamera(out var lrPos, out var lrRot)) { nPos = lrPos; nRot = lrRot; }   // меню: раздевалка
             ComputeAim(nPos, nRot, haveLocal, lpos);
 
             Vector3 pos = nPos; Quaternion rot = nRot;
@@ -208,7 +209,7 @@ namespace Tobe.View
             else if (dip > 0f) { dipIn += dt; dip = Mathf.Max(0f, 1f - dipIn / 0.4f); }
             prevPhase = view.phase;
             float dk = dip * dip * (3f - 2f * dip);
-            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f - dk * 6f);
+            if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f - dk * 6f + LockerRoom.Whiteout * 5f);   // + уход в свет двери раздевалки
         }
 
         float Noise(float t, float seedOff) => (Mathf.PerlinNoise(t, noiseSeed + seedOff * 17.3f) - 0.5f) * 2f;

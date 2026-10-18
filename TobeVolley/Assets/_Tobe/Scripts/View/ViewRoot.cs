@@ -44,6 +44,7 @@ namespace Tobe.View
             Ball = BallView.Create(transform);
             Rig = CameraRig.Create(transform);
             NameplateLayer.Create(transform);
+            LockerRoom.Create(transform);
         }
 
         void OnEnable() { GameHub.OnRosterChanged += OnRoster; }

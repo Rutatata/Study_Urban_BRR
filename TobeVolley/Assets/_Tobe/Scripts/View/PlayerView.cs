@@ -11,6 +11,7 @@ namespace Tobe.View
         public float VisualYaw => smYaw;
         /// <summary>True once a real model (VRM clone or the fallback humanoid) is attached. Nothing is drawn before that (no capsule placeholders).</summary>
         public bool HasModel => model != null;
+        public bool Showcase;   // витрина (раздевалка меню): без кольца и стрелки игрока
         public float HeadHeight { get; private set; } = 2.05f;
 
         Transform visual;
@@ -239,7 +240,7 @@ namespace Tobe.View
             FootDust(in s, dt);
 
             // nothing is drawn until the model exists
-            ring.gameObject.SetActive(model != null);
+            ring.gameObject.SetActive(model != null && !Showcase);
             if (model == null) { chevron.gameObject.SetActive(false); return; }
 
             // ground ring
@@ -260,7 +261,7 @@ namespace Tobe.View
             }
 
             // local-player marker (billboard finished in LateUpdate); other players get a screen-space plate from NameplateLayer
-            chevron.gameObject.SetActive(local);
+            chevron.gameObject.SetActive(local && !Showcase);
             if (local)
             {
                 Mats.SetColor(chevMat, new Color(1f, 0.82f, 0.2f) * 1.4f);
