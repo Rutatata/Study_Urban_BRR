@@ -346,6 +346,66 @@ namespace Tobe.View
             return rad;
         }
 
+        /// <summary>Экипировка, облегающая тело: участок кожи модели в полосе вдоль кости a→b копируется поверх кожи на thick
+        /// и остаётся на тех же костях с теми же весами — гнётся вместе с телом в любой позе. Полоса задана в метрах вдоль сегмента
+        /// от точки a (from/to; при fromEnd — от точки b, отрицательные — к a). false — сетка не читается, нужен старый вариант.</summary>
+        static bool SkinBand(Rig g, string name, Transform a, Transform b, float from, float to, float thick, Material m, float maxR, bool fromEnd = false)
+        {
+            try
+            {
+                foreach (var smr in g.root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    if (InGear(smr.transform)) continue;
+                    var mesh = smr.sharedMesh; if (mesh == null || !mesh.isReadable) continue;
+                    var bones = smr.bones; int ia = System.Array.IndexOf(bones, a), ibn = System.Array.IndexOf(bones, b);
+                    if (ia < 0 || ibn < 0) continue;
+                    var bp = mesh.bindposes; if (bp == null || bp.Length != bones.Length) continue;
+                    Vector3 A = bp[ia].inverse.MultiplyPoint3x4(Vector3.zero), Bp = bp[ibn].inverse.MultiplyPoint3x4(Vector3.zero);
+                    Vector3 ax = Bp - A; float len = ax.magnitude; if (len < 1e-4f) continue; ax /= len;
+                    float t0 = (fromEnd ? len : 0f) + from, t1 = (fromEnd ? len : 0f) + to;
+                    if (!fromEnd && to < 0f) t1 = len + to;   // «до … от конца»: нарукавник от локтя почти до запястья
+                    if (t1 < t0) { float tt = t0; t0 = t1; t1 = tt; }
+                    var vs = mesh.vertices; var ns = mesh.normals; var bw = mesh.boneWeights;
+                    if (ns == null || ns.Length != vs.Length || bw == null || bw.Length != vs.Length) continue;
+                    var mats = smr.sharedMaterials;
+                    var map = new System.Collections.Generic.Dictionary<int, int>();
+                    var nv = new System.Collections.Generic.List<Vector3>(); var nn = new System.Collections.Generic.List<Vector3>();
+                    var nw = new System.Collections.Generic.List<BoneWeight>(); var nt = new System.Collections.Generic.List<int>();
+                    for (int sm = 0; sm < mesh.subMeshCount && sm < mats.Length; sm++)
+                    {
+                        if (mats[sm] == null || Classify(mats[sm].name) != Part.Skin) continue;   // только кожа (и «кожа» на месте вырезанного тела)
+                        var tri = mesh.GetTriangles(sm);
+                        for (int t = 0; t + 2 < tri.Length; t += 3)
+                        {
+                            Vector3 c = (vs[tri[t]] + vs[tri[t + 1]] + vs[tri[t + 2]]) / 3f, d = c - A;
+                            float along = Vector3.Dot(d, ax);
+                            if (along < t0 || along > t1 || (d - ax * along).magnitude > maxR) continue;
+                            for (int k = 0; k < 3; k++)
+                            {
+                                int vi = tri[t + k];
+                                if (!map.TryGetValue(vi, out int ni)) { ni = nv.Count; map[vi] = ni; nv.Add(vs[vi] + ns[vi] * thick); nn.Add(ns[vi]); nw.Add(bw[vi]); }
+                                nt.Add(ni);
+                            }
+                        }
+                    }
+                    if (nt.Count < 24) continue;
+                    var gm = new Mesh { name = name };
+                    gm.SetVertices(nv); gm.SetNormals(nn); gm.boneWeights = nw.ToArray(); gm.bindposes = bp; gm.SetTriangles(nt, 0);
+                    gm.bounds = mesh.bounds;
+                    var go = new GameObject(name);
+                    go.transform.SetParent(smr.transform.parent, false);
+                    go.transform.localPosition = smr.transform.localPosition; go.transform.localRotation = smr.transform.localRotation; go.transform.localScale = smr.transform.localScale;
+                    var r = go.AddComponent<SkinnedMeshRenderer>();
+                    r.bones = bones; r.rootBone = smr.rootBone; r.sharedMesh = gm; r.sharedMaterial = m;
+                    r.localBounds = smr.localBounds; r.updateWhenOffscreen = smr.updateWhenOffscreen;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    return true;
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Tobe] облегающая экипировка не вышла (" + name + "): " + e.Message); }
+            return false;
+        }
+
         static void BuildGear(Rig g, AppearanceState state, PlayerProfile p, int team, Color shirt, Color trim)
         {
             var gear = (Gear)(p.gear | DevExtraGear);
@@ -362,6 +422,9 @@ namespace Tobe.View
                 foreach (var pair in new[] { (g.uLegL, g.lLegL, g.footL), (g.uLegR, g.lLegR, g.footR) })
                 {
                     if (pair.Item2 == null || pair.Item1 == null || pair.Item3 == null) continue;
+                    // облегающий: участок кожи у колена с весами костей — гнётся с ногой (сидя, в приседе, в нырке)
+                    if (SkinBand(g, "TG_KneePad", pair.Item2, pair.Item3, -0.075f, 0.12f, 0.016f, m, 0.13f)
+                        && SkinBand(g, "TG_KneePadStripe", pair.Item2, pair.Item3, 0.12f, 0.14f, 0.018f, stripe, 0.13f)) continue;
                     var b = new MeshBatch("TG_KneePad");
                     Vector3 knee = pair.Item2.position;
                     Vector3 dir = (pair.Item3.position - pair.Item1.position).normalized;
@@ -378,6 +441,7 @@ namespace Tobe.View
                 foreach (var pair in new[] { (g.lArmL, g.handL), (g.lArmR, g.handR) })
                 {
                     if (pair.Item1 == null || pair.Item2 == null) continue;
+                    if (SkinBand(g, "TG_Wristband", pair.Item1, pair.Item2, -0.085f, -0.035f, 0.009f, m, 0.09f, true)) continue;
                     var b = new MeshBatch("TG_Wristband");
                     Vector3 dir = (pair.Item2.position - pair.Item1.position).normalized;
                     Vector3 c = pair.Item2.position - dir * 0.045f * S;
@@ -391,6 +455,7 @@ namespace Tobe.View
                 foreach (var pair in new[] { (g.lArmR, g.handR) })      // right arm only, like a real sleeve
                 {
                     if (pair.Item1 == null || pair.Item2 == null) continue;
+                    if (SkinBand(g, "TG_ArmSleeve", pair.Item1, pair.Item2, 0.015f, -0.035f, 0.006f, m, 0.09f)) continue;
                     var b = new MeshBatch("TG_ArmSleeve");
                     Vector3 a = pair.Item1.position, e = pair.Item2.position;
                     Vector3 dir = (e - a).normalized;
@@ -404,6 +469,7 @@ namespace Tobe.View
                 foreach (var pair in new[] { (g.lLegL, g.footL), (g.lLegR, g.footR) })
                 {
                     if (pair.Item1 == null || pair.Item2 == null) continue;
+                    if (SkinBand(g, "TG_AnkleTape", pair.Item1, pair.Item2, -0.07f, -0.01f, 0.009f, m, 0.1f, true)) continue;
                     var b = new MeshBatch("TG_AnkleTape");
                     Vector3 dir = (pair.Item1.position - pair.Item2.position).normalized;       // up the leg
                     Vector3 c = pair.Item2.position + dir * 0.04f * S;
@@ -507,7 +573,9 @@ namespace Tobe.View
                     _ = back; _ = front;
                     // спина: крупно; грудь: мелко, чуть выше. На груди зеркалим x (смотрим на игрока спереди)
                     int painted = Paint(px, TS, vs, uv, tri, n, P, -g.fwd, right, 0.15f * S, 0.15f * S, fill, ol, false)
-                                + Paint(px, TS, vs, uv, tri, n, P + Vector3.up * 0.06f * S, g.fwd, right, 0.062f * S, 0.062f * S, fill, ol, true);
+                                // грудь: развёртка VRoid там зеркальная (левая и правая половины — одно место текстуры), номер через
+                                // середину накладывался сам на себя задом наперёд. Ставим его на левую сторону груди целиком, как на форме.
+                                + Paint(px, TS, vs, uv, tri, n, P + Vector3.up * 0.07f * S - right * 0.075f * S, g.fwd, right, 0.05f * S, 0.05f * S, fill, ol, true);
                     if (painted == 0) return false;
                     var tex = new Texture2D(TS, TS, TextureFormat.RGBA32, true) { name = "shirt_print_" + n, wrapMode = TextureWrapMode.Clamp };
                     tex.SetPixels32(px); tex.Apply(true, true);

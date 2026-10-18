@@ -686,7 +686,7 @@ namespace Tobe.View
                 case PoseId.Dive: break;   // клип dive — кувырок через голову, в волейболе так не ныряют; своя поза (EvalOverrides)
                 case PoseId.Celebrate: c = cCelebrate != null && cCelebrate.humanoid && ReactVariant(6) == 0 && ReactTime(pt) > 0f ? cCelebrate : null; full = true; t = Mathf.Max(0f, ReactTime(pt)); break;   // запись Mixamo — один из 6 вариантов
                 case PoseId.Sad: c = cSad != null && ReactVariant(5) == 0 && ReactTime(pt) > 0f ? cSad : null; full = true; if (c != null) t = ReactTime(pt) * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
-                case PoseId.HighFive: c = cHighFive != null && cHighFive.humanoid ? cHighFive : null; full = true; if (c != null) t = pt * c.duration / 1.0f; break;
+                case PoseId.HighFive: break;   // запись high_five просто уводила руку в сторону — своя поза по фазам (EvalOverrides)
                 case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
                 case PoseId.Set: c = cSet; full = air; if (c != null) t = pt * c.duration / 0.45f; break;
                 case PoseId.SpikeWind: c = cSpike; full = true; if (c != null) t = Mathf.Min(pt / 0.32f, 1f) * 0.55f * c.duration; break;
@@ -809,11 +809,11 @@ namespace Tobe.View
                                 tgt.hips = V(18, 0, 0); tgt.spine = V(12, 0, 0); tgt.chest = V(10, 0, 0); tgt.neck = V(-18, 0, 0); tgt.head = V(-10 - 6f * pump, 0, 0);
                                 tgt.legW = 0.6f; tgt.gUR = tgt.gUL = V(0.25f, -0.8f, 0.55f); tgt.gLR = tgt.gLL = V(0.05f, -1f, -0.1f);
                                 break;
-                            default: // ладонь к партнёру, лёгкий подскок
-                                tgt.uR = V(0.45f, 0.8f, 0.35f); tgt.lR = V(0.2f, 0.85f, 0.45f);
-                                tgt.uL = V(0.35f, -0.4f, 0.4f); tgt.lL = V(-0.2f, 0.6f, 0.75f);
-                                tgt.spine = V(-3, 18, 0); tgt.chest = V(-4, 12, 0); tgt.head = V(-8, -6, 0);
-                                tgt.lift = 0.06f * hop;
+                            default: // «ЕСТЬ!»: согнутые руки, кулаки у плеч, ритмичный рывок вниз (без вытянутой руки)
+                                tgt.armFrame = 1f;
+                                tgt.uR = tgt.uL = V(0.55f, -0.75f + 0.25f * pump, 0.15f); tgt.lR = tgt.lL = V(-0.15f, 0.95f, 0.25f);
+                                tgt.spine = V(6f * pump, 0, 0); tgt.chest = V(4f * pump, 0, 0); tgt.head = V(-12, 0, 0);
+                                tgt.lift = 0.04f * hop;
                                 break;
                         }
                     }
@@ -829,14 +829,24 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.HighFive:
-                    if (!actWanted)
-                    {   // своя поза «дай пять», если нет записи: правая рука вверх-вперёд ладонью к партнёру, на хлопке — толчок
-                        float clap = AnimMath.Smooth01(Mathf.Clamp01((pt - 0.25f) / 0.12f)) * (1f - AnimMath.Smooth01(Mathf.Clamp01((pt - 0.5f) / 0.3f)));
-                        tgt.wR = 1f; tgt.wL = 0.6f;
-                        tgt.uR = V(0.3f, 0.75f, 0.6f + 0.2f * clap); tgt.lR = V(0.1f, 0.8f, 0.6f);
-                        tgt.uL = V(0.3f, -0.9f, 0.2f); tgt.lL = V(0.1f, -0.9f, 0.3f);
-                        tgt.spine = V(-4 + 6f * clap, 0, 0); tgt.chest = V(-6, 0, 0); tgt.head = V(-12, 0, 0);
-                        tgt.lift = 0.08f * clap;
+                    {   // «дай пять» по фазам: замах (рука сбоку над головой, локоть согнут) → хлопок перед собой на уровне головы
+                        // (ладони встречаются посередине между игроками) → проводка вниз → возврат. Корпус: отклон назад, на хлопке вперёд.
+                        tgt.wR = 1f; tgt.wL = 0.7f; tgt.armFrame = 1f;
+                        float w1 = AnimMath.Smooth01(Mathf.Clamp01(pt / 0.22f));                 // замах
+                        float w2 = AnimMath.Smooth01(Mathf.Clamp01((pt - 0.22f) / 0.12f));       // хлопок
+                        float w3 = AnimMath.Smooth01(Mathf.Clamp01((pt - 0.36f) / 0.22f));       // проводка
+                        float w4 = AnimMath.Smooth01(Mathf.Clamp01((pt - 0.65f) / 0.3f));        // возврат
+                        Vector3 uHang = V(0.12f, -1f, 0.05f), lHang = V(0.12f, -1f, 0.08f);
+                        Vector3 uWind = V(0.55f, 0.75f, -0.15f), lWind = V(0.05f, 1f, -0.2f);
+                        Vector3 uClap = V(0.15f, 0.62f, 0.78f), lClap = V(0.05f, 0.55f, 0.83f);
+                        Vector3 uThru = V(0.18f, 0.05f, 0.98f), lThru = V(0.05f, -0.2f, 0.98f);
+                        Vector3 u = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(uHang, uWind, w1), uClap, w2), uThru, w3), uHang, w4);
+                        Vector3 lw = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(lHang, lWind, w1), lClap, w2), lThru, w3), lHang, w4);
+                        tgt.uR = u.normalized; tgt.lR = lw.normalized;
+                        tgt.uL = V(0.3f, -0.9f, 0.15f); tgt.lL = V(0.1f, -0.85f, 0.4f);           // вторая рука — свободно, чуть согнута
+                        float lean = -6f * w1 * (1f - w2) + 8f * w2 * (1f - w4);
+                        tgt.spine = V(lean, -10f * w1 * (1f - w3), 0); tgt.chest = V(lean * 0.6f, -8f * w1 * (1f - w3), 0); tgt.head = V(-10, 0, 0);
+                        tgt.lift = 0.05f * Mathf.Sin(Mathf.Clamp01((pt - 0.2f) / 0.35f) * Mathf.PI);   // лёгкий подскок на хлопке
                     }
                     break;
                 case PoseId.Sad:
@@ -860,7 +870,8 @@ namespace Tobe.View
                                 break;
                             default: // хлопки «Ничего, дальше!» — подбадривает команду
                                 float c2 = Mathf.Abs(Mathf.Sin(rt * 7f));
-                                tgt.uR = tgt.uL = V(0.25f, -0.2f, 0.95f); tgt.lR = tgt.lL = V(-0.55f + 0.45f * c2, 0.25f, 0.8f);
+                                tgt.armFrame = 1f;   // локти внизу у корпуса, ладони перед грудью сходятся и расходятся
+                                tgt.uR = tgt.uL = V(0.3f, -0.78f, 0.55f); tgt.lR = tgt.lL = V(-0.62f + 0.4f * c2, 0.45f, 0.65f);
                                 tgt.spine = V(4, 0, 0); tgt.head = V(-6, 0, 0);
                                 break;
                         }
