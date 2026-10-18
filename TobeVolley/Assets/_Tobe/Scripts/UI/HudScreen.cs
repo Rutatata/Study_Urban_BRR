@@ -362,8 +362,7 @@ namespace Tobe.UI
             var p = UiKit.MakePanel(Rt, "Hint", new Vector2(760, 200), 20f, new Color(0.04f, 0.05f, 0.08f, 0.82f), UiKit.Cyan);
             UiKit.At(p.rectTransform, UiKit.BR, new Vector2(-40, 40), new Vector2(760, 200));   // текст в 3–4 строки после новых клавиш
             hintRoot = p.rectTransform;
-            hintText = UiKit.Label(p.transform,
-                "WASD — бег   Shift — рывок   Мышь — камера и прицел\nE — приём   ПКМ / F — пас (держи — выше)   C — блок\nПробел — прыжок   ЛКМ — удар в прыжке / подача (1/2/3 — тип)\nCtrl — нырок   Q — «Дай мне!»   R — добивание   Esc — меню",
+            hintText = UiKit.Label(p.transform, ControlsHelp.HintLine(),
                 18, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiKit.Pad(hintText.rectTransform, 36, 8, 20, 8);
             var cg = p.gameObject.AddComponent<CanvasGroup>();
@@ -373,6 +372,7 @@ namespace Tobe.UI
         protected override void OnShown()
         {
             hintT = 0f;
+            chipsInit = false;
             tutShown = -1; tutDoneT = -1f; tutRun = 0f; tutEndT = 0f; tutHasLast = false;
             lastScore[0] = lastScore[1] = -1;
             ClearPops();
@@ -468,6 +468,19 @@ namespace Tobe.UI
             UpdateHint(dt);
             UpdateDashLines(v, dt);
             UpdateTutorial(v, dt);
+            if (chipsPad != Controls.UsingGamepad || !chipsInit) RelabelChips();
+        }
+
+        bool chipsPad, chipsInit;
+        /// <summary>Подписи клавиш под текущее устройство (клавиатура+мышь / геймпад) и привязки из меню «Управление».</summary>
+        void RelabelChips()
+        {
+            chipsPad = Controls.UsingGamepad; chipsInit = true;
+            UiKit.SetChipText(chipLkm, Controls.Glyph(Act.Attack)); UiKit.SetChipText(chipPkm, Controls.Glyph(Act.Set));
+            UiKit.SetChipText(chipSpace, Controls.Glyph(Act.Jump)); UiKit.SetChipText(chipE, Controls.Glyph(Act.Bump));
+            UiKit.SetChipText(chipC, Controls.Glyph(Act.Block)); UiKit.SetChipText(chipG, Controls.Glyph(Act.Emote));
+            if (hintText != null) hintText.text = ControlsHelp.HintLine();
+            promptShown = null;   // пересобрать подсказку с новой шириной клавиши
         }
 
         void UpdateScoreboard(MatchView v, float dt)

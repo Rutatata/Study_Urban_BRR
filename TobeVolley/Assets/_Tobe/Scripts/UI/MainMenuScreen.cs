@@ -134,8 +134,8 @@ namespace Tobe.UI
             var ct = UiKit.Label(cpn.transform, "УПРАВЛЕНИЕ", 52, UiKit.Gold, TextAnchor.UpperCenter, FontStyle.Bold, true);
             UiKit.Pad(ct.rectTransform, 0, 30, 0, 0);
             var tbl = UiKit.NewRect("Table", cpn.transform);
-            UiKit.At(tbl, UiKit.TL, new Vector2(80, -120), new Vector2(940, 500));
-            UiKit.BuildControlsTable(tbl, 940, 30);
+            UiKit.At(tbl, UiKit.TL, new Vector2(60, -110), new Vector2(980, 540));
+            ControlsPanel.Create(tbl, 980);   // переназначение: клавиатура+мышь и геймпад
             var cl = UiKit.MakeButton(cpn.transform, "ЗАКРЫТЬ", new Vector2(300, 60), UiKit.Orange, () => controlsPanel.gameObject.SetActive(false), 30);
             UiKit.At(cl.GetComponent<RectTransform>(), UiKit.BC, new Vector2(0, 28), new Vector2(300, 60));
             controlsPanel.gameObject.SetActive(false);

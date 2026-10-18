@@ -174,38 +174,42 @@ namespace Tobe.Net
 
         void Simulate(PlayerSnap me, float dt, bool serving)
         {
-            var kb = Keyboard.current; var mouse = Mouse.current;
+            var kb = Keyboard.current;
             bool canPlay = !GameHub.UiBlocking && (GameHub.View.phase == MatchPhase.Serve || GameHub.View.phase == MatchPhase.Rally || GameHub.View.phase == MatchPhase.Point || GameHub.View.phase == MatchPhase.Lobby || GameHub.View.phase == MatchPhase.Countdown);
             Vector2 mv = Vector2.zero; bool sprint = false;
-            if (canPlay && kb != null)
-            {
-                float x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
-                float y = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
+            if (canPlay)
+            {   // все действия — через Controls: клавиатура+мышь и геймпад со своими привязками (меню «Управление»)
+                Vector2 m = Controls.Move();
+                float x = m.x, y = m.y;
                 if (DevMove.HasValue) { x = DevMove.Value.x; y = DevMove.Value.y; }
                 var dir = Quaternion.Euler(0, GameHub.CameraYaw, 0) * new Vector3(x, 0, y);
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
-                sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
-                if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; if (!air) cmd.blockIntent = false; TryJump(me); }
-                if (kb.cKey.wasPressedThisFrame && !air) { cmd.jumpCount++; cmd.blockIntent = true; TryJump(me); }   // блок — свой прыжок
-                if (kb.eKey.wasPressedThisFrame) cmd.bumpPressCount++;   // приём снизу
-                if (kb.gKey.wasPressedThisFrame) cmd.emoteCount++;       // «дай пять» напарнику
-                if (kb.leftCtrlKey.wasPressedThisFrame || kb.rightCtrlKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
-                if (kb.qKey.wasPressedThisFrame) cmd.callCount++;   // спецификация: Q — вызов паса, Ctrl — нырок, R — добивание
-                if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;
-                if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
-                if (kb.digit3Key.wasPressedThisFrame) ServeType = 2;
+                sprint = Controls.Held(Act.Sprint) || DevSprint;
+                if (Controls.Down(Act.Jump) || DevJump) { DevJump = false; cmd.jumpCount++; if (!air) cmd.blockIntent = false; TryJump(me); }
+                if (Controls.Down(Act.Block) && !air) { cmd.jumpCount++; cmd.blockIntent = true; TryJump(me); }   // блок — свой прыжок
+                if (Controls.Down(Act.Bump)) cmd.bumpPressCount++;
+                if (Controls.Down(Act.Emote)) cmd.emoteCount++;
+                if (Controls.Down(Act.Dive)) { cmd.diveCount++; TryDive(mv); }
+                if (Controls.Down(Act.Call)) cmd.callCount++;
+                if (kb != null)
+                {   // тип подачи: 1/2/3 на клавиатуре; на геймпаде — по кругу (Controls: «Тип подачи»)
+                    if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;
+                    if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
+                    if (kb.digit3Key.wasPressedThisFrame) ServeType = 2;
+                }
+                if (Controls.Down(Act.ServeNext)) ServeType = (byte)((ServeType + 1) % 3);
                 cmd.serveType = ServeType;
                 cmd.fatigue = (byte)Mathf.Clamp(100f - stamina, 0f, 100f);
-                if (kb.rKey.wasPressedThisFrame) cmd.specialCount++;
-                bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
-                bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;
+                if (Controls.Down(Act.Special)) cmd.specialCount++;
+                bool hitDown = Controls.Down(Act.Attack) || kb != null && kb.jKey.wasPressedThisFrame;
+                bool hitUp = Controls.Up(Act.Attack) || kb != null && kb.jKey.wasReleasedThisFrame;
                 if (hitDown) { cmd.hitPressCount++; serveHoldT = serving ? 0f : -1f; }
                 if (serveHoldT >= 0f) { serveHoldT += dt; if (hitUp || !serving) serveHoldT = -1f; }
                 ServeCharge = serveHoldT >= 0f ? Mathf.Clamp(serveHoldT / 0.9f, 0.1f, 1f) : 0f;
-                if (mouse != null && mouse.rightButton.wasPressedThisFrame || kb.fKey.wasPressedThisFrame) cmd.setPressCount++;   // передача сверху (ПКМ или F)
+                if (Controls.Down(Act.Set) || kb != null && kb.fKey.wasPressedThisFrame) cmd.setPressCount++;   // запасные J/F — как раньше
                 if (hitUp) cmd.hitReleaseCount++;
-                cmd.hitHeld = mouse != null && mouse.leftButton.isPressed || kb.jKey.isPressed;
-                cmd.setHeld = mouse != null && mouse.rightButton.isPressed || kb.fKey.isPressed;
+                cmd.hitHeld = Controls.Held(Act.Attack) || kb != null && kb.jKey.isPressed;
+                cmd.setHeld = Controls.Held(Act.Set) || kb != null && kb.fKey.isPressed;
             }
             cmd.move = mv; cmd.sprint = sprint;
             if (dt <= 0) return;

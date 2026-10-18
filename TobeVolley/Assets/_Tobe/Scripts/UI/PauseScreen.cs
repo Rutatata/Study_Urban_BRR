@@ -6,6 +6,12 @@ namespace Tobe.UI
     /// <summary>Overlay shown on Esc during a match. The match keeps running underneath.</summary>
     public sealed class PauseScreen : UiScreen
     {
+        RectTransform tbl;
+        protected override void OnShown()
+        {   // таблица под текущее устройство и привязки
+            for (int i = tbl.childCount - 1; i >= 0; i--) Destroy(tbl.GetChild(i).gameObject);
+            UiKit.BuildControlsTable(tbl, 940, 28);
+        }
         protected override void Build()
         {
             var dim = UiKit.Box(Rt, "Dim", new Color(0.01f, 0f, 0.05f, 0.75f), true);
@@ -18,7 +24,7 @@ namespace Tobe.UI
             var note = UiKit.Label(panel.transform, "Матч продолжается", 22, UiKit.Dim, TextAnchor.UpperCenter, FontStyle.Italic);
             UiKit.Pad(note.rectTransform, 0, 112, 0, 0);
 
-            var tbl = UiKit.NewRect("Table", panel.transform);
+            tbl = UiKit.NewRect("Table", panel.transform);
             UiKit.At(tbl, UiKit.TL, new Vector2(80, -160), new Vector2(940, 520));
             UiKit.BuildControlsTable(tbl, 940, 28);
 

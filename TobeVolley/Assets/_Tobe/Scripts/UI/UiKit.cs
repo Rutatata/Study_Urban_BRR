@@ -9,22 +9,38 @@ namespace Tobe.UI
 {
     public static class ControlsHelp
     {
-        public static readonly string[,] Rows =
+        /// <summary>Таблица управления под текущее устройство (клавиатура+мышь или геймпад) и текущие привязки.</summary>
+        public static string[,] Rows()
         {
-            { "WASD", "бег (относительно камеры)" },
-            { "Shift", "рывок" },
-            { "Мышь", "камера и прицел (на подаче — куда летит мяч)" },
-            { "E", "приём снизу" },
-            { "ПКМ / F", "передача сверху (только по высокому мячу; держи — выше и дальше)" },
-            { "Пробел", "прыжок для атаки" },
-            { "ЛКМ", "в прыжке — удар; на подаче держи — сила (1/2/3 — тип подачи)" },
-            { "C", "блок у сетки" },
-            { "Ctrl", "нырок" },
-            { "Q", "«Дай мне!»" },
-            { "G", "дать пять напарнику (в перерыве)" },
-            { "R", "зарядить добивание" },
-            { "Esc", "меню" },
-        };
+            bool pad = Controls.UsingGamepad;
+            string G(Act a) => Controls.Glyph(a);
+            return new string[,]
+            {
+                { pad ? "Л. СТИК" : "WASD", "бег (относительно камеры)" },
+                { G(Act.Sprint), "рывок" },
+                { pad ? "П. СТИК" : "Мышь", "камера и прицел (на подаче — куда летит мяч)" },
+                { G(Act.Bump), "приём снизу" },
+                { G(Act.Set), "передача сверху (только по высокому мячу; держи — выше и дальше)" },
+                { G(Act.Jump), "прыжок для атаки" },
+                { G(Act.Attack), "в прыжке — удар; на подаче держи — сила (" + (pad ? G(Act.ServeNext) : "1/2/3") + " — тип подачи)" },
+                { G(Act.Block), "блок у сетки" },
+                { G(Act.Dive), "нырок" },
+                { G(Act.Call), "«Дай мне!»" },
+                { G(Act.Emote), "дать пять напарнику (в перерыве)" },
+                { G(Act.Special), "зарядить добивание" },
+                { G(Act.Pause), "меню" },
+            };
+        }
+        /// <summary>Строка-подсказка внизу экрана матча.</summary>
+        public static string HintLine()
+        {
+            string G(Act a) => Controls.Glyph(a);
+            bool pad = Controls.UsingGamepad;
+            return (pad ? "Л. стик" : "WASD") + " — бег   " + G(Act.Sprint) + " — рывок   " + (pad ? "П. стик" : "Мышь") + " — камера и прицел\n"
+                + G(Act.Bump) + " — приём   " + G(Act.Set) + " — пас (держи — выше)   " + G(Act.Block) + " — блок\n"
+                + G(Act.Jump) + " — прыжок   " + G(Act.Attack) + " — удар в прыжке / подача (" + (pad ? G(Act.ServeNext) : "1/2/3") + " — тип)\n"
+                + G(Act.Dive) + " — нырок   " + G(Act.Call) + " — «Дай мне!»   " + G(Act.Emote) + " — пять   " + G(Act.Special) + " — добивание   " + G(Act.Pause) + " — меню";
+        }
     }
 
     public sealed class Bar
@@ -297,6 +313,16 @@ namespace Tobe.UI
         }
 
         /// <summary>Keyboard/mouse key chip, e.g. "ЛКМ" or "ПРОБЕЛ".</summary>
+        /// <summary>Сменить подпись готовой «клавиши» (ширина подстраивается под текст, как в KeyChip).</summary>
+        public static void SetChipText(RectTransform chip, string key)
+        {
+            if (chip == null) return;
+            var t = chip.GetComponentInChildren<Text>(); if (t == null || t.text == key) return;
+            t.text = key;
+            float height = chip.sizeDelta.y; int fs = t.fontSize;
+            chip.sizeDelta = new Vector2(Mathf.Max(height * 1.1f, key.Length * fs * 0.72f + height * 0.7f), height);
+        }
+
         public static RectTransform KeyChip(Transform parent, string key, float height, Color? tint = null)
         {
             Color c = tint ?? Gold;
@@ -490,10 +516,10 @@ namespace Tobe.UI
         public static float BuildControlsTable(Transform parent, float width, int fontSize)
         {
             float y = 0f;
-            int n = ControlsHelp.Rows.GetLength(0);
+            var rows = ControlsHelp.Rows(); int n = rows.GetLength(0);
             for (int i = 0; i < n; i++)
             {
-                string key = ControlsHelp.Rows[i, 0], desc = ControlsHelp.Rows[i, 1];
+                string key = rows[i, 0], desc = rows[i, 1];
                 float h = desc.Length > 40 ? fontSize * 2.3f : fontSize * 1.6f;
                 var chip = KeyChip(parent, key, fontSize * 1.4f, Orange);
                 AtP(chip, TL, TL, new Vector2(0, -y), chip.sizeDelta);

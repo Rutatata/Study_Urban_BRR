@@ -106,11 +106,11 @@ namespace Tobe.View
             hadLocal = haveLocal;
             if (haveLocal) lastTeam = team;
 
-            if (haveLocal && !GameHub.UiBlocking && Mouse.current != null)
+            if (haveLocal && !GameHub.UiBlocking)
             {
-                Vector2 d = Mouse.current.delta.ReadValue();
-                yaw += d.x * Sens;
-                pitch = Mathf.Clamp(pitch - d.y * Sens, -10f, 35f);
+                Vector2 d = Controls.Look(dt);   // мышь + правый стик геймпада
+                yaw += d.x;
+                pitch = Mathf.Clamp(pitch - d.y, -10f, 35f);
             }
             yaw = Mathf.Repeat(yaw, 360f);
             GameHub.CameraYaw = yaw;

@@ -101,7 +101,7 @@ namespace Tobe.UI
             else if (NetApi.InSession && (ph == MatchPhase.Lobby || ph == MatchPhase.Countdown)) target = Lobby;
             else target = Menu;
 
-            if (target == Hud && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) paused = !paused;
+            if (target == Hud && Controls.Down(Act.Pause)) paused = !paused;
             if (target != Hud) paused = false;
 
             Menu.Show(target == Menu);
