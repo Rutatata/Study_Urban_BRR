@@ -17,6 +17,7 @@ namespace Tobe.View
         ParticleSystem.EmissionModule glowEm;
         Transform shadow; Material shadowMat;
         Transform landRing, landDisc; Material landRingMat, landDiscMat;
+        Transform aimRing; Material aimMat; LineRenderer aimArc; readonly Vector3[] arcPts = new Vector3[24];   // прицел подачи
         readonly Transform[] planRing = new Transform[2];
         readonly Material[] planMat = new Material[2];
         readonly LineRenderer[] beam = new LineRenderer[2];
@@ -122,6 +123,16 @@ namespace Tobe.View
             landRing = Mats.FloorQuad("LandRing", transform, Vector3.zero, 1f, 1f, landRingMat).transform;
             landDisc.gameObject.SetActive(false); landRing.gameObject.SetActive(false);
 
+            // прицел подачи: метка на полу + дуга полёта (как в Rematch — мышью выбирается, куда летит мяч)
+            aimMat = Mats.Instance(Mats.Unlit("serve_aim", Color.white, Mats.RingTex, true, true));
+            aimRing = Mats.FloorQuad("ServeAim", transform, Vector3.zero, 1f, 1f, aimMat).transform;
+            aimRing.gameObject.SetActive(false);
+            var ag = new GameObject("ServeArc"); ag.transform.SetParent(transform, false);
+            aimArc = ag.AddComponent<LineRenderer>();
+            aimArc.positionCount = arcPts.Length; aimArc.useWorldSpace = true; aimArc.widthMultiplier = 0.1f;
+            aimArc.textureMode = LineTextureMode.Tile; aimArc.sharedMaterial = Mats.Instance(Mats.Particle("plan_beam", Mats.DashTex, true));
+            aimArc.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; aimArc.receiveShadows = false; aimArc.enabled = false;
+
             // plan markers
             var planBase = Mats.Unlit("plan_ring", Color.white, Mats.RingTex, true, true);
             beamMat = Mats.Instance(Mats.Particle("plan_beam", Mats.DashTex, true));
@@ -157,6 +168,7 @@ namespace Tobe.View
             shadow.gameObject.SetActive(vis);
             if (vis) UpdateBall(b, dt, view); else { trail.emitting = false; core.emitting = false; aura.gameObject.SetActive(false); glowLight.intensity = 0f; glowEm.enabled = false; }
             UpdateLanding(view);
+            UpdateServeAim(view);
             UpdatePlans(view);
         }
 
@@ -248,6 +260,31 @@ namespace Tobe.View
             shadow.position = new Vector3(smPos.x, 0.015f, smPos.z);
             shadow.localScale = new Vector3(size, size, 1f);
             Mats.SetColor(shadowMat, new Color(0f, 0f, 0.02f, 0.75f / (1f + h * 0.25f)));
+        }
+
+        void UpdateServeAim(MatchView view)
+        {
+            bool on = view.phase == MatchPhase.Serve && view.localPlayerId >= 0 && view.serverPlayerId == view.localPlayerId && view.TryGetLocal(out var lp);
+            aimRing.gameObject.SetActive(on); aimArc.enabled = on;
+            if (!on) return;
+            view.TryGetLocal(out lp);
+            Vector3 aim = Tobe.Net.MatchClient.ServeAim; aim.y = 0f;
+            bool theirSide = !Court.OnSide(lp.team, aim.z);
+            bool inside = theirSide && Court.InCourt(aim.x, aim.z, 0f);
+            // как у сервера (DoServe): прицел на своей половине — мяч уйдёт в случайную точку, поэтому метку не врём, а гасим
+            Color c = !theirSide ? new Color(1f, 1f, 1f, 0.25f) : inside ? new Color(1f, 0.85f, 0.25f, 1f) : new Color(1f, 0.2f, 0.2f, 1f);
+            float s = 2.2f + 0.2f * Mathf.Sin(Time.time * 9f);   // крупно: метка за 15–18 м от камеры
+            aimRing.position = new Vector3(aim.x, 0.04f, aim.z); aimRing.localScale = new Vector3(s, s, 1f);
+            Mats.SetColor(aimMat, new Color(c.r * 1.6f, c.g * 1.6f, c.b * 1.6f, c.a));
+            // дуга: та же парабола, что у сервера; сила (время удержания ЛКМ) делает её ниже и быстрее
+            byte kind = Tobe.Net.MatchClient.ServeType;
+            float power = Tobe.Net.MatchClient.ServeCharge > 0f ? Tobe.Net.MatchClient.ServeCharge : 0.5f;
+            if (kind == 0) power = Mathf.Min(power, 0.4f);
+            float T = Mathf.Lerp(1.75f, kind == 2 ? 0.72f : 0.85f, power), g = kind == 2 ? 13.5f : Court.BallGravity;
+            Vector3 p0 = view.ball.pos, v0 = new Vector3((aim.x - p0.x) / T, (Court.BallRadius - p0.y + 0.5f * g * T * T) / T, (aim.z - p0.z) / T);
+            for (int i = 0; i < arcPts.Length; i++) { float t = T * i / (arcPts.Length - 1); arcPts[i] = p0 + v0 * t + 0.5f * g * t * t * Vector3.down; }
+            aimArc.SetPositions(arcPts);
+            aimArc.startColor = new Color(c.r, c.g, c.b, 0.5f); aimArc.endColor = new Color(c.r * 1.5f, c.g * 1.5f, c.b * 1.5f, 1f);
         }
 
         void UpdateLanding(MatchView view)

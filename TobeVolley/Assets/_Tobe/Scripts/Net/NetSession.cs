@@ -142,6 +142,7 @@ namespace Tobe.Net
             bool ok = false;
             for (ushort port = 7777; port <= 7790 && !ok; port++)
             {
+                if (!PortFree(port)) continue;   // сначала тихая проверка: иначе транспорт сыплет красными ошибками в журнал
                 utp.SetConnectionData("127.0.0.1", port);
                 ok = nm.StartHost();
                 if (!ok && nm.IsListening) nm.Shutdown();
@@ -171,6 +172,11 @@ namespace Tobe.Net
             GameHub.RaiseRoster();
         }
 
+        static bool PortFree(ushort port)
+        {
+            try { using (new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port))) return true; }
+            catch (System.Net.Sockets.SocketException) { return false; }
+        }
         void OnApplicationQuit() { if (nm != null && nm.IsListening) nm.Shutdown(); }
         void OnDestroy() { if (nm != null && nm.IsListening) nm.Shutdown(); }   // выход из Play в редакторе тоже освобождает порт
     }

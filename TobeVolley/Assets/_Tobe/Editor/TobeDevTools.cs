@@ -59,6 +59,13 @@ namespace Tobe.EditorTools
         [MenuItem("Tobe/Dev/Производительность: замер 10 с")]
         static void PerfMeasure() { PerfProbe.Begin(); Debug.Log("[Tobe] Замер производительности: 10 с…"); }
 
+        [MenuItem("Tobe/Dev/Подача: всегда моя вкл-выкл")]
+        static void ToggleMyServe()
+        {
+            Tobe.Sim.VolleySim.DevServeId = Tobe.Sim.VolleySim.DevServeId >= 0 ? -1 : Mathf.Max(0, Tobe.GameHub.View.localPlayerId);
+            Debug.Log("[Tobe] Подача всегда моя: " + (Tobe.Sim.VolleySim.DevServeId >= 0) + " (со следующего очка)");
+        }
+
         [MenuItem("Tobe/Dev/Сетка: толчок мячом")]
         static void PokeNet()
         {

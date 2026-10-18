@@ -234,6 +234,8 @@ namespace Tobe
         public ushort jumpCount, hitPressCount, hitReleaseCount, diveCount, callCount, specialCount; // edge counters
         public ushort setPressCount;  // ПКМ: передача сверху (ЛКМ = приём снизу, в прыжке — удар)
         public bool hitHeld;
+        public ushort bumpPressCount;  // E: приём снизу (отдельная кнопка)
+        public bool blockIntent;      // прыжок начат клавишей блока (C) — только такой прыжок у сетки блокирует
         public byte serveType;        // 0 снизу, 1 планер, 2 в прыжке — выбирается до подброса (клавиши 1/2/3)
         public static readonly string[] ServeNames = { "СНИЗУ", "ПЛАНЕР", "В ПРЫЖКЕ" };
         public bool setHeld;

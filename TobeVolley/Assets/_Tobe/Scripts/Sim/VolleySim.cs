@@ -29,8 +29,9 @@ namespace Tobe.Sim
 
         // human input state
         public InputCmd lastCmd;
-        public ushort seenHitPress, seenHitRelease, seenCall, seenSpecial, seenSetPress;
-        public bool hitSet;
+        public ushort seenHitPress, seenHitRelease, seenCall, seenSpecial, seenSetPress, seenBump;
+        public float hintT;   // пауза между подсказками «не та кнопка»
+        public bool hitSet, hitBump;   // последняя кнопка касания: ПКМ — передача, E — приём, ЛКМ — удар
         public float timingErr;   // оценка тайминга нажатия: секунды до идеальной высоты мяча (+ рано, - поздно)   // последнее нажатие касания: true = передача сверху (ПКМ), false = приём снизу / удар (ЛКМ)
         public float hitBuf, serveHold;
         public bool serveCharging;
@@ -169,9 +170,13 @@ namespace Tobe.Sim
         }
         bool IsBackRow(SimPlayer p) => teamSize >= 6 && p.slot >= 3;
 
+        /// <summary>Меню Tobe/Dev и обучение: этот игрок подаёт каждый раз (-1 — обычная очерёдность).</summary>
+        public static int DevServeId = -1;
         void SetupServe()
         {
             phase = MatchPhase.Serve; phaseT = 1.8f; slowT = 0;
+            var forced = DevServeId >= 0 ? players.Find(q => q.id == DevServeId) : null;
+            if (forced != null) servingTeam = forced.team;
             for (int i = 0; i < 2; i++) { touches[i] = 0; plans[i] = null; }
             foreach (var p in players)
             {
@@ -181,7 +186,7 @@ namespace Tobe.Sim
                 p.diveT = p.recT = p.stunT = 0; p.hasBlockTask = false; p.celebrate = 0; p.SetPose(PoseId.Ready, 0);
                 p.yaw = p.team == 0 ? 0 : 180; p.serveCharging = false; p.hitBuf = 0;
             }
-            server = ServerOf(servingTeam);
+            server = forced ?? ServerOf(servingTeam);
             server.pos = new Vector3(6.8f, 0, Court.WorldZ(servingTeam, 9.9f));
             ball.held = server; ball.live = false; ball.superBy = null; ball.mini = false; ball.lastP = null; ball.lastTeam = -1;
             ball.vel = Vector3.zero; ball.blockTouch = false; ball.kind = "serve";
@@ -629,6 +634,11 @@ namespace Tobe.Sim
             // Неверный выбор под высоту мяча портит касание: снизу высокий мяч летит криво, пальцами низкий не взять.
             bool setBtn = u.hitSet;
             float by = ball.pos.y;
+            if (!ri.air && !setBtn && !u.hitBump && !auto)
+            {   // ЛКМ на земле — это не приём: у каждого касания своя кнопка
+                if (u.hintT <= 0f) { u.hintT = 2f; Ev(GameEventType.Popup, "ПРИЁМ — E,  ПАС — ПКМ", Grey, default, u, 0); }
+                return;
+            }
             if (!ri.air && setBtn && by < 1.35f) { BadTouch(u, "НИЗКО ДЛЯ ПАСА"); return; }
             float tq = 1f;
             if (!ri.air)
@@ -682,7 +692,8 @@ namespace Tobe.Sim
         /// <summary>Apply the latest input of a connected human (called every server tick before Step).</summary>
         public void ApplyHuman(SimPlayer u, InputCmd c, float dt)
         {
-            if (c.hitPressCount != u.seenHitPress) { u.seenHitPress = c.hitPressCount; u.hitSet = false; u.timingErr = TimingErr(IdealY(u, false)); OnHumanPress(u); }
+            if (c.hitPressCount != u.seenHitPress) { u.seenHitPress = c.hitPressCount; u.hitSet = false; u.hitBump = false; u.timingErr = TimingErr(IdealY(u, false)); OnHumanPress(u); }
+            if (c.bumpPressCount != u.seenBump) { u.seenBump = c.bumpPressCount; if (phase == MatchPhase.Rally) { u.hitSet = false; u.hitBump = true; u.hitBuf = 0.35f; u.timingErr = TimingErr(IdealY(u, false)); } }
             if (c.setPressCount != u.seenSetPress) { u.seenSetPress = c.setPressCount; if (phase == MatchPhase.Rally) { u.hitSet = true; u.hitBuf = 0.35f; u.timingErr = TimingErr(IdealY(u, true)); } }
             if (c.hitReleaseCount != u.seenHitRelease) { u.seenHitRelease = c.hitReleaseCount; OnHumanRelease(u); }
             if (c.callCount != u.seenCall) { u.seenCall = c.callCount; u.callT = 2.5f; Ev(GameEventType.Popup, "ДАЙ МНЕ!", Orange, default, u, 0); }
@@ -709,7 +720,7 @@ namespace Tobe.Sim
                 bool wasAir = u.air;
                 u.air = c.clientAir && np.y > 0.01f;
                 if (u.air && !wasAir) u.airAt = t;
-                if (u.air && !wasAir) u.blockJump = Mathf.Abs(u.pos.z - NY) < 1.2f && ball.lastTeam != u.team;
+                if (u.air && !wasAir) u.blockJump = c.blockIntent && Mathf.Abs(u.pos.z - NY) < 1.4f;   // блок только прыжком на C
                 if (c.clientDiving && u.diveT <= 0) u.diveT = 0.5f;
                 if (!c.clientDiving && u.diveT > 0.1f) u.diveT = 0.1f;
             }
@@ -943,6 +954,7 @@ namespace Tobe.Sim
                     foreach (var p in players)
                     {
                         if (p.team != def || !p.air || Mathf.Abs(p.pos.z - NY) > 0.9f) continue;
+                        if (!p.isBot && !p.blockJump) continue;   // человек блокирует только прыжком на C
                         if (p.profile.style == PlayStyle.Libero && teamSize >= 6) continue;   // libero may not block
                         float top = p.pos.y + p.reach + 0.3f, bot = p.pos.y + p.reach - 0.55f;
                         int wall = Wall(p);
@@ -1127,6 +1139,7 @@ namespace Tobe.Sim
             {
                 if (p.isBot) continue;
                 // human: buffered hit + auto-receive assist
+                p.hintT -= dt;
                 if (p.hitBuf > 0)
                 {
                     p.hitBuf -= dt;
@@ -1136,7 +1149,7 @@ namespace Tobe.Sim
                 if (plan != null && plan.p == p && plan.kind == PlanKind.Receive && LegalFor(p) && !p.air)
                 {
                     float hd = Hyp(p.pos.x - ball.pos.x, p.pos.z - ball.pos.z);
-                    if (hd < 0.55f && ball.pos.y < 1.0f && ball.vel.y < 0) { var ri = ReachInfo(p); if (ri.ok) { HumanHit(p, ri, true); } }
+                    if (hd < 0.55f && ball.pos.y < 1.0f && ball.vel.y < 0) { var ri = ReachInfo(p); if (ri.ok) { p.hitSet = false; p.hitBump = true; HumanHit(p, ri, true); } }   // автоприём — всегда снизу
                 }
                 if (!p.connected && plan != null && plan.p == p) BotThinkAsProxy(p, plan);
                 if (phase != MatchPhase.Rally) return;

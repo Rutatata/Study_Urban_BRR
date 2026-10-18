@@ -20,7 +20,10 @@ namespace Tobe.Net
         public static bool DevSprint;
         /// <summary>Тестовый прыжок из DevProbe: true = прыгнуть в этом кадре (сбрасывается после чтения).</summary>
         public static bool DevJump;
-        public static byte ServeType = 1;   // выбранный тип подачи, его же показывает HUD
+        public static byte ServeType = 1;
+        public static float ServeCharge;
+        public static Vector3 ServeAim;    // куда летит подача (показывает BallView)   // 0..1: сколько держат ЛКМ на подаче (для дуги прицела)
+        float serveHoldT = -1f;   // выбранный тип подачи, его же показывает HUD
 
         // local movement state
         Vector3 pos, vel;
@@ -108,12 +111,18 @@ namespace Tobe.Net
             Simulate(me, dt * timeScale, serving);
             WriteLocal(v, me.id);
 
+            if (serving)
+            {   // прицел подачи (как в Rematch): поворот камеры — направление, наклон — дальность (опустил — ближе к сетке)
+                var a = GameHub.AimPoint - pos; a.y = 0f; float d = a.magnitude;
+                var dir = d > 0.05f ? a / d : Quaternion.Euler(0, GameHub.CameraYaw, 0) * Vector3.forward;
+                ServeAim = pos + dir * Mathf.Lerp(10.5f, 18.5f, Mathf.Clamp01((d - 2f) / 10f));
+            }
             sendAcc += dt;
             if (sendAcc >= 1f / 30f)
             {
                 sendAcc = 0;
                 cmd.clientPos = pos; cmd.clientVel = vel; cmd.clientAir = air; cmd.clientDiving = diving;
-                cmd.aim = GameHub.AimValid ? GameHub.AimPoint : pos + Quaternion.Euler(0, GameHub.CameraYaw, 0) * Vector3.forward * 8f;
+                cmd.aim = serving ? ServeAim : GameHub.AimValid ? GameHub.AimPoint : pos + Quaternion.Euler(0, GameHub.CameraYaw, 0) * Vector3.forward * 8f;
                 var data = Ser.Input(cmd);
                 if (localServer != null) localServer.OnInput(nm.LocalClientId, data);
                 else NetIO.Send(nm, Msg.Input, NetworkManager.ServerClientId, data, NetworkDelivery.UnreliableSequenced);
@@ -176,8 +185,10 @@ namespace Tobe.Net
                 var dir = Quaternion.Euler(0, GameHub.CameraYaw, 0) * new Vector3(x, 0, y);
                 mv = new Vector2(dir.x, dir.z); if (mv.sqrMagnitude > 1) mv.Normalize();
                 sprint = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || DevSprint;
-                if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; TryJump(me); }
-                if (kb.eKey.wasPressedThisFrame || kb.leftCtrlKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
+                if (kb.spaceKey.wasPressedThisFrame || DevJump) { DevJump = false; cmd.jumpCount++; if (!air) cmd.blockIntent = false; TryJump(me); }
+                if (kb.cKey.wasPressedThisFrame && !air) { cmd.jumpCount++; cmd.blockIntent = true; TryJump(me); }   // блок — свой прыжок
+                if (kb.eKey.wasPressedThisFrame) cmd.bumpPressCount++;   // приём снизу
+                if (kb.leftCtrlKey.wasPressedThisFrame || kb.rightCtrlKey.wasPressedThisFrame) { cmd.diveCount++; TryDive(mv); }
                 if (kb.qKey.wasPressedThisFrame) cmd.callCount++;   // спецификация: Q — вызов паса, Ctrl — нырок, R — добивание
                 if (kb.digit1Key.wasPressedThisFrame) ServeType = 0;
                 if (kb.digit2Key.wasPressedThisFrame) ServeType = 1;
@@ -187,7 +198,9 @@ namespace Tobe.Net
                 if (kb.rKey.wasPressedThisFrame) cmd.specialCount++;
                 bool hitDown = mouse != null && mouse.leftButton.wasPressedThisFrame || kb.jKey.wasPressedThisFrame;
                 bool hitUp = mouse != null && mouse.leftButton.wasReleasedThisFrame || kb.jKey.wasReleasedThisFrame;
-                if (hitDown) cmd.hitPressCount++;
+                if (hitDown) { cmd.hitPressCount++; serveHoldT = serving ? 0f : -1f; }
+                if (serveHoldT >= 0f) { serveHoldT += dt; if (hitUp || !serving) serveHoldT = -1f; }
+                ServeCharge = serveHoldT >= 0f ? Mathf.Clamp(serveHoldT / 0.9f, 0.1f, 1f) : 0f;
                 if (mouse != null && mouse.rightButton.wasPressedThisFrame || kb.fKey.wasPressedThisFrame) cmd.setPressCount++;   // передача сверху (ПКМ или F)
                 if (hitUp) cmd.hitReleaseCount++;
                 cmd.hitHeld = mouse != null && mouse.leftButton.isPressed || kb.jKey.isPressed;
