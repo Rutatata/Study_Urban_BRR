@@ -6,6 +6,8 @@
 #   blender -b -P volley_uniform.py -- вход.vrm выход.vrm [превью.png]
 import sys, math
 import bpy, bmesh
+from mathutils.bvhtree import BVHTree
+from mathutils import geometry
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 src, dst = argv[0], argv[1]
@@ -74,6 +76,29 @@ proto = me.materials[next(iter(cloth))] if cloth else me.materials[next(iter(ski
 
 bm = bmesh.new(); bm.from_mesh(me)
 skin_faces = [f for f in bm.faces if f.material_index in skin]
+# дерево исходной кожи (до формы): по нему проверяем, есть ли тело под одеждой на руках и ногах
+_mw0 = body.matrix_world
+_sv = [_mw0 @ v.co for v in bm.verts]
+skin_bvh = BVHTree.FromPolygons(_sv, [[v.index for v in f.verts] for f in skin_faces])
+def seg(a, b):
+    return bone(a), bone(b)
+LIMBS = []
+for sd in ("L", "R"):
+    LIMBS += [seg(f"J_Bip_{sd}_UpperArm", f"J_Bip_{sd}_LowerArm"), seg(f"J_Bip_{sd}_LowerArm", f"J_Bip_{sd}_Hand"),
+              seg(f"J_Bip_{sd}_UpperLeg", f"J_Bip_{sd}_LowerLeg"), seg(f"J_Bip_{sd}_LowerLeg", f"J_Bip_{sd}_Foot")]
+def skinless_limb(f):
+    """Одежда на руке/ноге, под которой VRoid вырезал тело: луч от грани к кости не встречает кожу — грань оставляем (рукав/гетра)."""
+    c = _mw0 @ f.calc_center_median()
+    best = None
+    for a, b in LIMBS:
+        p, t = geometry.intersect_point_line(c, a, b)
+        t = min(max(t, 0.0), 1.0); p = a + (b - a) * t
+        d = (c - p).length
+        if best is None or d < best[0]: best = (d, p)
+    if best is None or best[0] > 0.16: return False
+    d, p = best
+    hit = skin_bvh.ray_cast(c, (p - c).normalized(), d)
+    return hit[0] is None
 mw = body.matrix_world; mwi = mw.inverted(); m3 = mw.to_3x3()   # границы заданы в мировых координатах
 inside = lambda co, lo, hi, xm: lo < co.z < hi and abs(co.x) < xm
 for lo, hi, xm, push, passes, name in REGIONS:
@@ -106,7 +131,20 @@ for lo, hi, xm, push, passes, name in REGIONS:
             if d < push: v.co = mwi @ (w + n * (push - d))
     if "Tops" in name:
         drape(inner, lo, hi)
-bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in cloth], context="FACES")
+_kill = [f for f in bm.faces if f.material_index in cloth and not skinless_limb(f)]
+# одежда на руках/ногах без тела под ней становится «кожей»: однотонный материал кожи (игра красит его в тон кожи персонажа)
+_fill = [f for f in bm.faces if f.material_index in cloth and f not in set(_kill)]
+if _fill:
+    sm = me.materials[next(iter(skin))].copy(); sm.name = "Uniform_SkinFill_SKIN"
+    ext = getattr(sm, "vrm_addon_extension", None)
+    if ext is not None:   # текстура кожи по UV одежды дала бы мусор — оставляем только цвет
+        ext.mtoon1.pbr_metallic_roughness.base_color_texture.index.source = None
+        ext.mtoon1.extensions.vrmc_materials_mtoon.shade_multiply_texture.index.source = None
+        ext.mtoon1.pbr_metallic_roughness.base_color_factor = (1.0, 0.86, 0.78, 1.0)
+    me.materials.append(sm); _fi = len(me.materials) - 1
+    for f in _fill: f.material_index = _fi
+print(f"[volley_uniform] одежды удалено {len(_kill)}, оставлено как рукава/гетры {sum(1 for f in bm.faces if f.material_index in cloth) - len(_kill)}")
+bmesh.ops.delete(bm, geom=_kill, context="FACES")
 bm.to_mesh(me); bm.free()
 bpy.ops.object.select_all(action="DESELECT")
 
