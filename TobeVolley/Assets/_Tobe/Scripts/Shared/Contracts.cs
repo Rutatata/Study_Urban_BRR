@@ -206,6 +206,16 @@ namespace Tobe
     }
 
     /// <summary>Client-side hub: the network client fills <see cref="View"/> and raises events; view/UI read and subscribe.</summary>
+    /// <summary>Обучение (тренировка с подыгрыванием): шаги 0 бег, 1 приём, 2 передача, 3 атака, 4 блок, 5 подача, 6 — пройдено.
+    /// Симуляция подстраивает мячи под текущий шаг, HUD показывает задание и засчитывает его по событиям.</summary>
+    public static class Tutorial
+    {
+        public static bool Active;
+        public static int Step;
+        public const int Steps = 6;
+        public static void Begin() { Active = true; Step = 0; }
+    }
+
     public static class GameHub
     {
         public static readonly MatchView View = new MatchView();

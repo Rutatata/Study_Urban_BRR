@@ -177,6 +177,8 @@ namespace Tobe.Sim
         {
             phase = MatchPhase.Serve; phaseT = 1.8f; slowT = 0;
             var forced = DevServeId >= 0 ? players.Find(q => q.id == DevServeId) : null;
+            if (Tutorial.Active && Tutorial.Step == 5) forced = TutorHuman();          // обучение, шаг «подача»: подаёт игрок
+            else if (Tutorial.Active && forced == null) { var th = TutorHuman(); if (th != null) forced = players.Find(q => q.team != th.team && q.isBot); }   // иначе подаёт соперник — в игрока
             if (forced != null) servingTeam = forced.team;
             for (int i = 0; i < 2; i++) { touches[i] = 0; plans[i] = null; }
             foreach (var p in players)
@@ -302,8 +304,23 @@ namespace Tobe.Sim
             if (best == null || best.pos.y > 0.3f || FlatDist(best, at) / best.spd > ct + 0.3f) return NearestFree(team, at, exclude);
             return best;
         }
+        /// <summary>Обучение: куда соперник бьёт по команде team — в игрока (приём) или в его напарника (передача, атака).</summary>
+        bool TutorTarget(int team, out Vector3 at)
+        {
+            at = default;
+            var th = TutorHuman(team);
+            if (th == null || Tutorial.Step < 1 || Tutorial.Step > 3) return false;
+            SimPlayer who = th;
+            if (Tutorial.Step >= 2) { float bd = 1e9f; foreach (var q in players) if (q.team == team && q != th) { float d = FlatDist(q, th.pos); if (d < bd) { bd = d; who = q; } } }
+            at = new Vector3(Mathf.Clamp(who.pos.x + Rnd(-0.4f, 0.4f), 0.6f, Court.Width - 0.6f), R, who.pos.z);   // под ноги нужному игроку
+            return true;
+        }
+        SimPlayer TutorHuman(int team) => Tutorial.Active ? players.Find(q => !q.isBot && q.team == team) : null;
+        SimPlayer TutorHuman() => Tutorial.Active ? players.Find(q => !q.isBot) : null;
         SimPlayer SetterOf(int team, SimPlayer exclude)
         {
+            var th = TutorHuman(team);   // обучение, шаг «передача»: пасует игрок
+            if (th != null && Tutorial.Step == 2 && th != exclude) return th;
             foreach (var p in players)
                 if (p.team == team && p != exclude && p.profile.style == PlayStyle.Setter && p.stunT <= 0 && !(!p.isBot && p.callT > 0)) return p;
             return NearestFree(team, new Vector3(5.8f, 0, Court.WorldZ(team, 1f)), exclude);
@@ -328,6 +345,8 @@ namespace Tobe.Sim
         }
         SimPlayer ChooseAttacker(int team, SimPlayer setter)
         {
+            var th = TutorHuman(team);   // обучение, шаг «атака»: пас всегда игроку
+            if (th != null && Tutorial.Step == 3 && th != setter) return th;
             SimPlayer caller = null, best = null; float bs = -1e9f;
             foreach (var p in players)
             {
@@ -447,6 +466,7 @@ namespace Tobe.Sim
             bool tip = tipBtn || p.isBot && !special && Random.value < 0.08f;   // игрок: ПКМ в прыжке; бот: изредка сам
             if (tip) { target = new Vector3(Mathf.Clamp(p.pos.x + Rnd(-2, 2), 0.5f, 8.5f), R, Court.WorldZ(o, Rnd(1.2f, 2.2f))); S = 6; }
             float dist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
+            if (p.isBot && !special && TutorTarget(o, out var tt2)) { target = tt2; S = Mathf.Min(S, 13f); }   // обучение: атака в нужного игрока, без жести
             float gs = tip ? GB : 15f;   // атака с верхним вращением ныряет за блок
             float T = SafeT(target, Mathf.Max(0.12f, dist / S), gs);
             Launch(target, T, gs);
@@ -480,6 +500,7 @@ namespace Tobe.Sim
             if (kind == 0) power = Mathf.Min(power, 0.4f);
             var target = aim.HasValue && Court.OnSide(o, aim.Value.z) ? new Vector3(aim.Value.x, R, aim.Value.z)
                 : new Vector3(Rnd(0.8f, 8.2f), R, Court.WorldZ(o, Rnd(3, 8.3f)));
+            if (p.isBot && TutorTarget(o, out var tt)) { target = tt; power = Mathf.Min(power, 0.45f); }   // обучение: мягко и прямо в нужного игрока
             float T = special ? 0.62f : Mathf.Lerp(1.75f, kind == 2 ? 0.72f : 0.85f, power) - (p.isBot ? p.st.serve * 0.02f : 0);
             float err = late * (kind == 2 ? 2.2f : kind == 1 ? 1.1f : 0.3f);
             target.x += Rnd(-err, err); target.z += Court.Fwd(p.team) * Rnd(-err * 0.3f, err);

@@ -74,8 +74,10 @@ namespace Tobe.UI
             UiKit.At(bj.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 200, y), new Vector2(375, h));
             y -= h + gap;
 
-            var bt = UiKit.MakeButton(Rt, "ТРЕНИРОВКА С БОТАМИ", new Vector2(575, h), UiKit.Purple, OnPractice, 30);
-            UiKit.At(bt.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(575, h));
+            var bt = UiKit.MakeButton(Rt, "ТРЕНИРОВКА С БОТАМИ", new Vector2(375, h), UiKit.Purple, () => { Tutorial.Active = false; OnPractice(); }, 28);
+            UiKit.At(bt.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(375, h));
+            var btut = UiKit.MakeButton(Rt, "ОБУЧЕНИЕ", new Vector2(190, h), UiKit.Orange, () => { Tutorial.Begin(); OnPractice(); }, 28);
+            UiKit.At(btut.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 385, y), new Vector2(190, h));
             y -= h + gap;
 
             var bc = UiKit.MakeButton(Rt, "ПЕРСОНАЖ", new Vector2(575, h), UiKit.Purple, () => UiRoot.Instance.OpenCharacter(), 30);

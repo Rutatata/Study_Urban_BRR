@@ -108,6 +108,78 @@ namespace Tobe.UI
             BuildPointBanner();
             BuildCutin();
             BuildHint();
+            BuildTutorial();
+        }
+
+        // ---------------------------------------------------------------- обучение: задание шага и зачёт по событиям
+        static readonly string[] TutText =
+        {
+            "Бегай: WASD, рывок — Shift. Камера — мышью.",
+            "ПРИЁМ: соперник подаёт в тебя. Встань под мяч и жми E, когда кольцо сойдётся с меткой.",
+            "ПЕРЕДАЧА: напарник примет мяч, пасуешь ты. Под высокий мяч — ПКМ (держи — выше).",
+            "АТАКА: тебе дадут пас. Пробел — прыжок, в прыжке ЛКМ — удар. Направление — камерой.",
+            "БЛОК: встань у сетки напротив атакующего. Загорится «БЛОК!» — жми C.",
+            "ПОДАЧА: 1/2/3 — тип, камера — куда, держи ЛКМ — сила, отпусти — удар.",
+            "ОБУЧЕНИЕ ПРОЙДЕНО! Дальше — обычная тренировка.",
+        };
+        RectTransform tutRoot; Text tutTitle, tutBody; int tutShown = -1; float tutDoneT = -1f, tutRun, tutEndT; Vector3 tutLast; bool tutHasLast;
+
+        void BuildTutorial()
+        {
+            var p = UiKit.MakePanel(Rt, "Tutorial", new Vector2(900, 120), 20f, new Color(0.04f, 0.05f, 0.08f, 0.88f), UiKit.Gold);
+            UiKit.At(p.rectTransform, UiKit.TC, new Vector2(0, -120), new Vector2(900, 120));
+            tutRoot = p.rectTransform;
+            tutTitle = UiKit.Label(p.transform, "", 24, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.BoldAndItalic);
+            UiKit.Pad(tutTitle.rectTransform, 34, 12, 20, 0);
+            tutBody = UiKit.Label(p.transform, "", 26, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiKit.Pad(tutBody.rectTransform, 34, 40, 20, 10);
+            tutRoot.gameObject.SetActive(false);
+        }
+
+        void TutDone()
+        {
+            if (tutDoneT >= 0f || Tutorial.Step >= Tutorial.Steps) return;
+            tutDoneT = 1.3f;
+            AddPopup(new GameEvent { type = GameEventType.Popup, text = "ГОТОВО!", color = UiKit.Gold, intArg = 1 });
+        }
+
+        void UpdateTutorial(MatchView v, float dt)
+        {
+            bool inMatch = v.phase == MatchPhase.Serve || v.phase == MatchPhase.Rally || v.phase == MatchPhase.Point;
+            bool on = Tutorial.Active && inMatch;
+            if (tutRoot.gameObject.activeSelf != on) tutRoot.gameObject.SetActive(on);
+            if (!on) return;
+            if (tutDoneT >= 0f) { tutDoneT -= dt; if (tutDoneT < 0f) Tutorial.Step++; }
+            if (Tutorial.Step >= Tutorial.Steps)
+            {   // финал: показать и через 4 с выключить — дальше обычная тренировка
+                tutEndT += dt;
+                if (tutEndT > 4f) { Tutorial.Active = false; tutRoot.gameObject.SetActive(false); return; }
+            }
+            if (tutShown != Tutorial.Step)
+            {
+                tutShown = Tutorial.Step;
+                tutTitle.text = Tutorial.Step < Tutorial.Steps ? "ОБУЧЕНИЕ · ШАГ " + (Tutorial.Step + 1) + " ИЗ " + Tutorial.Steps : "ОБУЧЕНИЕ";
+                tutBody.text = TutText[Mathf.Min(Tutorial.Step, TutText.Length - 1)];
+            }
+            if (!v.TryGetLocal(out var lp)) return;
+            if (Tutorial.Step == 0)
+            {   // бег: засчитывается, когда пробежал 4 м
+                if (tutHasLast) tutRun += Vector3.Distance(new Vector3(lp.pos.x, 0, lp.pos.z), tutLast);
+                tutLast = new Vector3(lp.pos.x, 0, lp.pos.z); tutHasLast = true;
+                if (tutRun > 4f) TutDone();
+            }
+            if (Tutorial.Step == 4 && lp.pose == PoseId.Block) TutDone();   // блок: попытка на C у сетки тоже засчитывается
+        }
+
+        void TutEvent(GameEvent e)
+        {
+            var v = GameHub.View;
+            if (!Tutorial.Active || e.playerId != v.localPlayerId) return;
+            if (e.type == GameEventType.Block && Tutorial.Step == 4) { TutDone(); return; }
+            if (e.type != GameEventType.Hit) return;
+            var pose = (PoseId)e.intArg;
+            if (Tutorial.Step == 1 && pose == PoseId.Bump || Tutorial.Step == 2 && pose == PoseId.Set
+                || Tutorial.Step == 3 && pose == PoseId.Spike || Tutorial.Step == 5 && pose == PoseId.ServeHit) TutDone();
         }
 
         void BuildScoreboard()
@@ -300,6 +372,7 @@ namespace Tobe.UI
         protected override void OnShown()
         {
             hintT = 0f;
+            tutShown = -1; tutDoneT = -1f; tutRun = 0f; tutEndT = 0f; tutHasLast = false;
             lastScore[0] = lastScore[1] = -1;
             ClearPops();
             cutT = -1f; cutRoot.gameObject.SetActive(false);
@@ -316,6 +389,7 @@ namespace Tobe.UI
         public void HandleEvent(GameEvent e)
         {
             if (!Visible) return;
+            TutEvent(e);
             switch (e.type)
             {
                 case GameEventType.Popup: AddPopup(e); break;
@@ -392,6 +466,7 @@ namespace Tobe.UI
             UpdateCutin(dt);
             UpdateHint(dt);
             UpdateDashLines(v, dt);
+            UpdateTutorial(v, dt);
         }
 
         void UpdateScoreboard(MatchView v, float dt)
