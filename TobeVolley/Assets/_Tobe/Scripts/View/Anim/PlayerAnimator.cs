@@ -65,7 +65,7 @@ namespace Tobe.View
         float sc = 1f, legLocal = 0.9f, l1w = 0.45f, l2w = 0.45f;   // current scale, leg length (local units), thigh / shin length (world)
 
         // ------------------------------------------------------------------ clips (resolved when motions are loaded)
-        MotionClip cIdle, cReady, cWalk, cRun, cSprint, cSide, cJumpV, cJumpA, cJumpB, cJumpR, cLand, cDive, cCelebrate, cSad;
+        MotionClip cIdle, cReady, cWalk, cRun, cSprint, cSide, cJumpV, cJumpA, cJumpB, cJumpR, cLand, cDive, cCelebrate, cSad, cHighFive;
         MotionClip cShL, cShR, cBack, cBump, cSet, cSpike, cBlock, cServeF, cServeJ;
         MotionClip[] movers = new MotionClip[0];
         bool clipsResolved;
@@ -203,7 +203,7 @@ namespace Tobe.View
             cWalk = MotionLibrary.Get("walk"); cRun = MotionLibrary.Get("run"); cSprint = MotionLibrary.Get("sprint");
             cSide = MotionLibrary.Get("sidestep");
             cJumpV = MotionLibrary.Get("jump_vertical"); cJumpA = MotionLibrary.Get("jump_approach"); cJumpB = MotionLibrary.Get("jump_block"); cJumpR = MotionLibrary.Get("jump_run"); cLand = MotionLibrary.Get("land");
-            cDive = MotionLibrary.Get("dive"); cCelebrate = MotionLibrary.Get("celebrate"); cSad = MotionLibrary.Get("sad");
+            cDive = MotionLibrary.Get("dive"); cCelebrate = MotionLibrary.Get("celebrate"); cSad = MotionLibrary.Get("sad"); cHighFive = MotionLibrary.Get("high_five");
             cShL = MotionLibrary.Get("shuffle_left"); cShR = MotionLibrary.Get("shuffle_right"); cBack = MotionLibrary.Get("backpedal");
             cBump = MotionLibrary.Get("bump"); cSet = MotionLibrary.Get("set"); cSpike = MotionLibrary.Get("spike"); cBlock = MotionLibrary.Get("block");
             cServeF = MotionLibrary.Get("serve_float"); cServeJ = MotionLibrary.Get("serve_jump");
@@ -227,6 +227,10 @@ namespace Tobe.View
                 if (++errCount >= 3) { failed = true; Debug.LogWarning("[Tobe] PlayerAnimator disabled after errors: " + e); }
             }
         }
+
+        // радость/огорчение: вариант зависит от игрока и номера очка (у всех разные и каждый раз новые), старт с разбросом до 0,32 с
+        int ReactVariant(int n) { var v = GameHub.View; int pointNo = v.score[0] + v.score[1]; return (int)((uint)(myId * 7 + pointNo * 13 + pointNo * myId * 3) % (uint)n); }
+        float ReactTime(float pt) { var v = GameHub.View; int pointNo = v.score[0] + v.score[1]; return pt - ((myId * 37 + pointNo * 11) % 5) * 0.08f; }
 
         static int PoseClass(PoseId p) => (p == PoseId.Idle || p == PoseId.Ready || p == PoseId.Run) ? 0 : (int)p + 1;
 
@@ -617,8 +621,9 @@ namespace Tobe.View
             switch (pose)
             {
                 case PoseId.Dive: break;   // клип dive — кувырок через голову, в волейболе так не ныряют; своя поза (EvalOverrides)
-                case PoseId.Celebrate: c = cCelebrate != null && cCelebrate.humanoid && myId % 3 != 1 ? cCelebrate : null; full = true; t = pt; break;   // празднование Mixamo; вариант «крик» — свой (EvalOverrides)
-                case PoseId.Sad: c = cSad; full = true; if (c != null) t = pt * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
+                case PoseId.Celebrate: c = cCelebrate != null && cCelebrate.humanoid && ReactVariant(6) == 0 && ReactTime(pt) > 0f ? cCelebrate : null; full = true; t = Mathf.Max(0f, ReactTime(pt)); break;   // запись Mixamo — один из 6 вариантов
+                case PoseId.Sad: c = cSad != null && ReactVariant(5) == 0 && ReactTime(pt) > 0f ? cSad : null; full = true; if (c != null) t = ReactTime(pt) * Mathf.Clamp(c.duration / 1.4f, 1f, 2f); break;
+                case PoseId.HighFive: c = cHighFive != null && cHighFive.humanoid ? cHighFive : null; full = true; if (c != null) t = pt * c.duration / 1.0f; break;
                 case PoseId.Bump: c = cBump; full = air; if (c != null) t = pt * c.duration / 0.55f; break;
                 case PoseId.Set: c = cSet; full = air; if (c != null) t = pt * c.duration / 0.45f; break;
                 case PoseId.SpikeWind: c = cSpike; full = true; if (c != null) t = Mathf.Min(pt / 0.32f, 1f) * 0.55f * c.duration; break;
@@ -712,25 +717,36 @@ namespace Tobe.View
                     }
                     break;
                 case PoseId.Celebrate:
-                    if (!actWanted && !moving)
-                    {   // свои позы, когда нет клипа Mixamo (или вариант «крик»)
-                        float hop = Mathf.Abs(Mathf.Sin(pt * 8.5f));
-                        float pump = 0.5f + 0.5f * Mathf.Sin(pt * 8.5f + 1.2f);
+                    if (!actWanted && !moving && ReactTime(pt) > 0f)
+                    {   // свои позы радости: вариант заново на каждое очко, старт вразброс
+                        float rt = ReactTime(pt);
+                        float hop = Mathf.Abs(Mathf.Sin(rt * 8.5f));
+                        float pump = 0.5f + 0.5f * Mathf.Sin(rt * 8.5f + 1.2f);
                         tgt.wR = tgt.wL = 1f;
-                        switch (myId % 3)
+                        switch (ReactVariant(6))
                         {
-                            case 0: // прыжки, оба кулака вверх в такт
+                            case 1: // прыжки, оба кулака вверх в такт
                                 tgt.uR = tgt.uL = V(0.55f, 0.75f + 0.15f * pump, 0.1f); tgt.lR = tgt.lL = V(0.1f, 1f, 0.12f + 0.3f * (1f - pump));
                                 tgt.legW = hop; tgt.gUR = tgt.gUL = V(0.06f, -0.95f, 0.35f * hop); tgt.gLR = tgt.gLL = V(0.02f, -0.9f, -0.45f * hop);
                                 tgt.lift = hop * 0.16f; tgt.spine = V(-6, 0, 0); tgt.chest = V(-5, 0, 0); tgt.head = V(-14, 0, 0);
                                 break;
-                            case 1: // кулак высоко, вторая рука на поясе, голова откинута — крик
+                            case 2: // кулак высоко, вторая рука на поясе, голова откинута — крик
                                 tgt.uR = V(0.2f, 0.97f, 0.1f); tgt.lR = V(0.05f, 1f, 0.05f);
                                 tgt.uL = V(0.75f, -0.6f, -0.1f); tgt.lL = V(-0.85f, -0.3f, 0.2f);
                                 tgt.spine = V(-8, 0, -4); tgt.chest = V(-10, -10, -3); tgt.neck = V(-12, 0, 0); tgt.head = V(-18 - 6f * pump, 0, 0);
                                 tgt.lift = 0.03f * pump;
                                 break;
-                            default: // «дай пять»: рука с раскрытой ладонью вперёд-вверх к партнёру, лёгкий подскок
+                            case 3: // палец в небо, вторая рука кулаком у груди
+                                tgt.uR = V(0.1f, 1f, 0.15f); tgt.lR = V(0.02f, 1f, 0.1f);
+                                tgt.uL = V(0.4f, -0.75f, 0.45f); tgt.lL = V(-0.8f, 0.45f, 0.35f);
+                                tgt.spine = V(-6, 0, 0); tgt.chest = V(-8, 0, 0); tgt.head = V(-20, 0, 0);
+                                break;
+                            case 4: // аниме «ЙОШ!»: присел, оба кулака у пояса, корпус вперёд, рык
+                                tgt.uR = tgt.uL = V(0.45f, -0.85f, 0.25f); tgt.lR = tgt.lL = V(-0.3f, 0.55f, 0.75f + 0.1f * pump);
+                                tgt.hips = V(18, 0, 0); tgt.spine = V(12, 0, 0); tgt.chest = V(10, 0, 0); tgt.neck = V(-18, 0, 0); tgt.head = V(-10 - 6f * pump, 0, 0);
+                                tgt.legW = 0.6f; tgt.gUR = tgt.gUL = V(0.25f, -0.8f, 0.55f); tgt.gLR = tgt.gLL = V(0.05f, -1f, -0.1f);
+                                break;
+                            default: // ладонь к партнёру, лёгкий подскок
                                 tgt.uR = V(0.45f, 0.8f, 0.35f); tgt.lR = V(0.2f, 0.85f, 0.45f);
                                 tgt.uL = V(0.35f, -0.4f, 0.4f); tgt.lL = V(-0.2f, 0.6f, 0.75f);
                                 tgt.spine = V(-3, 18, 0); tgt.chest = V(-4, 12, 0); tgt.head = V(-8, -6, 0);
@@ -739,11 +755,42 @@ namespace Tobe.View
                         }
                     }
                     break;
+                case PoseId.HighFive:
+                    if (!actWanted)
+                    {   // своя поза «дай пять», если нет записи: правая рука вверх-вперёд ладонью к партнёру, на хлопке — толчок
+                        float clap = AnimMath.Smooth01(Mathf.Clamp01((pt - 0.25f) / 0.12f)) * (1f - AnimMath.Smooth01(Mathf.Clamp01((pt - 0.5f) / 0.3f)));
+                        tgt.wR = 1f; tgt.wL = 0.6f;
+                        tgt.uR = V(0.3f, 0.75f, 0.6f + 0.2f * clap); tgt.lR = V(0.1f, 0.8f, 0.6f);
+                        tgt.uL = V(0.3f, -0.9f, 0.2f); tgt.lL = V(0.1f, -0.9f, 0.3f);
+                        tgt.spine = V(-4 + 6f * clap, 0, 0); tgt.chest = V(-6, 0, 0); tgt.head = V(-12, 0, 0);
+                        tgt.lift = 0.08f * clap;
+                    }
+                    break;
                 case PoseId.Sad:
-                    if (!actWanted && !moving)
-                    {   // hands on knees, head down
-                        tgt.wR = tgt.wL = 1f; tgt.armFrame = 1f; tgt.uR = tgt.uL = V(0.12f, -0.97f, 0.22f); tgt.lR = tgt.lL = V(0.05f, -0.95f, 0.30f);
-                        tgt.hips = V(14, 0, 0); tgt.spine = V(18, 0, 0); tgt.chest = V(14, 0, 0); tgt.neck = V(12, 0, 0); tgt.head = V(22, 0, 0);
+                    if (!actWanted && !moving && ReactTime(pt) > 0f)
+                    {   // свои позы огорчения: вариант заново на каждое очко
+                        float rt = ReactTime(pt);
+                        tgt.wR = tgt.wL = 1f;
+                        switch (ReactVariant(5))
+                        {
+                            case 1: // руки на коленях, голова вниз
+                                tgt.armFrame = 1f; tgt.uR = tgt.uL = V(0.12f, -0.97f, 0.22f); tgt.lR = tgt.lL = V(0.05f, -0.95f, 0.30f);
+                                tgt.hips = V(14, 0, 0); tgt.spine = V(18, 0, 0); tgt.chest = V(14, 0, 0); tgt.neck = V(12, 0, 0); tgt.head = V(22, 0, 0);
+                                break;
+                            case 2: // руки на голове, взгляд вверх — «как же так»
+                                tgt.uR = tgt.uL = V(0.7f, 0.55f, 0.1f); tgt.lR = tgt.lL = V(-0.7f, 0.5f, 0.15f);
+                                tgt.spine = V(-6, 0, 0); tgt.chest = V(-6, 0, 0); tgt.head = V(-22, 0, 0);
+                                break;
+                            case 3: // руки на поясе, качает головой
+                                tgt.uR = tgt.uL = V(0.75f, -0.6f, -0.1f); tgt.lR = tgt.lL = V(-0.85f, -0.3f, 0.2f);
+                                tgt.spine = V(6, 0, 0); tgt.head = V(14, Mathf.Sin(rt * 6f) * 22f, 0);
+                                break;
+                            default: // хлопки «Ничего, дальше!» — подбадривает команду
+                                float c2 = Mathf.Abs(Mathf.Sin(rt * 7f));
+                                tgt.uR = tgt.uL = V(0.25f, -0.2f, 0.95f); tgt.lR = tgt.lL = V(-0.55f + 0.45f * c2, 0.25f, 0.8f);
+                                tgt.spine = V(4, 0, 0); tgt.head = V(-6, 0, 0);
+                                break;
+                        }
                     }
                     break;
                 case PoseId.Stun:
@@ -1092,7 +1139,7 @@ namespace Tobe.View
             float h = 0, s = 0, a = 0, su = 0, rl = 0;
             switch (pose)
             {
-                case PoseId.Celebrate: h = 0.85f; break;
+                case PoseId.Celebrate: case PoseId.HighFive: h = 0.85f; break;
                 case PoseId.Sad: s = 0.8f; break;
                 case PoseId.Stun: su = 0.7f; break;
                 case PoseId.Spike: case PoseId.SpikeWind: case PoseId.ServeHit: case PoseId.Block: a = 0.35f; break;

@@ -26,6 +26,7 @@ namespace Tobe.Sim
         public float yaw;
         public bool hasBlockTask; public float blockX, blockJumpAt;
         public float celebrate;
+        public SimPlayer mate;   // пауза после очка: с кем «дать пять»
 
         // human input state
         public InputCmd lastCmd;
@@ -263,7 +264,8 @@ namespace Tobe.Sim
             score[team]++;
             Ev(GameEventType.Point, why, TeamCol(team), ball.pos, hero, team);
             Popup(why, team == 0 ? Gold : Pink, true);
-            foreach (var p in players) { p.celebrate = p.team == team ? 1 : -1; p.hasBlockTask = false; }
+            foreach (var p in players) { p.celebrate = p.team == team ? 1 : -1; p.hasBlockTask = false; p.mate = null; }
+            PairHighFive(team);
             if (hero != null) hero.energy = Mathf.Min(100, hero.energy + 12);
             if (servingTeam != team) { servingTeam = team; Rotate(team); }   // side-out: the team that wins the serve rotates
         }
@@ -874,6 +876,15 @@ namespace Tobe.Sim
             p.yaw = Mathf.LerpAngle(p.yaw, face, 1 - Mathf.Exp(-12f * dt));
         }
 
+        void PairHighFive(int team)
+        {   // двое ближайших ботов-победителей (не дальше 6 м) идут «давать пять»; иногда никто — чтобы не было одинаково
+            SimPlayer a = null, b = null; float bd = 6f;
+            foreach (var p in players)
+                if (p.team == team && p.isBot)
+                    foreach (var q in players)
+                        if (q.team == team && q.isBot && p.id < q.id) { float d = FlatDist(p, q.pos); if (d < bd) { bd = d; a = p; b = q; } }
+            if (a != null && Random.value < 0.75f) { a.mate = b; b.mate = a; }
+        }
         void UpdatePose(SimPlayer p, float dt)
         {
             if (p.poseT > 0) { p.poseT -= dt; return; }
@@ -1095,7 +1106,18 @@ namespace Tobe.Sim
                 case MatchPhase.Point:
                     foreach (var p in players)
                     {
-                        if (p.isBot) { p.dvx = p.dvz = 0; if (p.celebrate > 0 && !p.air && Random.value < dt * 1.5f) { p.vel.y = 4; p.air = true; } PhysBot(p, dt); }
+                        if (p.isBot)
+                        {
+                            p.dvx = p.dvz = 0;
+                            if (p.mate != null && p.celebrate > 0)
+                            {   // «дай пять»: подбегают друг к другу и хлопают ладонями
+                                var m = p.mate; float d = FlatDist(p, m.pos);
+                                if (d > 0.8f) Seek(p, (p.pos.x + m.pos.x) * 0.5f, (p.pos.z + m.pos.z) * 0.5f, 0.3f);
+                                else { p.yaw = Mathf.Atan2(m.pos.x - p.pos.x, m.pos.z - p.pos.z) * Mathf.Rad2Deg; p.SetPose(PoseId.HighFive, 1.0f); p.mate = null; }
+                            }
+                            else if (p.celebrate > 0 && p.pose != PoseId.HighFive && !p.air && Random.value < dt * 1.5f) { p.vel.y = 4; p.air = true; }
+                            PhysBot(p, dt);
+                        }
                         UpdatePose(p, dt);
                     }
                     UpdateBall(dt);

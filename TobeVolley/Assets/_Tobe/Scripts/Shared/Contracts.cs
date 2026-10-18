@@ -23,7 +23,7 @@ namespace Tobe
 
     public enum PoseId : byte
     {
-        Idle, Ready, Run, Bump, Set, Jump, SpikeWind, Spike, Block, Dive, ServeToss, ServeHit, Celebrate, Sad, Stun
+        Idle, Ready, Run, Bump, Set, Jump, SpikeWind, Spike, Block, Dive, ServeToss, ServeHit, Celebrate, Sad, Stun, HighFive
     }
 
     public enum PlanKind : byte { None, Receive, Set, Attack, Over, Leave }
