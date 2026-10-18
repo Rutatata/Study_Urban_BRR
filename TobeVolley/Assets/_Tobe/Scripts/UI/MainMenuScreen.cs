@@ -42,7 +42,7 @@ namespace Tobe.UI
             bgStripe1 = s3.rectTransform;
 
             // logo
-            var kanji = UiKit.Label(Rt, "飛べ!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true, true);
+            var kanji = UiKit.Label(Rt, "FLY!", 190, UiKit.Gold, TextAnchor.UpperLeft, FontStyle.Bold, true, true);
             UiKit.At(kanji.rectTransform, UiKit.TL, new Vector2(110, -40), new Vector2(900, 230));
             kanji.horizontalOverflow = HorizontalWrapMode.Overflow;
             var title = UiKit.Label(Rt, "TOBE VOLLEY", 92, Color.white, TextAnchor.UpperLeft, FontStyle.BoldAndItalic, true, true);

@@ -1108,7 +1108,7 @@ namespace Tobe.Sim
                 else if (b.kind == "spike") why = big ? "ДОБИВАНИЕ!!" : "УБОЙНЫЙ!";
                 else if (b.kind == "tip") why = "ОБМАНКА!";
                 if (big || why == "УБОЙНЫЙ!") { Ev(GameEventType.Cinematic, null, null, new Vector3(b.pos.x, 0.5f, b.pos.z), null, 0, 1.1f); slowT = 0.8f; }
-                if (big) Popup("ドン!!", Color.white);
+                if (big) Popup("BOOM!!", Color.white);
                 AwardPoint(win, why, b.lastTeam == win ? b.lastP : hero);
             }
             else

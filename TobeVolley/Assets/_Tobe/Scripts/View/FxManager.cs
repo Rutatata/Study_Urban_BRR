@@ -349,7 +349,7 @@ namespace Tobe.View
             if (p > 0.82f)
             {
                 var pose = (PoseId)e.intArg;
-                string w = pose == PoseId.Spike ? "バシッ!" : pose == PoseId.ServeHit ? "ドンッ!" : pose == PoseId.Block ? "ガッ!" : pose == PoseId.Dive ? "ズザッ!" : "ポンッ!";
+                string w = pose == PoseId.Spike ? "SMASH!" : pose == PoseId.ServeHit ? "BOOM!" : pose == PoseId.Block ? "STOP!" : pose == PoseId.Dive ? "DIVE!" : "POP!";
                 StartWord(e.pos, w, pose == PoseId.Spike ? new Color(1f, 0.85f, 0.2f) : new Color(1f, 1f, 1f), 2.4f);
             }
             // сильные удары чувствуются камерой: тряска растёт с силой, мощная атака даёт «толчок» и вспышку
@@ -388,7 +388,7 @@ namespace Tobe.View
             StartSpeedLines(mid, new Color(col.r, col.g, col.b, 1f) * 1.2f + new Color(0.2f, 0.2f, 0.2f, 0f), 7f, 0.35f);
             StartShockBb(mid, Color.white, 6f, 0.4f);
             StartShockBb(mid, col, 9f, 0.55f);
-            StartWord(mid + Vector3.up * 0.8f, new[] { "ドガァッ!", "ズドン!!", "バァン!!" }[Random.Range(0, 3)], new Color(1f, 0.9f, 0.3f), 4.2f);
+            StartWord(mid + Vector3.up * 0.8f, new[] { "WHAM!", "KA-BOOM!!", "BANG!!" }[Random.Range(0, 3)], new Color(1f, 0.9f, 0.3f), 4.2f);
             ImpactFrame(0.2f);
             for (int i = 0; i < 18; i++)
             {

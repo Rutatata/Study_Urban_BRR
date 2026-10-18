@@ -91,7 +91,7 @@ namespace Tobe.View
                 var tm = Mats.Text(parent, "TOBE VOLLEY", 0.16f, 64, new Color(0.85f, 1f, 0.95f, 0.5f));
                 tm.transform.position = new Vector3(4.5f, 0.011f, end == 0 ? -1.5f : 19.5f);
                 tm.transform.rotation = Quaternion.Euler(90f, end == 0 ? 0f : 180f, 0f);
-                var jp = Mats.Text(parent, "飛べ", 0.2f, 64, new Color(1f, 0.75f, 0.35f, 0.4f));
+                var jp = Mats.Text(parent, "FLY", 0.2f, 64, new Color(1f, 0.75f, 0.35f, 0.4f));
                 jp.transform.position = new Vector3(end == 0 ? 11f : -2f, 0.011f, end == 0 ? 4.5f : 13.5f);
                 jp.transform.rotation = Quaternion.Euler(90f, end == 0 ? 90f : -90f, 0f);
             }
@@ -102,7 +102,7 @@ namespace Tobe.View
         {
             var b = new MeshBatch("AdBoards");
             var back = Env.SteelDark;
-            string[] words = { "TOBE", "VOLLEY", "飛べ", "SPIKE!", "LEGEND", "JUMP", "繋げ", "SERVE" };
+            string[] words = { "TOBE", "VOLLEY", "FLY!", "SPIKE!", "LEGEND", "JUMP", "RALLY", "SERVE" };
             int idx = 0;
             void Board(Vector3 center, Vector3 facing, bool text)
             {

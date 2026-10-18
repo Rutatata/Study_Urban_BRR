@@ -201,15 +201,15 @@ namespace Tobe.View
             float yc = 9.8f;
             // team 0 end wall (z low) faces +Z
             float zf0 = Hall.Z0 + 0.12f, zf1 = Hall.Z1 - 0.12f;
-            Banner(cloth, parent, new Vector3(4.5f, yc, zf0), Vector3.forward, 4.6f, 8.6f, black, orange, orange, "飛\nべ", 0.32f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "雲\n雀", 0.24f);
-            Banner(cloth, parent, new Vector3(10.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "繋\nげ", 0.24f);
+            Banner(cloth, parent, new Vector3(4.5f, yc, zf0), Vector3.forward, 4.6f, 8.6f, black, orange, orange, "FLY\nHIGH", 0.2f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "HIBARI", 0.06f);
+            Banner(cloth, parent, new Vector3(10.2f, yc, zf0), Vector3.forward, 3.0f, 7.0f, red, orange, new Color(1f, 0.9f, 0.5f), "RALLY", 0.065f);
             // team 1 end wall (z high) faces -Z
-            Banner(cloth, parent, new Vector3(4.5f, yc, zf1), Vector3.back, 4.6f, 8.6f, white, teal, new Color(0.05f, 0.45f, 0.5f), "繋\nげ", 0.32f);
-            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "海\n竜", 0.24f);
-            Banner(cloth, parent, new Vector3(10.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "必\n勝", 0.24f);
+            Banner(cloth, parent, new Vector3(4.5f, yc, zf1), Vector3.back, 4.6f, 8.6f, white, teal, new Color(0.05f, 0.45f, 0.5f), "RALLY", 0.11f);
+            Banner(cloth, parent, new Vector3(-1.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "KAIRYU", 0.06f);
+            Banner(cloth, parent, new Vector3(10.2f, yc, zf1), Vector3.back, 3.0f, 7.0f, navy, teal, new Color(0.6f, 1f, 1f), "WIN!", 0.09f);
             // side walls between the windows
-            string[] words = { "飛べ", "繋げ", "全力", "勝利", "一球", "不屈" };
+            string[] words = { "FLY\nHIGH", "RALLY", "ALL\nOUT", "WIN!", "ONE\nBALL", "NEVER\nQUIT" };
             float[] zs = { -6f, 0f, 6f, 12f, 18f, 24f };
             for (int i = 0; i < zs.Length; i++)
             {
@@ -217,9 +217,9 @@ namespace Tobe.View
                 Color c = t0 ? black : white;
                 Color tc = t0 ? orange : new Color(0.05f, 0.5f, 0.55f);
                 Color tr = t0 ? orange : teal;
-                string txt = words[i].Substring(0, 1) + "\n" + words[i].Substring(1, 1);
-                Banner(cloth, parent, new Vector3(Hall.X0 + 0.12f, 9.3f, zs[i]), Vector3.right, 2.0f, 5.2f, c, tr, tc, txt, 0.15f);
-                Banner(cloth, parent, new Vector3(Hall.X1 - 0.12f, 9.3f, zs[i]), Vector3.left, 2.0f, 5.2f, c, tr, tc, txt, 0.15f);
+                string txt = words[i];
+                Banner(cloth, parent, new Vector3(Hall.X0 + 0.12f, 9.3f, zs[i]), Vector3.right, 2.0f, 5.2f, c, tr, tc, txt, 0.055f);
+                Banner(cloth, parent, new Vector3(Hall.X1 - 0.12f, 9.3f, zs[i]), Vector3.left, 2.0f, 5.2f, c, tr, tc, txt, 0.055f);
             }
             cloth.Flush(parent);
             _ = live;
