@@ -43,17 +43,26 @@ namespace Tobe.Net
             return p;
         }
 
+        // общие поток записи и поток чтения: упаковка идёт много раз в секунду, новые потоки на каждый пакет — мусор для GC.
+        // Всё вызывается из главного потока Unity, вложенных упаковок нет.
+        static readonly MemoryStream wms = new MemoryStream(1024), rms = new MemoryStream(1024);
+        static readonly BinaryWriter ww = new BinaryWriter(wms, Encoding.UTF8);
+        static readonly BinaryReader rr = new BinaryReader(rms, Encoding.UTF8);
+        static BinaryWriter W0() { wms.SetLength(0); return ww; }
+        static byte[] Done() { ww.Flush(); return wms.ToArray(); }
+        static BinaryReader R0(byte[] b) { rms.SetLength(0); rms.Write(b, 0, b.Length); rms.Position = 0; return rr; }
+
         public static byte[] Input(in InputCmd c)
         {
-            using var ms = new MemoryStream(64); using var w = new BinaryWriter(ms);
+            var w = W0();
             w.Write(c.move.x); w.Write(c.move.y); w.Write(c.sprint); w.W(c.aim);
             w.Write(c.jumpCount); w.Write(c.hitPressCount); w.Write(c.hitReleaseCount); w.Write(c.diveCount); w.Write(c.callCount); w.Write(c.specialCount);
             w.Write(c.setPressCount); w.Write(c.hitHeld); w.Write(c.setHeld); w.Write(c.serveType); w.Write(c.fatigue); w.W(c.clientPos); w.W(c.clientVel); w.Write(c.clientAir); w.Write(c.clientDiving);
-            return ms.ToArray();
+            return Done();
         }
         public static InputCmd Input(byte[] b)
         {
-            using var r = new BinaryReader(new MemoryStream(b));
+            var r = R0(b);
             var c = new InputCmd();
             c.move = new Vector2(r.ReadSingle(), r.ReadSingle()); c.sprint = r.ReadBoolean(); c.aim = r.V3();
             c.jumpCount = r.ReadUInt16(); c.hitPressCount = r.ReadUInt16(); c.hitReleaseCount = r.ReadUInt16(); c.diveCount = r.ReadUInt16(); c.callCount = r.ReadUInt16(); c.specialCount = r.ReadUInt16();
@@ -64,7 +73,7 @@ namespace Tobe.Net
         // ---- snapshot: everything except profiles (those travel in the roster) ----
         public static byte[] Snapshot(MatchView v)
         {
-            using var ms = new MemoryStream(512); using var w = new BinaryWriter(ms);
+            var w = W0();
             w.Write((byte)v.phase); w.Write((byte)v.score[0]); w.Write((byte)v.score[1]); w.Write((byte)v.servingTeam);
             w.Write((byte)v.targetScore); w.Write((byte)v.teamSize); w.Write(v.phaseTime); w.Write(v.slowMo);
             w.Write((sbyte)v.serverPlayerId); w.Write((sbyte)v.winner); w.Write(v.lobbyStatus ?? "");
@@ -79,12 +88,12 @@ namespace Tobe.Net
             w.WS(b.pos); w.WS(b.vel); w.Write((byte)((b.live ? 1 : 0) | (b.held ? 2 : 0) | (b.mini ? 4 : 0))); w.Write(b.superBy);
             for (int i = 0; i < 2; i++) { var pl = v.plans[i]; w.Write((byte)pl.kind); w.Write(pl.playerId); w.WS(pl.point); w.Write(pl.timeLeft); }
             w.Write(v.landingValid); w.WS(v.landing);
-            return ms.ToArray();
+            return Done();
         }
         /// <summary>Applies a snapshot onto an existing view; per-player profiles/team/slot/isBot are kept from the roster.</summary>
         public static void ReadSnapshot(byte[] data, MatchView v)
         {
-            using var r = new BinaryReader(new MemoryStream(data));
+            var r = R0(data);
             v.phase = (MatchPhase)r.ReadByte(); v.score[0] = r.ReadByte(); v.score[1] = r.ReadByte(); v.servingTeam = r.ReadByte();
             v.targetScore = r.ReadByte(); v.teamSize = r.ReadByte(); v.phaseTime = r.ReadSingle(); v.slowMo = r.ReadSingle();
             v.serverPlayerId = r.ReadSByte(); v.winner = r.ReadSByte(); v.lobbyStatus = r.ReadString();
@@ -114,14 +123,14 @@ namespace Tobe.Net
 
         public static byte[] Roster(MatchView v, int yourId)
         {
-            using var ms = new MemoryStream(512); using var w = new BinaryWriter(ms);
+            var w = W0();
             w.Write((sbyte)yourId); w.Write((byte)v.players.Length);
             foreach (var p in v.players) { w.Write(p.id); w.Write(p.team); w.Write(p.slot); w.Write(p.isBot); w.W(p.profile); w.WS(p.pos); }
-            return ms.ToArray();
+            return Done();
         }
         public static void ReadRoster(byte[] data, MatchView v)
         {
-            using var r = new BinaryReader(new MemoryStream(data));
+            var r = R0(data);
             v.localPlayerId = r.ReadSByte();
             int n = r.ReadByte();
             var arr = new PlayerSnap[n];
@@ -137,18 +146,18 @@ namespace Tobe.Net
 
         public static byte[] Events(System.Collections.Generic.List<GameEvent> evs, int start, int count)
         {
-            using var ms = new MemoryStream(256); using var w = new BinaryWriter(ms, Encoding.UTF8);
+            var w = W0();
             w.Write((byte)count);
             for (int i = start; i < start + count; i++)
             {
                 var e = evs[i];
                 w.Write((byte)e.type); w.Write(e.text ?? ""); w.W(e.color); w.W(e.pos); w.Write(e.playerId); w.Write(e.intArg); w.Write(e.floatArg);
             }
-            return ms.ToArray();
+            return Done();
         }
         public static GameEvent[] ReadEvents(byte[] data)
         {
-            using var r = new BinaryReader(new MemoryStream(data), Encoding.UTF8);
+            var r = R0(data);
             int n = r.ReadByte();
             var a = new GameEvent[n];
             for (int i = 0; i < n; i++)

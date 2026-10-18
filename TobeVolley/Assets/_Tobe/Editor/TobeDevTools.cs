@@ -56,6 +56,9 @@ namespace Tobe.EditorTools
         [MenuItem("Tobe/Dev/Инерция поз: вкл-выкл")]
         static void ToggleInertia() { Tobe.View.PlayerAnimator.InertiaOn = !Tobe.View.PlayerAnimator.InertiaOn; Debug.Log("[Tobe] Инерция поз: " + Tobe.View.PlayerAnimator.InertiaOn); }
 
+        [MenuItem("Tobe/Dev/Производительность: замер 10 с")]
+        static void PerfMeasure() { PerfProbe.Begin(); Debug.Log("[Tobe] Замер производительности: 10 с…"); }
+
         [MenuItem("Tobe/Dev/Сетка: толчок мячом")]
         static void PokeNet()
         {

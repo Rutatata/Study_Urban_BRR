@@ -18,6 +18,7 @@ namespace Tobe.View
             public Text label;
             public string text;
             public float width;
+            public string srcNick; public int srcNum = -1, srcTeam = -1;   // из чего собран текст — пересобираем только при смене
             public int team = -1;
         }
 
@@ -186,12 +187,12 @@ namespace Tobe.View
         void Refresh(Plate pl, in PlayerSnap s)
         {
             int team = Mathf.Clamp(s.team, 0, 1);
-            string nick = ShortNick(s.profile.nick);
             Color accent = TeamLook.Trim[team];
-            Color num = Color.Lerp(accent, Color.white, 0.25f);
-            string txt = "<color=#" + ColorUtility.ToHtmlStringRGB(num) + ">" + s.profile.number + "</color>  " + nick;
-            if (txt != pl.text)
-            {
+            if (!ReferenceEquals(pl.srcNick, s.profile.nick) || pl.srcNum != s.profile.number || pl.srcTeam != team)
+            {   // строка собиралась каждый кадр для каждого игрока — лишний мусор для сборщика памяти
+                pl.srcNick = s.profile.nick; pl.srcNum = s.profile.number; pl.srcTeam = team;
+                Color num = Color.Lerp(accent, Color.white, 0.25f);
+                string txt = "<color=#" + ColorUtility.ToHtmlStringRGB(num) + ">" + s.profile.number + "</color>  " + ShortNick(s.profile.nick);
                 pl.text = txt;
                 pl.label.text = txt;
                 pl.width = Mathf.Max(70f, pl.label.preferredWidth + 26f);

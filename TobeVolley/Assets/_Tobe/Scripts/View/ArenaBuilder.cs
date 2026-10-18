@@ -33,6 +33,10 @@ namespace Tobe.View
             Figures.Sprites.Flush(root, "FigureSprites"); Figures.Sprites = null;
             BuildLights(root);
             BuildVolume(root);
+            // мелкий декор (флажки, надписи, антенны, табло) не отбрасывает тень: на таком расстоянии её не видно,
+            // а каждый такой объект рисуется в карту теней отдельным вызовом
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+                if (r.shadowCastingMode != ShadowCastingMode.Off && r.bounds.size.magnitude < 2f) r.shadowCastingMode = ShadowCastingMode.Off;
         }
 
         // ------------------------------------------------------------------ atmosphere / post
