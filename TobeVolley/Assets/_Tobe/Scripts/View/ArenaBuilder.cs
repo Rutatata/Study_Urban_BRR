@@ -112,7 +112,6 @@ namespace Tobe.View
             netMat.mainTextureScale = new Vector2(w / 0.12f, (Court.NetTop - Court.NetBottom) / 0.12f);
             // back plane tint so the net reads as a surface
             var shade = Mats.Unlit("netshade2", new Color(0.02f, 0.02f, 0.04f, 0.2f), null, true, false, true);
-            float h = Court.NetTop - Court.NetBottom, cy = (Court.NetTop + Court.NetBottom) * .5f;
             NetCloth.Build(net, left, right, Court.NetBottom, Court.NetTop, Court.NetZ, shade, netMat);   // полотно прогибается от мяча
 
             var white = Mats.Lit("tapeW", new Color(0.97f, 0.97f, 0.97f), 0.3f);

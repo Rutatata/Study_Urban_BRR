@@ -934,8 +934,8 @@ namespace Tobe.Sim
             {
                 var pl = plans[p.team];
                 if (p.blockJump || p.hasBlockTask) np = PoseId.Block;
+                else if (!p.isBot) np = p.hitBuf > 0f || p.lastCmd.hitHeld ? PoseId.SpikeWind : PoseId.Jump;   // человек: замах только по ЛКМ в прыжке, блок — только прыжком на C
                 else if (pl != null && pl.p == p && pl.kind == PlanKind.Attack) np = PoseId.SpikeWind;
-                else if (!p.isBot && ball.live && Hyp(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z) < 2.5f) np = PoseId.SpikeWind;
                 else if (Mathf.Abs(p.pos.z - NY) < 1.2f) np = PoseId.Block;
                 else np = PoseId.Jump;
             }

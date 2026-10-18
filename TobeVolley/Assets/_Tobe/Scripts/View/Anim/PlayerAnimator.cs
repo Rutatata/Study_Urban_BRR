@@ -317,16 +317,78 @@ namespace Tobe.View
             Quaternion Rb = root.rotation * Q;
             ApplyTorso(Rb, tm, dt);
             ApplyLegs(Rb);
-            ApplyGait(Rb, Q, legIkW);
+            if (GaitOn) ApplyGait(Rb, Q, legIkW);
             ApplyArms(Rb);
             ReachBall();
             Smear();
-            AntiCross(dt);
+            if (AntiCrossOn) AntiCross(dt);
             Plant(dt);
             try { UpdateFace(dt); } catch (Exception) { /* cosmetic only */ }
+            Inertialize(dt);
             OnTwos(dt);
             firstFrame = false;
         }
+
+        // ---- инерционное смешивание (как в больших играх): в момент смены анимации запоминаем, чем новая поза отличается от
+        // показанной в прошлом кадре, и гасим эту разницу за ~0,22 с — переходы без рывков, само движение не размывается.
+        // Ноги на земле не трогаем: их ставит Plant (иначе стопы поедут по полу).
+        public static bool InertialOn = false;   // замер не показал пользы (88 → 110 рывков > 8°) — выключено
+        public static bool AntiCrossOn = true, GaitOn = true;   // для диагностики рывков (меню Tobe/Dev)
+        public static readonly System.Collections.Generic.List<float> JerkLog = new System.Collections.Generic.List<float>(4096);   // замер (меню Tobe/Dev)
+        public static readonly System.Collections.Generic.Dictionary<string, int> JerkWho = new System.Collections.Generic.Dictionary<string, int>();   // кость|поза → число рывков > 8°
+        Transform[] ib; Quaternion[] iPrev, iPrev2, iOff; bool[] iLeg; float iT = 1f, iDur = 0.22f; int iSig = int.MinValue; bool iHave;
+        void Inertialize(float dt)
+        {
+            if (ib == null)
+            {
+                var l = new System.Collections.Generic.List<Transform>(); var legs = new System.Collections.Generic.List<bool>();
+                for (int i = 0; i < (int)HumanBodyBones.LastBone; i++)
+                {
+                    var t = anim.GetBoneTransform((HumanBodyBones)i); if (t == null) continue;
+                    var hb = (HumanBodyBones)i;
+                    l.Add(t); legs.Add(hb == HumanBodyBones.LeftUpperLeg || hb == HumanBodyBones.RightUpperLeg || hb == HumanBodyBones.LeftLowerLeg || hb == HumanBodyBones.RightLowerLeg
+                        || hb == HumanBodyBones.LeftFoot || hb == HumanBodyBones.RightFoot || hb == HumanBodyBones.LeftToes || hb == HumanBodyBones.RightToes);
+                }
+                ib = l.ToArray(); iLeg = legs.ToArray(); iPrev = new Quaternion[ib.Length]; iPrev2 = new Quaternion[ib.Length]; iOff = new Quaternion[ib.Length];
+            }
+            int sig = PoseClass(pose) * 31 + (actClip != null && actW > 0.5f ? actClip.GetHashCode() & 0xFFFF : 0) * 3 + (air ? 1 : 0);
+            if (InertialOn && iHave && sig != iSig && dt > 0f)
+            {
+                for (int i = 0; i < ib.Length; i++) iOff[i] = iPrev[i] * Quaternion.Inverse(ib[i].localRotation);
+                iT = 0f; iDur = air != prevAirI ? 0.14f : 0.22f;   // отрыв/приземление — быстрее, иначе прыжок «вязнет»
+            }
+            iSig = sig; prevAirI = air;
+            if (InertialOn && iT < 1f && dt > 0f)
+            {
+                iT += dt / iDur;
+                float k = 1f - AnimMath.Smooth01(Mathf.Clamp01(iT));
+                for (int i = 0; i < ib.Length; i++)
+                {
+                    if (iLeg[i] && !air) continue;
+                    ib[i].localRotation = Quaternion.Slerp(Quaternion.identity, iOff[i], k) * ib[i].localRotation;
+                }
+            }
+            // замер рывков своего игрока: наибольшая по костям «вторая разность» поворота за кадр, градусы
+            bool measure = myId == GameHub.View.localPlayerId && myId >= 0;
+            float worst = 0f; int wi = -1;
+            for (int i = 0; i < ib.Length; i++)
+            {
+                var q = ib[i].localRotation;
+                if (measure && iHave)
+                {
+                    var d1 = q * Quaternion.Inverse(iPrev[i]); var d0 = iPrev[i] * Quaternion.Inverse(iPrev2[i]);
+                    float a = Quaternion.Angle(d1, d0); if (a > worst) { worst = a; wi = i; }
+                }
+                iPrev2[i] = iPrev[i]; iPrev[i] = q;
+            }
+            if (measure && iHave && JerkLog.Count < 4000)
+            {
+                JerkLog.Add(worst);
+                if (worst > 8f && wi >= 0) { string key = ib[wi].name + " | " + pose + (air ? " возд" : "") + (actClip != null && actW > 0.5f ? " клип " + actClip.name : ""); JerkWho.TryGetValue(key, out int c0); JerkWho[key] = c0 + 1; }
+            }
+            iHave = true;
+        }
+        bool prevAirI;
 
         // спецификация 5.3: в кульминации (удар и блок в прыжке) поза обновляется 12 раз в секунду — «на двойках», как в аниме
         Transform[] twosBones; Quaternion[] twosRot; float twosT;

@@ -56,6 +56,27 @@ namespace Tobe.EditorTools
         [MenuItem("Tobe/Dev/Инерция поз: вкл-выкл")]
         static void ToggleInertia() { Tobe.View.PlayerAnimator.InertiaOn = !Tobe.View.PlayerAnimator.InertiaOn; Debug.Log("[Tobe] Инерция поз: " + Tobe.View.PlayerAnimator.InertiaOn); }
 
+        [MenuItem("Tobe/Dev/Анимация: рывки костей — начать")]
+        static void JerkStart() { Tobe.View.PlayerAnimator.JerkLog.Clear(); Tobe.View.PlayerAnimator.JerkWho.Clear(); Debug.Log("[Tobe] Рывки костей: запись началась"); }
+        [MenuItem("Tobe/Dev/Анимация: рывки костей — итог")]
+        static void JerkReport()
+        {
+            var l = new System.Collections.Generic.List<float>(Tobe.View.PlayerAnimator.JerkLog); l.Sort();
+            if (l.Count == 0) { Debug.Log("[Tobe] Рывки костей: нет данных"); return; }
+            int over = 0; foreach (var x in l) if (x > 8f) over++;
+            var who = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>(Tobe.View.PlayerAnimator.JerkWho);
+            who.Sort((a, b) => b.Value.CompareTo(a.Value));
+            var sb = new System.Text.StringBuilder(); for (int i = 0; i < Mathf.Min(14, who.Count); i++) sb.Append(who[i].Value).Append("  ").Append(who[i].Key).Append('\n');
+            System.IO.File.WriteAllText(System.IO.Path.Combine(Application.dataPath, "..", "Logs", "jerk_who.txt"), sb.ToString());
+            Debug.Log($"[Tobe] Рывки костей: кадров {l.Count}, p50 {l[l.Count / 2]:0.0}°, p95 {l[(int)(l.Count * 0.95f)]:0.0}°, p99 {l[(int)(l.Count * 0.99f)]:0.0}°, макс {l[l.Count - 1]:0.0}°, кадров > 8° — {over}");
+        }
+        [MenuItem("Tobe/Dev/Анимация: разведение ног вкл-выкл")]
+        static void ToggleAntiCross() { Tobe.View.PlayerAnimator.AntiCrossOn = !Tobe.View.PlayerAnimator.AntiCrossOn; Debug.Log("[Tobe] Разведение ног: " + Tobe.View.PlayerAnimator.AntiCrossOn); }
+        [MenuItem("Tobe/Dev/Анимация: шаги вкл-выкл")]
+        static void ToggleGait() { Tobe.View.PlayerAnimator.GaitOn = !Tobe.View.PlayerAnimator.GaitOn; Debug.Log("[Tobe] Шаги: " + Tobe.View.PlayerAnimator.GaitOn); }
+        [MenuItem("Tobe/Dev/Анимация: инерционное смешивание вкл-выкл")]
+        static void ToggleInertial() { Tobe.View.PlayerAnimator.InertialOn = !Tobe.View.PlayerAnimator.InertialOn; Debug.Log("[Tobe] Инерционное смешивание: " + Tobe.View.PlayerAnimator.InertialOn); }
+
         [MenuItem("Tobe/Dev/Производительность: замер 10 с")]
         static void PerfMeasure() { PerfProbe.Begin(); Debug.Log("[Tobe] Замер производительности: 10 с…"); }
 

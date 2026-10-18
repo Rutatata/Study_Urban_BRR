@@ -14,6 +14,7 @@ namespace Tobe.View
         Vector3 prevVel; float squashT, squashAmt; Vector3 squashDir = Vector3.forward;
         TrailRenderer trail, core;
         Transform aura; Material auraMat;
+        Transform halo; Material haloMat;   // подсветка мяча (как в Rematch): кольцо к камере, не мельче ~2% экрана, видно сквозь сетку и игроков
         Light glowLight;
         ParticleSystem glowPs;
         ParticleSystem.EmissionModule glowEm;
@@ -103,6 +104,10 @@ namespace Tobe.View
             // camera-facing glow billboard (finisher / perfect hits)
             auraMat = Mats.Instance(Mats.Particle("ball_aura", Mats.SoftDot, true));
             aura = Mats.Quad("BallAura", transform, Vector3.zero, Vector3.zero, Vector3.one, auraMat).transform;
+            haloMat = new Material(Mats.Unlit("ball_halo", Color.white, Mats.RingTex, true, true)) { name = "ball_halo_top" };
+            haloMat.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);   // поверх сетки и игроков
+            haloMat.renderQueue = 3900;
+            halo = Mats.Quad("BallHalo", transform, Vector3.zero, Vector3.zero, Vector3.one, haloMat).transform;
             aura.gameObject.SetActive(false);
 
             // glow
@@ -246,6 +251,20 @@ namespace Tobe.View
                 core.startColor = new Color(1f, 1f, 1f, power > 0f ? 1f : 0.35f);
                 core.endColor = new Color(c2.r, c2.g, c2.b, 0f);
                 core.widthMultiplier = 0.07f + power * 0.06f;
+            }
+            {   // подсветка: всегда, пока мяч в игре
+                var hc = Camera.main;
+                bool hon = b.live || b.held;
+                if (halo.gameObject.activeSelf != hon) halo.gameObject.SetActive(hon);
+                if (hon && hc != null)
+                {
+                    halo.position = smPos; halo.rotation = hc.transform.rotation;
+                    float dist = Vector3.Distance(hc.transform.position, smPos);
+                    float hs = Mathf.Max(0.42f, dist * 0.032f) * (1f + 0.06f * Mathf.Sin(Time.time * 6f));
+                    halo.localScale = new Vector3(hs, hs, 1f);
+                    float near = Mathf.Clamp01((dist - 3f) / 6f);   // вплотную — слабее, чтобы не мешал смотреть на мяч
+                    Mats.SetColor(haloMat, new Color(1f, 0.95f, 0.75f, 1f) * (0.35f + 0.55f * near));
+                }
             }
             bool showAura = power > 0f;
             aura.gameObject.SetActive(showAura);
