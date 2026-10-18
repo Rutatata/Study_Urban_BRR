@@ -884,14 +884,44 @@ namespace Tobe.View
         }
 
         // спецификация 5.2: в момент касания рука доводится к мячу (упрощённый IK: поворот плеча, сгиб локтя сохраняется)
+        // «магнит контакта»: в касании рука встречает мяч, нарисованный на экране (BallView.VisualPos, а не расчётную точку —
+        // сглаженный мяч отстаёт до полуметра на быстром полёте). Двухзвенная доводка: локоть и плечо вместе дотягивают кисть.
         void ReachBall()
         {
-            bool both = pose == PoseId.Set || pose == PoseId.Bump || pose == PoseId.Block;
-            if (!both && pose != PoseId.Spike && pose != PoseId.SpikeWind) return;
-            var ball = GameHub.View.ball;
-            if (!ball.live) return;
-            ReachArm(uaR, Bone(HumanBodyBones.RightHand), ball.pos);
-            if (both) ReachArm(uaL, Bone(HumanBodyBones.LeftHand), ball.pos);
+            bool bump = pose == PoseId.Bump, set = pose == PoseId.Set, block = pose == PoseId.Block;
+            if (!bump && !set && !block && pose != PoseId.Spike && pose != PoseId.SpikeWind) return;
+            if (!GameHub.View.ball.live) return;
+            Vector3 bp = BallView.VisualPos;
+            Transform hR = Bone(HumanBodyBones.RightHand), hL = Bone(HumanBodyBones.LeftHand);
+            if (hR == null || hL == null || laR == null || laL == null) return;
+            Vector3 side = root.right * 0.09f * sc;
+            if (bump)
+            {   // мяч проходит через середину предплечий: кисть уходит на 15 см дальше мяча вдоль предплечья
+                Vector3 dR = (hR.position - laR.t.position).normalized, dL = (hL.position - laL.t.position).normalized;
+                TwoBone(uaR, laR, hR, bp + dR * 0.15f * sc, 1f); TwoBone(uaL, laL, hL, bp + dL * 0.15f * sc, 1f);
+            }
+            else if (set || block) { TwoBone(uaR, laR, hR, bp + side, 1f); TwoBone(uaL, laL, hL, bp - side, 1f); }   // кисти по бокам мяча
+            else TwoBone(uaR, laR, hR, bp, 1f);   // удар: ладонь в мяч
+        }
+        void TwoBone(B ua, B la, Transform hand, Vector3 target, float maxW)
+        {
+            Vector3 s0 = ua.t.position, e0 = la.t.position, h0 = hand.position;
+            float dist = (target - s0).magnitude;
+            float w = maxW * AnimMath.Smooth01((1.1f * sc - dist) / (0.5f * sc));   // ближе 0,6 м — полностью, дальше 1,1 м — не трогаем
+            if (w < 0.01f) return;
+            float l1 = (e0 - s0).magnitude, l2 = (h0 - e0).magnitude;
+            if (l1 < 1e-4f || l2 < 1e-4f) return;
+            float d = Mathf.Clamp(dist, Mathf.Abs(l1 - l2) + 0.01f, (l1 + l2) * 0.999f);
+            // 1) локоть: угол такой, чтобы плечо–кисть стало равно d
+            Vector3 n = Vector3.Cross(e0 - s0, h0 - e0);
+            if (n.sqrMagnitude < 1e-8f) n = root.right;
+            float cur = Vector3.Angle(s0 - e0, h0 - e0);
+            float want = Mathf.Acos(Mathf.Clamp((l1 * l1 + l2 * l2 - d * d) / (2f * l1 * l2), -1f, 1f)) * Mathf.Rad2Deg;
+            la.t.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.AngleAxis(cur - want, n.normalized), w) * la.t.rotation;
+            // 2) плечо: развернуть руку на цель
+            Vector3 h1 = hand.position - s0;
+            if (h1.sqrMagnitude < 1e-8f) return;
+            ua.t.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(h1, target - s0), w) * ua.t.rotation;
         }
         // спецификация 5.3: кадр-«размазка» — короткий светлый след за кистью на взмахе удара и подачи
         TrailRenderer smear;
@@ -912,15 +942,6 @@ namespace Tobe.View
             }
             smear.emitting = (pose == PoseId.Spike || pose == PoseId.ServeHit) && poseAge < 0.14f;
         }
-        void ReachArm(B ua, Transform hand, Vector3 ballPos)
-        {
-            if (ua == null || hand == null) return;
-            Vector3 sh = ua.t.position, cur = hand.position - sh, want = ballPos - sh;
-            float w = 0.7f * AnimMath.Smooth01((1.3f - want.magnitude) / 0.6f);   // ближе 0,7 м — полный довод, дальше 1,3 м — ничего
-            if (w < 0.01f || cur.sqrMagnitude < 1e-6f) return;
-            ua.t.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(cur, want), w) * ua.t.rotation;
-        }
-
         /// <summary>Points a limb segment along dir (frame D, x mirrored for the left side), blended with the mocap pose by w.</summary>
         void Limb(B b, Vector3 dir, float w, Quaternion D, Quaternion R)
         {

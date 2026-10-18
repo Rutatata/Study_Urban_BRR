@@ -9,7 +9,9 @@ namespace Tobe.View
         const float VisualRadius = 0.135f;
         const float VisualScale = VisualRadius * 2f;
 
-        Transform ball;
+        public static Vector3 VisualPos;   // где мяч нарисован (руки тянутся к нему, а не к расчётной точке)
+        Transform ball, pivot;   // pivot — держатель: сплющивание мяча при ударе, не мешая его вращению
+        Vector3 prevVel; float squashT, squashAmt; Vector3 squashDir = Vector3.forward;
         TrailRenderer trail, core;
         Transform aura; Material auraMat;
         Light glowLight;
@@ -18,7 +20,8 @@ namespace Tobe.View
         Transform shadow; Material shadowMat;
         Transform landRing, landDisc; Material landRingMat, landDiscMat;
         Transform aimRing; Material aimMat; LineRenderer aimArc; readonly Vector3[] arcPts = new Vector3[24];   // прицел подачи
-        readonly Transform[] planRing = new Transform[2];
+        readonly Transform[] planRing = new Transform[2], timeRing = new Transform[2];   // timeRing — кольцо отсчёта до касания
+        readonly Material[] timeMat = new Material[2];
         readonly Material[] planMat = new Material[2];
         readonly LineRenderer[] beam = new LineRenderer[2];
         Material beamMat;
@@ -73,6 +76,7 @@ namespace Tobe.View
         {
             var sphere = MakeBallObject(transform, BallMaterial());
             ball = sphere.transform;
+            pivot = new GameObject("BallPivot").transform; pivot.SetParent(ball.parent, false); ball.SetParent(pivot, false);
 
             // trail
             trail = sphere.AddComponent<TrailRenderer>();
@@ -141,6 +145,9 @@ namespace Tobe.View
             {
                 planMat[i] = Mats.Instance(planBase);
                 planRing[i] = Mats.FloorQuad("PlanRing" + i, transform, Vector3.zero, 1f, 1f, planMat[i]).transform;
+                timeMat[i] = Mats.Instance(planBase);
+                timeRing[i] = Mats.FloorQuad("TimeRing" + i, transform, Vector3.zero, 1f, 1f, timeMat[i]).transform;
+                timeRing[i].gameObject.SetActive(false);
                 planRing[i].gameObject.SetActive(false);
                 var go = new GameObject("PlanBeam" + i);
                 go.transform.SetParent(transform, false);
@@ -179,7 +186,19 @@ namespace Tobe.View
                 smPos = b.pos; inited = true; trail.Clear(); core.Clear();
             }
             smPos = Vector3.Lerp(smPos, b.pos, 1f - Mathf.Exp(-dt * 28f));
-            ball.position = smPos;
+            pivot.position = smPos; VisualPos = smPos;
+            // удар: резкая смена скорости — мяч на миг сплющивается вдоль нового полёта (сильнее удар — сильнее)
+            float dv = (b.vel - prevVel).magnitude;
+            if (b.live && dv > 4f && b.vel.sqrMagnitude > 1f) { squashT = 0.1f; squashAmt = Mathf.Clamp(dv / 28f, 0.12f, 0.38f); squashDir = b.vel.normalized; }
+            prevVel = b.vel;
+            if (squashT > 0f)
+            {
+                squashT -= dt;
+                float k = squashAmt * Mathf.Sin(Mathf.Clamp01(squashT / 0.1f) * Mathf.PI);   // сжатие и возврат за 0,1 с
+                pivot.rotation = Quaternion.LookRotation(squashDir);
+                pivot.localScale = new Vector3(1f + k * 0.5f, 1f + k * 0.5f, 1f - k);
+            }
+            else if (pivot.localScale != Vector3.one) { pivot.localScale = Vector3.one; pivot.rotation = Quaternion.identity; }
 
             // spin
             Vector3 hv = new Vector3(b.vel.x, 0f, b.vel.z);
@@ -321,6 +340,21 @@ namespace Tobe.View
                         planRing[i].localScale = new Vector3(s, s, 1f);
                         Mats.SetColor(planMat[i], new Color(1f, 0.82f, 0.2f) * 1.4f);
                         bool atk = pl.kind == PlanKind.Attack;
+                        // кольцо отсчёта: сходится к метке ровно к касанию, в окне «ИДЕАЛЬНО» вспыхивает
+                        bool timed = pl.kind == PlanKind.Receive || pl.kind == PlanKind.Set;
+                        timeRing[i].gameObject.SetActive(timed && pl.timeLeft < 1.2f);
+                        if (timed)
+                        {
+                            // время до идеальной высоты касания (как VolleySim.IdealY: приём 0,9 м, передача 2,25 м) — по полёту мяча
+                            var bb = view.ball; float hy = pl.kind == PlanKind.Set ? 2.25f : 0.9f, gg = bb.g > 1f ? bb.g : Court.BallGravity;
+                            float disc = bb.vel.y * bb.vel.y + 2f * gg * (bb.pos.y - hy);
+                            float tIdeal = disc >= 0f ? (bb.vel.y + Mathf.Sqrt(disc)) / gg : 0f;
+                            float tl = Mathf.Max(0f, tIdeal), ts = 0.55f + tl * 2.4f;
+                            bool now = tIdeal < 0.06f;
+                            timeRing[i].position = new Vector3(pl.point.x, 0.045f, pl.point.z);
+                            timeRing[i].localScale = new Vector3(ts, ts, 1f);
+                            Mats.SetColor(timeMat[i], now ? new Color(1f, 1f, 0.8f) * 2.2f : new Color(0.3f, 0.9f, 1f, 0.9f));
+                        }
                         beam[i].enabled = atk;
                         if (atk)
                         {
@@ -330,6 +364,7 @@ namespace Tobe.View
                     }
                 }
                 planRing[i].gameObject.SetActive(on);
+                if (!on) timeRing[i].gameObject.SetActive(false);
                 if (!on) beam[i].enabled = false;
             }
         }

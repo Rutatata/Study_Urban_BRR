@@ -195,6 +195,13 @@ namespace Tobe.Sim
         // ================= events =================
         void Ev(GameEventType type, string text = null, Color? color = null, Vector3 pos = default, SimPlayer p = null, int i = 0, float f = 0)
             => events.Add(new GameEvent { type = type, text = text ?? "", color = color ?? Color.white, pos = pos, playerId = p != null ? p.id : (byte)255, intArg = i, floatArg = f });
+        // реплики ботов над головой (как в настоящей игре: принимающий «берёт» мяч голосом, нападающий зовёт пас)
+        static readonly string[] CallsMine = { "МОЙ!", "БЕРУ!", "Я!", "ДЕРЖУ!" }, CallsSet = { "ДАВАЙ!", "ПАС!", "ЕСТЬ!" }, CallsAttack = { "МНЕ!", "ОТКРЫТ!", "ВЫШЕ!", "БЕЙ МНЕ!" };
+        void Shout(SimPlayer p, string[] calls)
+        {
+            if (p == null || !p.isBot || Random.value > 0.6f) return;
+            Ev(GameEventType.Popup, calls[Random.Range(0, calls.Length)], p.team == 0 ? new Color(1f, 0.75f, 0.3f) : new Color(0.4f, 0.95f, 1f), default, p, 2);
+        }
         void Popup(string text, Color c, bool big = false) => Ev(GameEventType.Popup, text, c, default, null, big ? 1 : 0);
         static readonly Color Gold = new Color(1f, 0.82f, 0.25f), Cyan = new Color(0.16f, 0.9f, 1f), Pink = new Color(1f, 0.23f, 0.55f), Grey = new Color(0.7f, 0.7f, 0.7f), Orange = new Color(1f, 0.54f, 0.1f);
         Color TeamCol(int team) => team == 0 ? Orange : Cyan;
@@ -315,6 +322,7 @@ namespace Tobe.Sim
             var p = n == 1 ? NearestFree(team, C, excl) : ZoneOwner(team, C, ct, excl);
             if (p == null) return;
             plans[team] = new Plan { kind = n == 0 ? PlanKind.Receive : n == 1 ? PlanKind.Set : PlanKind.Over, p = p, point = C, t = t + ct };
+            if (n == 0) Shout(p, CallsMine);
         }
         SimPlayer ChooseAttacker(int team, SimPlayer setter)
         {
@@ -349,7 +357,7 @@ namespace Tobe.Sim
             ball.kind = "pass";
             p.SetPose(PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Bump, 0.3f);
-            if (setter != null) plans[t] = new Plan { kind = PlanKind.Set, p = setter, point = target, t = t + T };
+            if (setter != null) { plans[t] = new Plan { kind = PlanKind.Set, p = setter, point = target, t = t + T }; Shout(setter, CallsSet); }
         }
         void DoSet(SimPlayer p, float q, SimPlayer attacker, bool special)
         {
@@ -393,6 +401,7 @@ namespace Tobe.Sim
             p.SetPose(ball.pos.y > 1.6f ? PoseId.Set : PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Set, 0.2f);
             plans[tm] = new Plan { kind = PlanKind.Attack, p = attacker, point = target, t = t + T, freak = freak };
+            Shout(attacker, CallsAttack);
             PlanBlock(Other(tm), target.x, t + T);
         }
         void PlanBlock(int team, float x, float tHit)
@@ -1188,7 +1197,7 @@ namespace Tobe.Sim
                     energy = p.energy, stamina = p.stamina,
                 };
             }
-            v.ball = new BallSnap { pos = ball.pos, vel = ball.vel, live = ball.live, held = ball.held != null, superBy = ball.superBy != null ? ball.superBy.id : (byte)255, mini = ball.mini };
+            v.ball = new BallSnap { pos = ball.pos, vel = ball.vel, live = ball.live, held = ball.held != null, superBy = ball.superBy != null ? ball.superBy.id : (byte)255, mini = ball.mini, g = ball.g };
             for (int i = 0; i < 2; i++)
             {
                 var pl = plans[i];

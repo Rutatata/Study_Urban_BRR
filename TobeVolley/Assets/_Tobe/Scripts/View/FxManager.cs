@@ -247,8 +247,20 @@ namespace Tobe.View
         void OnDisable() { GameHub.OnEvent -= OnEvent; Time.timeScale = 1f; }
         void OnDestroy() { if (Instance == this) Instance = null; }
 
+        // аниме-кадр удара: на сильной атаке ~75 мс картинка почти чёрно-белая и контрастная (как «импакт-кадры» в аниме)
+        float impactUntil; bool impactOn;
+        void UpdateImpactFrame()
+        {
+            var ca = ArenaBuilder.Adjust; if (ca == null) return;
+            bool on = Time.unscaledTime < impactUntil;
+            if (on == impactOn) return;
+            impactOn = on;
+            ca.saturation.Override(on ? -90f : 16f); ca.contrast.Override(on ? 65f : 10f);   // 16 / 10 — базовые значения ArenaBuilder
+        }
+
         void Update()
         {
+            UpdateImpactFrame();
             if (Time.timeScale < 1f && Time.unscaledTime >= hitStopUntil) Time.timeScale = 1f;
             float dt = Time.unscaledDeltaTime;
             for (int i = 0; i < rings.Length; i++)
@@ -348,7 +360,7 @@ namespace Tobe.View
                 if (p > 0.5f) CameraRig.Instance.Shake((attack ? 0.18f : 0.08f) + (p - 0.5f) * (attack ? 0.5f : 0.2f));
                 if (attack && p > 0.6f) CameraRig.Instance.Punch(0.35f + (p - 0.6f) * 1.4f);
                 if (attack && p > 0.9f) CameraRig.Instance.Flash(0.25f);
-                if (attack && p > 0.85f) HitStop(0.06f + (p - 0.85f) * 0.2f);
+                if (attack && p > 0.85f) { HitStop(0.06f + (p - 0.85f) * 0.2f); impactUntil = Time.unscaledTime + 0.075f; }   // + аниме-кадр удара
             }
         }
 

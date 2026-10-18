@@ -18,7 +18,8 @@ namespace Tobe.View
             public Text label;
             public string text;
             public float width;
-            public string srcNick; public int srcNum = -1, srcTeam = -1;   // из чего собран текст — пересобираем только при смене
+            public string srcNick; public int srcNum = -1, srcTeam = -1;
+            public Text shout; public float shoutUntil;   // реплика над головой («МОЙ!», «ДАВАЙ!»)   // из чего собран текст — пересобираем только при смене
             public int team = -1;
         }
 
@@ -31,6 +32,14 @@ namespace Tobe.View
         GameObject loadingGo;
         Text loadingText;
         Font font;
+
+        readonly Dictionary<int, (string text, Color color, float until)> shouts = new Dictionary<int, (string, Color, float)>();
+        void OnEnable() { GameHub.OnEvent += OnShout; }
+        void OnDisable() { GameHub.OnEvent -= OnShout; }
+        void OnShout(GameEvent e)
+        {   // реплики игроков приходят как всплывающая надпись с intArg = 2 (её HUD не показывает по центру)
+            if (e.type == GameEventType.Popup && e.intArg == 2 && !string.IsNullOrEmpty(e.text)) shouts[e.playerId] = (e.text, e.color, Time.unscaledTime + 1.1f);
+        }
 
         public static NameplateLayer Create(Transform parent)
         {
@@ -105,6 +114,11 @@ namespace Tobe.View
             srt.offsetMin = Vector2.zero; srt.offsetMax = new Vector2(5f, 0f);
             p.label = MakeText(p.rt, 18, TextAnchor.MiddleCenter);
             var lrt = p.label.rectTransform; lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one; lrt.offsetMin = new Vector2(8f, 0f); lrt.offsetMax = Vector2.zero;
+            p.shout = MakeText(p.rt, 26, TextAnchor.LowerCenter);
+            var hrt = p.shout.rectTransform; hrt.anchorMin = new Vector2(0.5f, 1f); hrt.anchorMax = new Vector2(0.5f, 1f); hrt.pivot = new Vector2(0.5f, 0f);
+            hrt.sizeDelta = new Vector2(300f, 34f); hrt.anchoredPosition = new Vector2(0f, 4f);
+            p.shout.fontStyle = FontStyle.BoldAndItalic; p.shout.horizontalOverflow = HorizontalWrapMode.Overflow;
+            p.shout.gameObject.SetActive(false);
             return p;
         }
 
@@ -158,6 +172,9 @@ namespace Tobe.View
                     seen.Add(s.id);
                     if (!plates.TryGetValue(s.id, out var pl)) { pl = NewPlate(); plates[s.id] = pl; }
                     Refresh(pl, s);
+                    bool sh = shouts.TryGetValue(s.id, out var shv) && Time.unscaledTime < shv.until;
+                    if (pl.shout.gameObject.activeSelf != sh) pl.shout.gameObject.SetActive(sh);
+                    if (sh && !ReferenceEquals(pl.shout.text, shv.text)) { pl.shout.text = shv.text; pl.shout.color = shv.color; }
                     pl.go.SetActive(true);
                     pl.cg.alpha = a;
                     float sc = Mathf.Clamp(15f / sp.z, 0.6f, 1.05f) * k;

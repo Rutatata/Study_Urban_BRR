@@ -326,7 +326,7 @@ namespace Tobe.UI
 
         void AddPopup(GameEvent e)
         {
-            if (string.IsNullOrEmpty(e.text)) return;
+            if (string.IsNullOrEmpty(e.text) || e.intArg == 2) return;   // 2 — реплика над головой игрока (NameplateLayer)
             bool big = e.intArg == 1;
             if (big)
             {

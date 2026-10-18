@@ -137,6 +137,7 @@ namespace Tobe
         public bool live, held;
         public byte superBy;           // 255 = none; otherwise player id whose finisher is on the ball
         public bool mini;              // "perfect" (non-finisher) glow
+        public float g;                // «гравитация» полёта с учётом вращения (VolleySim.SimBall.g) — для кольца тайминга
     }
 
     public struct PlanSnap
