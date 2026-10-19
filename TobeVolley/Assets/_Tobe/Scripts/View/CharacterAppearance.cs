@@ -407,8 +407,35 @@ namespace Tobe.View
             return false;
         }
 
+        /// <summary>Фасон формы: длинный рукав и длинные шорты — ткань цвета формы по коже руки/бедра (облегает в любой позе).</summary>
+        static void BuildKitCut(Rig g, PlayerProfile p, int team, Color shirt)
+        {
+            if (p.kitCut == 0 || g.fallback) return;
+            if ((p.kitCut & 1) != 0)
+            {
+                var m = GearMat("kit_sleeve_" + ColorUtility.ToHtmlStringRGB(shirt), shirt);
+                foreach (var arm in new[] { (g.uArmL, g.lArmL, g.handL), (g.uArmR, g.lArmR, g.handR) })
+                {
+                    if (arm.Item1 == null || arm.Item2 == null || arm.Item3 == null) continue;
+                    SkinBand(g, "TG_KitSleeveU", arm.Item1, arm.Item2, 0.03f, -0.001f, 0.007f, m, 0.1f);    // плечо: от рукава футболки до локтя
+                    SkinBand(g, "TG_KitSleeveL", arm.Item2, arm.Item3, -0.02f, -0.025f, 0.007f, m, 0.09f);       // предплечье до запястья
+                }
+            }
+            if ((p.kitCut & 2) != 0)
+            {
+                Color shorts = TeamLook.Kit(p.kitShorts, TeamLook.Shorts[team]);
+                var m = GearMat("kit_shorts_" + ColorUtility.ToHtmlStringRGB(shorts), shorts);
+                foreach (var leg in new[] { (g.uLegL, g.lLegL), (g.uLegR, g.lLegR) })
+                {
+                    if (leg.Item1 == null || leg.Item2 == null) continue;
+                    SkinBand(g, "TG_KitShorts", leg.Item1, leg.Item2, 0.05f, -0.035f, 0.011f, m, 0.14f);         // бедро до колена
+                }
+            }
+        }
+
         static void BuildGear(Rig g, AppearanceState state, PlayerProfile p, int team, Color shirt, Color trim)
         {
+            BuildKitCut(g, p, team, shirt);
             var gear = (Gear)(p.gear | DevExtraGear);
             float S = g.S;
             float thick = g.fallback ? 1.7f : 1f;      // primitive limbs are fatter than VRoid ones

@@ -277,7 +277,7 @@ namespace Tobe.UI
             }
         }
 
-        Text hairStyleText;
+        Text hairStyleText; Button cutSleeve, cutShorts;
         void ChangeHairStyle(int d)
         {   // 0 — своя причёска модели, k — с модели k-1 (своя модель пропускается: это то же самое, что «своя»)
             int n = ModelCount() + 1, v = draft.hairStyle;
@@ -359,8 +359,13 @@ namespace Tobe.UI
             kitShortsFrame = Swatches(root, cols, -152, i => { draft.kitShorts = (byte)i; Refresh(true); });
             Cap(root, "НОМЕР (печать на футболке)", new Vector2(0, -240), 900);
             kitNumFrame = Swatches(root, cols, -272, i => { draft.kitNumber = (byte)i; Refresh(true); });
+            Cap(root, "ФАСОН", new Vector2(0, -360));
+            cutSleeve = UiKit.MakeButton(root, "ДЛИННЫЙ РУКАВ", new Vector2(300, 60), UiKit.Purple, () => { draft.kitCut ^= 1; Refresh(true); }, 22, 12f);
+            UiKit.At(cutSleeve.GetComponent<RectTransform>(), UiKit.TL, new Vector2(0, -392), new Vector2(300, 60));
+            cutShorts = UiKit.MakeButton(root, "ДЛИННЫЕ ШОРТЫ", new Vector2(300, 60), UiKit.Purple, () => { draft.kitCut ^= 2; Refresh(true); }, 22, 12f);
+            UiKit.At(cutShorts.GetComponent<RectTransform>(), UiKit.TL, new Vector2(316, -392), new Vector2(300, 60));
             var note = UiKit.Label(root, "Номер меняется на вкладке «ИГРОК». Своя форма видна всем игрокам матча.", 20, UiKit.Dim, TextAnchor.UpperLeft, FontStyle.Italic);
-            UiKit.At(note.rectTransform, UiKit.TL, new Vector2(0, -370), new Vector2(900, 60));
+            UiKit.At(note.rectTransform, UiKit.TL, new Vector2(0, -480), new Vector2(900, 60));
         }
 
         // ---------- tab: gear
@@ -529,6 +534,8 @@ namespace Tobe.UI
             if (draft.hairStyle - 1 == draft.model || draft.hairStyle > ModelCount()) draft.hairStyle = 0;
             hairStyleText.text = draft.hairStyle == 0 ? "СВОЯ" : (names != null && draft.hairStyle - 1 < names.Length ? names[draft.hairStyle - 1] : "Модель " + draft.hairStyle).ToUpperInvariant();
             Frames(skinFrame, draft.cSkin != 0 ? -1 : draft.skin); Frames(hairFrame, draft.cHair != 0 ? -1 : draft.hair); Frames(eyeFrame, draft.cEye != 0 ? -1 : draft.eyes);   // свой цвет — рамки нет
+            UiKit.SetButtonColor(cutSleeve, (draft.kitCut & 1) != 0 ? UiKit.Orange : UiKit.Purple);
+            UiKit.SetButtonColor(cutShorts, (draft.kitCut & 2) != 0 ? UiKit.Orange : UiKit.Purple);
             Frames(kitShirtFrame, draft.kitShirt); Frames(kitShortsFrame, draft.kitShorts); Frames(kitNumFrame, draft.kitNumber);
             heightSlider.value = draft.height; buildSlider.value = draft.build;
             for (int i = 0; i < 8; i++) { int bv = GetBody(draft, i); bodySlider[i].value = bv; bodyVal[i].text = bv == 0 ? "0" : (bv > 0 ? "+" : "") + bv; }

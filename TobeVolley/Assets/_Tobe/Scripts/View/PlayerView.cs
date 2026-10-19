@@ -187,7 +187,7 @@ namespace Tobe.View
         {
             unchecked { return (((p.height * 31 + p.build) * 31 + p.skin) * 31 + p.eyes) * 31 + (p.gear | CharacterAppearance.DevExtraGear) + team * 7919 + p.hair * 104729 + (p.kitShirt * 13 + p.kitShorts * 17 + p.kitNumber * 19) * 1000003
                 + (p.bShoulders + p.bChest * 3 + p.bWaist * 5 + p.bHips * 7 + p.bArms * 11 + p.bLegs * 13 + p.bNeck * 17 + p.bHead * 19) * 7340033
-                + (int)(p.cSkin * 31 + p.cHair * 37 + p.cEye * 41); }
+                + (int)(p.cSkin * 31 + p.cHair * 37 + p.cEye * 41) + p.kitCut * 92821; }
         }
 
         /// <summary>Uses PlayerAnimator once the mocap is loaded and the model is a usable humanoid, otherwise the procedural poser.</summary>
