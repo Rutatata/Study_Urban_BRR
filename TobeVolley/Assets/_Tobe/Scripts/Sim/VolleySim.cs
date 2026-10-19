@@ -383,11 +383,28 @@ namespace Tobe.Sim
                 // players far from where they'd attack (e.g. the receiver deep in the court) can't get there in time
                 float dn = Court.DistFromNet(team, p.pos.z), want = IsFront(p) ? 2.6f : 4.2f;
                 sc -= Mathf.Max(0, dn - want) * 2.5f + (p.air || p.recT > 0 ? 6 : 0);
+                // связующий читает блок: туда, где блокирующих меньше (чем выше пас у связующего, тем внимательнее)
+                if (setter != null && setter.isBot) sc -= BlockersAt(Other(team), BotSetX(p)) * (1.2f + setter.st.set * 0.25f);
                 if (sc > bs) { bs = sc; best = p; }
             }
             return caller ?? best;
         }
         float AttackHeight(SimPlayer p) => p.reach + p.jumpH - 0.08f;
+        /// <summary>Куда бот-связующий отдаёт пас этому нападающему (как в DoSet): левый край, центр, правый край, или задняя линия.</summary>
+        float BotSetX(SimPlayer a)
+        {
+            if (!a.isBot || !IsFront(a)) return a.pos.x;
+            var sp = SlotPos(a.slot);
+            return sp.x < 3 ? 0.9f : sp.x < 6 ? 4.0f : 8.1f;
+        }
+        /// <summary>Сколько блокирующих соперника стоит напротив точки x у сетки (передняя линия, не либеро).</summary>
+        int BlockersAt(int team, float x)
+        {
+            int n = 0;
+            foreach (var q in players)
+                if (q.team == team && IsFront(q) && q.profile.style != PlayStyle.Libero && Mathf.Abs(q.pos.x - x) < 1.7f && Court.DistFromNet(team, q.pos.z) < 2.5f) n++;
+            return n;
+        }
 
         // ================= hits =================
         static float Quality(float d, float rad) => Mathf.Clamp01(1 - d / rad);
@@ -447,6 +464,8 @@ namespace Tobe.Sim
                 Popup("ВЫСОКАЯ!", Grey);
             }
             else if (fast) { T = Mathf.Max(0.5f, T * 0.78f); Popup("БЫСТРАЯ!", Cyan); }
+            else if (!freak && p.isBot && attacker.isBot && p.st.set >= 6 && BlockersAt(Other(tm), target.x) >= 2 && Random.value < 0.4f + p.st.set * 0.04f)
+                T = Mathf.Max(0.5f, T * 0.8f);   // бот-связующий тоже ускоряет пас против двойного блока
             if (jumpSet && !freak) T *= 0.85f;   // пас в прыжке: мяч уходит раньше, блок читает позже
             float setDist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
             float err = freak ? 0 : (1 - q) * 1.3f * (0.7f + setDist / 9f * 0.6f) * (fast ? 1.3f : high ? 0.8f : 1f);
