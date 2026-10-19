@@ -86,7 +86,7 @@ namespace Tobe.Net
             }
             var b = v.ball;
             w.WS(b.pos); w.WS(b.vel); w.Write((byte)((b.live ? 1 : 0) | (b.held ? 2 : 0) | (b.mini ? 4 : 0))); w.Write(b.superBy); w.Write((byte)Mathf.Clamp(b.g * 10f, 0f, 255f));
-            for (int i = 0; i < 2; i++) { var pl = v.plans[i]; w.Write((byte)pl.kind); w.Write(pl.playerId); w.WS(pl.point); w.Write(pl.timeLeft); }
+            for (int i = 0; i < 2; i++) { var pl = v.plans[i]; w.Write((byte)pl.kind); w.Write(pl.playerId); w.WS(pl.point); w.Write(pl.timeLeft); w.Write(pl.targetId); }
             w.Write(v.landingValid); w.WS(v.landing);
             return Done();
         }
@@ -117,7 +117,7 @@ namespace Tobe.Net
             var ball = new BallSnap { pos = r.VS(), vel = r.VS() };
             byte bf = r.ReadByte(); ball.live = (bf & 1) != 0; ball.held = (bf & 2) != 0; ball.mini = (bf & 4) != 0; ball.superBy = r.ReadByte(); ball.g = r.ReadByte() * 0.1f;
             v.ball = ball;
-            for (int i = 0; i < 2; i++) v.plans[i] = new PlanSnap { kind = (PlanKind)r.ReadByte(), playerId = r.ReadByte(), point = r.VS(), timeLeft = r.ReadSingle() };
+            for (int i = 0; i < 2; i++) v.plans[i] = new PlanSnap { kind = (PlanKind)r.ReadByte(), playerId = r.ReadByte(), point = r.VS(), timeLeft = r.ReadSingle(), targetId = r.ReadByte() };
             v.landingValid = r.ReadBoolean(); v.landing = r.VS();
         }
 

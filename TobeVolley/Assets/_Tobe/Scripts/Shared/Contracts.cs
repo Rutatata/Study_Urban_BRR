@@ -221,6 +221,7 @@ namespace Tobe
         public byte playerId;          // 255 = none
         public Vector3 point;          // contact point
         public float timeLeft;
+        public byte targetId;          // передача связующего-человека уйдёт этому игроку (255 — некому / переброс)
     }
 
     /// <summary>Everything the presentation layer needs to draw one frame.</summary>

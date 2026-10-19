@@ -33,6 +33,7 @@ namespace Tobe.View
         Text loadingText;
         Font font;
 
+        const string SetMark = "▼ ПАС";
         readonly Dictionary<int, (string text, Color color, float until)> shouts = new Dictionary<int, (string, Color, float)>();
         void OnEnable() { GameHub.OnEvent += OnShout; }
         void OnDisable() { GameHub.OnEvent -= OnShout; }
@@ -147,6 +148,11 @@ namespace Tobe.View
             {
                 float k = Mathf.Max(0.5f, Screen.height / 1080f);
                 bool haveLocal = view.TryGetLocal(out var lp);
+                // ты связующий: над тем, кому уйдёт передача (по прицелу), горит метка — выбирай нападающего
+                if (view.plans != null)
+                    foreach (var pln in view.plans)
+                        if (pln.kind == PlanKind.Set && pln.playerId == view.localPlayerId && pln.targetId != 255)
+                            shouts[pln.targetId] = (SetMark, new Color(1f, 0.82f, 0.25f), Time.unscaledTime + 0.06f);
                 for (int i = 0; i < players.Length; i++)
                 {
                     var s = players[i];

@@ -380,7 +380,10 @@ namespace Tobe.Sim
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Bump, 0.3f);
             if (setter != null) { plans[t] = new Plan { kind = PlanKind.Set, p = setter, point = target, t = t + T }; Shout(setter, CallsSet); }
         }
-        void DoSet(SimPlayer p, float q, SimPlayer attacker, bool special)
+        // Связующий-человек выбирает темп: тап ПКМ — быстрая (низкая, блок не успевает собраться, но нужна точность),
+        // держать ПКМ до касания — высокая (надёжная, но соперник успевает выставить двойной-тройной блок).
+        // Точность: стоять под мячом (не на бегу), короткая передача точнее длинной, пас в прыжке — на пике прыжка.
+        void DoSet(SimPlayer p, float q, SimPlayer attacker, bool special, bool jumpSet = false)
         {
             int tm = p.team; q = Mathf.Clamp(q, 0.05f, 1f);
             attacker = attacker ?? ChooseAttacker(tm, p);
@@ -410,12 +413,17 @@ namespace Tobe.Sim
                 else if (sp.x < 6) { target = new Vector3(4.0f, tz, Court.WorldZ(tm, 0.55f)); T = 0.62f; }
                 else { target = new Vector3(8.1f, tz, Court.WorldZ(tm, 0.7f)); T = 0.95f; }
             }
-            if (!freak && !p.isBot && p.lastCmd.setHeld)
+            bool high = !freak && !p.isBot && p.lastCmd.setHeld, fast = !freak && !p.isBot && !high && attacker.isBot;
+            if (high)
             {   // ПКМ держали до касания: высокая и длинная передача — больше времени на разбег
                 T *= 1.4f; target.z -= Court.Fwd(tm) * 0.6f;
                 Popup("ВЫСОКАЯ!", Grey);
             }
-            float err = freak ? 0 : (1 - q) * 1.3f;
+            else if (fast) { T = Mathf.Max(0.5f, T * 0.78f); Popup("БЫСТРАЯ!", Cyan); }
+            if (jumpSet && !freak) T *= 0.85f;   // пас в прыжке: мяч уходит раньше, блок читает позже
+            float setDist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
+            float err = freak ? 0 : (1 - q) * 1.3f * (0.7f + setDist / 9f * 0.6f) * (fast ? 1.3f : high ? 0.8f : 1f);
+            if (!freak && !p.isBot && q > 0.92f) Popup("ТОЧНЫЙ ПАС!", Gold);
             target.x += Rnd(-err, err); target.z -= Court.Fwd(tm) * Rnd(0, err * 0.6f);
             Launch(target, T);
             ball.kind = "set";
@@ -425,18 +433,30 @@ namespace Tobe.Sim
             Shout(attacker, CallsAttack);
             PlanBlock(Other(tm), target.x, t + T);
         }
+        byte SetTargetId(Plan pl)
+        {
+            if (pl.kind != PlanKind.Set || pl.p.isBot || !Court.OnSide(pl.p.team, pl.p.lastCmd.aim.z)) return 255;
+            var m = NearestFree(pl.p.team, pl.p.lastCmd.aim, pl.p);
+            return m != null ? m.id : (byte)255;
+        }
         void PlanBlock(int team, float x, float tHit)
         {
             var front = players.FindAll(p => p.team == team && p.isBot && IsFront(p) && p.profile.style != PlayStyle.Libero);
             front.Sort((a, b) => Mathf.Abs(a.pos.x - x).CompareTo(Mathf.Abs(b.pos.x - x)));
-            for (int k = 0; k < Mathf.Min(Bots.blockers, front.Count); k++)
+            int onTime = 0, tasks = Mathf.Min(Bots.blockers, front.Count);
+            for (int k = 0; k < tasks; k++)
             {
                 var p = front[k];
                 float tPeak = Mathf.Sqrt(2 * GP * p.jumpH * 0.85f) / GP;
                 p.hasBlockTask = true;
-                p.blockX = Mathf.Clamp(x + (k > 0 ? 0.5f : -0.25f) * (x < 4.5f ? 1 : -1), 0.3f, Court.Width - 0.3f);
+                float want = Mathf.Clamp(x + (k > 0 ? 0.5f : -0.25f) * (x < 4.5f ? 1 : -1), 0.3f, Court.Width - 0.3f);
                 p.blockJumpAt = tHit - tPeak + 0.04f + Rnd(-0.06f, 0.08f) / Bots.block;
+                // блокирующий сначала читает передачу (0,3 с), потом бежит приставными; не успел — прыгает где успел
+                float reach = Mathf.Max(0f, p.blockJumpAt - t - 0.3f) * p.spd * 1.1f;
+                p.blockX = Mathf.MoveTowards(p.pos.x, want, reach);
+                if (Mathf.Abs(p.blockX - want) < 0.35f) onTime++;
             }
+            if (tasks > 0 && onTime == 0 && plans[Other(team)] != null && plans[Other(team)].p != null) Popup("БЛОК НЕ УСПЕЛ!", Cyan);
         }
         void DoSpike(SimPlayer p, float q, Vector3? aim, bool special, bool tipBtn = false)
         {
@@ -685,6 +705,8 @@ namespace Tobe.Sim
             if (!ri.air && setBtn)
             {   // передача сверху: точнее всего, но только по высокому мячу
                 float q = Mathf.Clamp((0.55f + u.st.set * 0.05f + Quality(ri.d, ri.rad) * 0.25f - (by < 1.7f ? 0.2f : 0f)) * tq, 0.1f, 1f);
+                float run = Hyp(u.vel.x, u.vel.z);   // связующий должен успеть под мяч и остановиться
+                if (run > 1.6f) { q *= Mathf.Lerp(1f, 0.65f, Mathf.Clamp01((run - 1.6f) / 3f)); if (run > 3f) Popup("НА ХОДУ", Grey); }
                 SimPlayer mate = aimOwn ? NearestFree(tm, aim, u) : null;
                 if (n < 3 && aimOwn)
                 {
@@ -701,7 +723,8 @@ namespace Tobe.Sim
                 if (setBtn && aimOwn && n < 3)
                 {
                     var mate = NearestFree(tm, aim, u);
-                    DoSet(u, 0.8f, mate != null && mate != u ? mate : null, false); return;
+                    float apex = Mathf.Clamp01(1f - Mathf.Abs(u.vel.y) / 3f);   // чем ближе к пику прыжка, тем точнее
+                    DoSet(u, Mathf.Clamp(0.45f + u.st.set * 0.03f + apex * 0.3f, 0.1f, 1f), mate != null && mate != u ? mate : null, false, true); return;
                 }
                 float q = Mathf.Clamp01(Quality(ri.d, ri.rad) * 0.7f + 0.3f * Mathf.Clamp01(1 - Mathf.Abs(u.vel.y) / 3));
                 if (special && u.Style.finisherKind == FinisherKind.Spike) { var a = aim; UseFinisher(u, () => DoSpike(u, 1, a, true)); return; }
@@ -1282,7 +1305,7 @@ namespace Tobe.Sim
             {
                 var pl = plans[i];
                 v.plans[i] = pl == null || pl.p == null ? new PlanSnap { kind = PlanKind.None, playerId = 255 }
-                    : new PlanSnap { kind = pl.kind, playerId = pl.p.id, point = pl.point, timeLeft = pl.t - t };
+                    : new PlanSnap { kind = pl.kind, playerId = pl.p.id, point = pl.point, timeLeft = pl.t - t, targetId = SetTargetId(pl) };
             }
             if (ball.live && ball.held == null) { v.landing = PredictY(R, out _); v.landing.y = 0; v.landingValid = true; }
             else v.landingValid = false;

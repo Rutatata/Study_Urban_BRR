@@ -558,7 +558,7 @@ namespace Tobe.UI
                     switch (pl.kind)
                     {
                         case PlanKind.Receive: s = "ПРИЁМ СНИЗУ!"; chip = chipE; c = UiKit.Cyan; break;
-                        case PlanKind.Set: s = "ПЕРЕДАЧА — В СТОРОНУ ПРИЦЕЛА (ДЕРЖИ — ВЫШЕ)"; chip = chipPkm; c = UiKit.Gold; break;
+                        case PlanKind.Set: s = pl.targetId == 255 ? "ПЕРЕДАЧА — НАВЕДИ ПРИЦЕЛ НА НАПАРНИКА" : "ПЕРЕДАЧА: ТАП — БЫСТРАЯ, ДЕРЖИ — ВЫСОКАЯ"; chip = chipPkm; c = UiKit.Gold; break;
                         case PlanKind.Attack:
                             if (lp.air) { s = "БЕЙ!"; chip = chipLkm; c = UiKit.Orange; }
                             else if (pl.timeLeft < 0.55f) { s = "ПРЫГАЙ!"; chip = chipSpace; c = UiKit.Orange; }
