@@ -190,7 +190,7 @@ namespace Tobe.View
             {
                 smPos = b.pos; inited = true; trail.Clear(); core.Clear();
             }
-            smPos = Vector3.Lerp(smPos, b.pos, 1f - Mathf.Exp(-dt * 28f));
+            smPos = Court.KeepSide(b.pos, Vector3.Lerp(smPos, b.pos, 1f - Mathf.Exp(-dt * 28f)));   // сглаженный мяч не режет сетку
             pivot.position = smPos; VisualPos = smPos;
             // удар: резкая смена скорости — мяч на миг сплющивается вдоль нового полёта (сильнее удар — сильнее)
             float dv = (b.vel - prevVel).magnitude;

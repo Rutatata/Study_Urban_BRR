@@ -167,6 +167,7 @@ namespace Tobe.Net
                 float age = Mathf.Min(now - ballT, 0.15f) * timeScale;
                 var predicted = ballPos + ballVel * age + 0.5f * age * age * new Vector3(0, -Court.BallGravity, 0);
                 predicted.y = Mathf.Max(Court.BallRadius, predicted.y);
+                predicted = Court.KeepSide(ballPos, predicted);
                 ballRender = Vector3.Lerp(ballRender, predicted, 1f - Mathf.Exp(-35f * dt));
                 v.ball.pos = ballRender;
             }
@@ -240,11 +241,12 @@ namespace Tobe.Net
             {
                 if (o.id == me.id || o.team != team) continue;
                 float dx = pos.x - o.pos.x, dz = pos.z - o.pos.z, d = Mathf.Sqrt(dx * dx + dz * dz);
-                if (d < 0.55f && d > 1e-4f) { pos.x += dx / d * (0.55f - d); pos.z += dz / d * (0.55f - d); }
+                const float minD = Court.PlayerR * 2f;
+                if (d < minD && d > 1e-4f) { pos.x += dx / d * (minD - d); pos.z += dz / d * (minD - d); }
             }
             // never cross (or touch) the net: stay on your own side, inside the hall
-            pos.z = team == 0 ? Mathf.Clamp(pos.z, -4, Court.NetZ - 0.35f) : Mathf.Clamp(pos.z, Court.NetZ + 0.35f, Court.Length + 4);
-            pos.x = Mathf.Clamp(pos.x, -3, Court.Width + 3);
+            pos.z = team == 0 ? Mathf.Min(pos.z, Court.NetZ - 0.35f) : Mathf.Max(pos.z, Court.NetZ + 0.35f);
+            Court.Collide(ref pos.x, ref pos.z, Court.PlayerR);   // стойки, судья, скамейки, щиты
             if (serving) { pos.z = Ser.LocalServerPos.z; pos.x = Mathf.Clamp(pos.x, 0.3f, Court.Width - 0.3f); }
         }
         void TryJump(PlayerSnap me)

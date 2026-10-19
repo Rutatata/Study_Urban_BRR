@@ -189,12 +189,43 @@ namespace Tobe.View
         void OnEnable()
         {
             ResolveClips();
+            if (!All.Contains(this)) All.Add(this);
             firstFrame = true; lastClass = -1; lastPose = (PoseId)255; prevPoseId = (PoseId)255; poseAge = 0f; hadAir = false; prevAir = false; airW = 0f; actW = 0f; actClip = null; landT = 99f;
             gaitW = 0f; legIkW = 0f; recvW = setW = blockW2 = approachW = 0f; approachMul = 1f;
             brain.Reset(); gait.Reset(); plant.Reset();
         }
 
-        void OnDestroy() { handler?.Dispose(); handler = null; }
+        void OnDestroy() { handler?.Dispose(); handler = null; All.Remove(this); }
+
+        // ---- «дай пять»: магнит. Оба игрока в позе HighFive находят друг друга, разворачиваются лицом (PlayerView), чуть
+        // сближаются и ладони сходятся в общей точке; после хлопка магнит отпускает — руки и корпус возвращаются к своей позе.
+        static readonly System.Collections.Generic.List<PlayerAnimator> All = new System.Collections.Generic.List<PlayerAnimator>();
+        /// <summary>Сила магнита 0..1 по фазе хлопка: тянется на замахе, держит на касании, отпускает на проводке.</summary>
+        public float MagnetW => pose != PoseId.HighFive ? 0f
+            : AnimMath.Smooth01(Mathf.Clamp01((poseAge - 0.04f) / 0.22f)) * (1f - AnimMath.Smooth01(Mathf.Clamp01((poseAge - 0.42f) / 0.25f)));
+        /// <summary>Напарник по «дай пять» (та же команда, тоже в позе, ближе 2,5 м) — или null.</summary>
+        public PlayerAnimator Mate()
+        {
+            if (pose != PoseId.HighFive) return null;
+            PlayerAnimator best = null; float bd = 2.5f * 2.5f;
+            foreach (var o in All)
+            {
+                if (o == this || o.pose != PoseId.HighFive || o.myTeam != myTeam) continue;
+                float d = (o.worldPos - worldPos).sqrMagnitude;
+                if (d < bd) { bd = d; best = o; }
+            }
+            return best;
+        }
+        void HighFiveMagnet()
+        {
+            float w = MagnetW; if (w < 0.01f) return;
+            var m = Mate(); if (m == null || m.uaR.t == null || uaR.t == null) return;
+            Transform hR = Bone(HumanBodyBones.RightHand); if (hR == null || laR.t == null) return;
+            // точка встречи: посередине между правыми плечами, над головой; кисть (запястье) чуть не доходит — встречаются ладони
+            Vector3 mid = (uaR.t.position + m.uaR.t.position) * 0.5f + Vector3.up * 0.38f * sc;
+            Vector3 back = uaR.t.position - mid; back.y = 0f;
+            TwoBone(uaR, laR, hR, mid + (back.sqrMagnitude > 1e-6f ? back.normalized * 0.07f * sc : Vector3.zero), w);
+        }
 
         void ResolveClips()
         {
@@ -320,6 +351,7 @@ namespace Tobe.View
             if (GaitOn) ApplyGait(Rb, Q, legIkW);
             ApplyArms(Rb);
             ReachBall();
+            HighFiveMagnet();
             Smear();
             if (AntiCrossOn) AntiCross(dt);
             Plant(dt);

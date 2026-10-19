@@ -220,12 +220,26 @@ namespace Tobe.View
                 smPos = new Vector3(Mathf.Lerp(smPos.x, target.x, kp), Mathf.Lerp(smPos.y, target.y, kv), Mathf.Lerp(smPos.z, target.z, kp));
             }
             smYaw = Mathf.LerpAngle(smYaw, s.yaw, ky);
-            transform.position = smPos;
-            visual.rotation = Quaternion.Euler(0f, smYaw, 0f);
+            // «дай пять»: магнитом поворачиваемся лицом к напарнику и подходим на расстояние вытянутой руки, потом отпускает
+            float showYaw = smYaw; Vector3 pull = Vector3.zero;
+            var mate = pa != null && usingPa ? pa.Mate() : null;
+            if (mate != null)
+            {
+                float w = pa.MagnetW;
+                Vector3 to = mate.transform.position - smPos; to.y = 0f;
+                float d = to.magnitude;
+                if (d > 0.05f)
+                {
+                    showYaw = Mathf.LerpAngle(smYaw, Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg, w);
+                    pull = to / d * Mathf.Min(0.35f, Mathf.Max(0f, d - 0.95f) * 0.5f) * w;   // каждый проходит половину лишнего
+                }
+            }
+            transform.position = smPos + pull;
+            visual.rotation = Quaternion.Euler(0f, showYaw, 0f);
 
-            Vector3 lv = Quaternion.Inverse(Quaternion.Euler(0f, smYaw, 0f)) * s.vel;
+            Vector3 lv = Quaternion.Inverse(Quaternion.Euler(0f, showYaw, 0f)) * s.vel;
             SelectAnimator();
-            if (usingPa && pa != null) pa.Feed(in s, lv, smYaw);
+            if (usingPa && pa != null) pa.Feed(in s, lv, showYaw);
             if (!usingPa && poser != null)
             {
                 poser.pose = s.pose;

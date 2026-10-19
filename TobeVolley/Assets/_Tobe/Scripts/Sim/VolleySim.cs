@@ -886,8 +886,8 @@ namespace Tobe.Sim
                 if (p.pos.y <= 0) { p.pos.y = 0; p.vel.y = 0; p.air = false; p.recT = Mathf.Max(p.recT, 0.18f); p.blockJump = false; }
             }
             else p.vel.y = 0;
-            p.pos.z = p.team == 0 ? Mathf.Clamp(p.pos.z, -4, NY - 0.3f) : Mathf.Clamp(p.pos.z, NY + 0.3f, Court.Length + 4);
-            p.pos.x = Mathf.Clamp(p.pos.x, -3, Court.Width + 3);
+            p.pos.z = p.team == 0 ? Mathf.Min(p.pos.z, NY - 0.3f) : Mathf.Max(p.pos.z, NY + 0.3f);
+            Court.Collide(ref p.pos.x, ref p.pos.z, Court.PlayerR);   // стойки, судья, скамейки, щиты
             // volleyball footwork: keep facing the ball (or the net) and shuffle; only turn to run on long, fast moves
             float spd = Hyp(p.vel.x, p.vel.z);
             float face;
@@ -947,7 +947,7 @@ namespace Tobe.Sim
 
         void Separate()
         {
-            const float minD = 0.55f;
+            const float minD = Court.PlayerR * 2f;
             for (int i = 0; i < players.Count; i++)
                 for (int j = i + 1; j < players.Count; j++)
                 {
@@ -977,10 +977,29 @@ namespace Tobe.Sim
             if (b.floater && b.kind == "serve") b.vel.x += Mathf.Sin(b.hitT * 9f) * 10f * dt;   // планер: боковое «дрожание»
             b.pos += b.vel * dt;
 
-            if (b.live && (pz - NY) * (b.pos.z - NY) <= 0 && pz != b.pos.z)
-            {
-                bool onCourtX = b.pos.x > -0.6f && b.pos.x < Court.Width + 0.6f;
-                if (onCourtX && b.pos.y > NH - 0.06f && b.pos.y < NH + R && Random.value < 0.5f)
+            if ((pz - NY) * (b.pos.z - NY) <= 0 && pz != b.pos.z)
+            {   // точка пересечения плоскости сетки (а не позиция после шага: быстрый мяч за шаг пролетает полметра)
+                float tc = (NY - pz) / (b.pos.z - pz);
+                Vector3 xp = Vector3.Lerp(b.pos - b.vel * dt, b.pos, tc);
+                bool inNet = xp.x > Court.NetLeft && xp.x < Court.NetRight && xp.y < NH + R && xp.y > Court.NetBottom - R;
+                bool onCourtX = xp.x > -0.6f && xp.x < Court.Width + 0.6f;
+                if (!b.live)
+                {   // мёртвый мяч тоже не проходит сквозь сетку
+                    if (inNet) { b.pos.z = pz < NY ? NY - R - 0.01f : NY + R + 0.01f; b.vel = new Vector3(b.vel.x * 0.5f, Mathf.Min(b.vel.y, 0) * 0.3f, -b.vel.z * 0.2f); }
+                }
+                else if (inNet && !onCourtX)
+                {   // в сетку за антенной: отскок и ошибка
+                    b.pos.z = pz < NY ? NY - R - 0.01f : NY + R + 0.01f;
+                    b.vel = new Vector3(b.vel.x * 0.5f, Mathf.Min(b.vel.y, 0) * 0.3f, -b.vel.z * 0.2f);
+                    Ev(GameEventType.Sound, "net", null, b.pos, null, 0, 0.8f);
+                    Fault(b.lastTeam >= 0 ? b.lastTeam : (pz < NY ? 0 : 1), "МИМО АНТЕНН");
+                    return;
+                }
+                else if (onCourtX && xp.y <= Court.NetBottom - R && xp.y > 0f)
+                {   // под сеткой на ту сторону — ошибка
+                    Fault(b.lastTeam >= 0 ? b.lastTeam : (pz < NY ? 0 : 1), "ПОД СЕТКОЙ");
+                }
+                else if (onCourtX && xp.y > NH - 0.06f && xp.y < NH + R && Random.value < 0.5f)
                 {   // задел трос: мяч теряет скорость и переваливается на ту сторону
                     b.g = GB; b.vel = new Vector3(b.vel.x * 0.4f, Mathf.Abs(b.vel.y) * 0.25f + 1.4f, b.vel.z * 0.3f);
                     Ev(GameEventType.Sound, "net", null, b.pos, null, 0, 0.6f);
@@ -988,7 +1007,7 @@ namespace Tobe.Sim
                     touches[0] = touches[1] = 0;
                     Replan();
                 }
-                else if (b.pos.y < NH + R && b.pos.y > -1 && onCourtX)
+                else if (inNet)
                 {
                     b.g = GB;
                     b.pos.z = pz < NY ? NY - R - 0.01f : NY + R + 0.01f;
@@ -1026,8 +1045,8 @@ namespace Tobe.Sim
                 if (b.live) Land();
                 b.vel = new Vector3(b.vel.x * 0.7f, -b.vel.y * 0.45f, b.vel.z * 0.7f);
             }
-            if (b.pos.x < -7 || b.pos.x > Court.Width + 7) b.vel.x *= -0.5f;
-            if (b.pos.z < -6 || b.pos.z > Court.Length + 6) b.vel.z *= -0.5f;
+            // стойки, вышка судьи, стол, скамейки, щиты: мяч отскакивает, а не проходит насквозь
+            if (Court.BallCollide(ref b.pos, ref b.vel, R) && b.vel.sqrMagnitude > 4f) Ev(GameEventType.Sound, "net", null, b.pos, null, 0, 0.4f);
         }
         // спецификация 4.5: прыгнувшие рядом в пределах 150 мс сливают зоны в одну стену
         int Wall(SimPlayer p)

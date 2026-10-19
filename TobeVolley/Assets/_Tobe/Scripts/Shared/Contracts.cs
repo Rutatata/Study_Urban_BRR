@@ -17,6 +17,68 @@ namespace Tobe
         public static float DistFromNet(int team, float z) => team == 0 ? NetZ - z : z - NetZ;
         public static bool InCourt(float x, float z, float margin = 0f) =>
             x >= -margin && x <= Width + margin && z >= -margin && z <= Length + margin;
+
+        // ---- твёрдые предметы у площадки (совпадают с View/Look/CourtProps и ArenaBuilder.BuildNet): сквозь них не ходят
+        // ни игроки, ни мяч. Прямоугольник на полу (центр, полуразмеры) и высота верха.
+        public const float NetLeft = -0.7f, NetRight = Width + 0.7f;   // сетка натянута между стойками
+        public const float HallX0 = -3.55f, HallX1 = 12.55f, HallZ0 = -3.55f, HallZ1 = 21.55f;   // рекламные щиты по периметру
+        public const float PlayerR = 0.3f;   // «тело» игрока на полу: плечи ~0,45 м + руки
+        public struct Box { public float cx, cz, hx, hz, top; public Box(float cx, float cz, float hx, float hz, float top) { this.cx = cx; this.cz = cz; this.hx = hx; this.hz = hz; this.top = top; } }
+        public static readonly Box[] Obstacles =
+        {
+            new Box(NetLeft, NetZ, 0.18f, 0.18f, 2.6f), new Box(NetRight, NetZ, 0.18f, 0.18f, 2.6f),   // стойки в защитных чехлах
+            new Box(-2.05f, NetZ, 0.85f, 0.75f, 2.4f),     // вышка первого судьи
+            new Box(12.1f, NetZ, 0.85f, 1.65f, 1.0f),      // стол секретаря со стульями
+            new Box(11.95f, 3.6f, 0.4f, 2.65f, 1.05f), new Box(11.95f, 14.4f, 0.4f, 2.65f, 1.05f),   // скамейки запасных
+            new Box(10.75f, 7.0f, 0.25f, 0.25f, 1.8f), new Box(10.75f, 11.0f, 0.25f, 0.25f, 1.8f),   // тренеры
+            new Box(11.9f, -1.9f, 0.45f, 0.65f, 1.05f),    // тележка с мячами
+        };
+
+        /// <summary>Сглаживание и предсказание мяча не должны «протаскивать» его сквозь сетку: если точка to оказалась
+        /// по другую сторону сетки от from и при этом в полотне сетки — оставляем её у сетки со стороны from.</summary>
+        public static Vector3 KeepSide(Vector3 from, Vector3 to)
+        {
+            if ((from.z - NetZ) * (to.z - NetZ) >= 0f) return to;
+            if (to.x <= NetLeft || to.x >= NetRight || to.y >= NetTop + BallRadius || to.y <= NetBottom - BallRadius) return to;
+            to.z = from.z < NetZ ? NetZ - BallRadius - 0.01f : NetZ + BallRadius + 0.01f;
+            return to;
+        }
+
+        /// <summary>Вытолкнуть круг радиуса r (игрок) из предметов и не пустить за рекламные щиты.</summary>
+        public static void Collide(ref float x, ref float z, float r)
+        {
+            x = Mathf.Clamp(x, HallX0 + r, HallX1 - r); z = Mathf.Clamp(z, HallZ0 + r, HallZ1 - r);
+            foreach (var b in Obstacles)
+            {
+                float dx = x - b.cx, dz = z - b.cz, px = b.hx + r - Mathf.Abs(dx), pz = b.hz + r - Mathf.Abs(dz);
+                if (px <= 0f || pz <= 0f) continue;
+                if (px < pz) x += dx >= 0f ? px : -px; else z += dz >= 0f ? pz : -pz;   // по оси наименьшего проникновения
+            }
+        }
+
+        /// <summary>Мяч (радиус R) и предметы: выталкивает и отражает скорость с потерей (k — упругость). true — было касание.</summary>
+        public static bool BallCollide(ref Vector3 p, ref Vector3 v, float R, float k = 0.45f)
+        {
+            bool hit = false;
+            if (p.y < 1.0f + R)
+            {   // щиты по периметру высотой ~1 м
+                if (p.x < HallX0 + R) { p.x = HallX0 + R; v.x = Mathf.Abs(v.x) * k; hit = true; }
+                if (p.x > HallX1 - R) { p.x = HallX1 - R; v.x = -Mathf.Abs(v.x) * k; hit = true; }
+                if (p.z < HallZ0 + R) { p.z = HallZ0 + R; v.z = Mathf.Abs(v.z) * k; hit = true; }
+                if (p.z > HallZ1 - R) { p.z = HallZ1 - R; v.z = -Mathf.Abs(v.z) * k; hit = true; }
+            }
+            foreach (var b in Obstacles)
+            {
+                float dx = p.x - b.cx, dz = p.z - b.cz;
+                float px = b.hx + R - Mathf.Abs(dx), pz = b.hz + R - Mathf.Abs(dz), py = b.top + R - p.y;
+                if (px <= 0f || pz <= 0f || py <= 0f) continue;
+                hit = true;
+                if (py < px && py < pz) { p.y = b.top + R; v.y = Mathf.Abs(v.y) * k; v.x *= 0.8f; v.z *= 0.8f; }
+                else if (px < pz) { p.x += dx >= 0f ? px : -px; v.x = (dx >= 0f ? 1f : -1f) * Mathf.Abs(v.x) * k; }
+                else { p.z += dz >= 0f ? pz : -pz; v.z = (dz >= 0f ? 1f : -1f) * Mathf.Abs(v.z) * k; }
+            }
+            return hit;
+        }
     }
 
     public enum MatchPhase : byte { Lobby = 0, Countdown = 1, Serve = 2, Rally = 3, Point = 4, End = 5 }
