@@ -75,6 +75,68 @@ namespace Tobe.View
         public void Flash(float amount) { flash = Mathf.Clamp(Mathf.Max(flash, amount), 0f, 1.5f); }
         public void Punch(float amount) { punch = Mathf.Clamp01(Mathf.Max(punch, amount)); }
 
+        // ---- аниме-вступление матча (тренировка и полигон: сервер стоит на паузе). Пропуск — пробел, клик или Esc.
+        // Планы: снизу на своего игрока с наездом → соперники через сетку → крупно глаза со вспышкой → отъезд к игре.
+        public static bool IntroActive => Instance != null && Instance.introT >= 0f;
+        public static void PlayIntro()
+        {
+            if (Instance == null || !NetApi.PauseAllowed) return;
+            Instance.introT = 0f; Instance.introFlash = false;
+            NetApi.SetPaused?.Invoke(true);
+        }
+        float introT = -1f; bool introFlash;
+        const float IntroLen = 4.6f;
+        void EndIntro() { introT = -1f; NetApi.SetPaused?.Invoke(false); }
+
+        void IntroShot(Vector3 L, int team, Vector3 gPos, Quaternion gRot, ref Vector3 pos, ref Quaternion rot, ref float fovOut)
+        {
+            var view = GameHub.View;
+            Vector3 f = team == 0 ? Vector3.forward : Vector3.back, right = Vector3.Cross(Vector3.up, f);
+            float head = 1.5f;
+            if (view.localPlayerId >= 0 && ViewRoot.Instance != null && ViewRoot.Instance.TryGetView(view.localPlayerId, out var pv) && pv.HasModel)
+            {
+                head = 1.5f * pv.HeadHeight / 2f;   // HeadHeight — высота таблички (2 м × рост)
+                Vector3 face = Quaternion.Euler(0f, pv.VisualYaw, 0f) * Vector3.forward;   // герой — лицом в кадр, куда бы ни смотрел
+                f = face; right = Vector3.Cross(Vector3.up, f);
+            }
+            Vector3 net = team == 0 ? Vector3.forward : Vector3.back;
+            float t = introT;
+            if (t < 1.3f)
+            {   // снизу, с наездом и лёгким креном — герой перед матчем
+                float u = t / 1.3f;
+                pos = L + f * (2.5f - 0.7f * u) + right * 0.55f + Vector3.up * (0.35f + 0.12f * u);
+                rot = Quaternion.LookRotation(L + Vector3.up * (head - 0.15f) - pos) * Quaternion.Euler(0f, 0f, 5f);
+                fovOut = 46f;
+            }
+            else if (t < 2.5f)
+            {   // соперники за сеткой: камера у сетки на своей стороне, проезд вбок
+                float u = (t - 1.3f) / 1.2f;
+                Vector3 O = Vector3.zero; int n = 0;
+                foreach (var p in view.players) if (p.team != team) { O += p.pos; n++; }
+                O = n > 0 ? O / n : new Vector3(Court.Width * 0.5f, 0f, Court.WorldZ(1 - team, 4f));
+                pos = new Vector3(O.x + Mathf.Lerp(-1.8f, 1.8f, u), 1.9f, Court.NetZ - net.z * 2.2f);
+                rot = Quaternion.LookRotation(O + Vector3.up * 1.2f - pos);
+                fovOut = 38f;
+            }
+            else if (t < 3.5f)
+            {   // крупно глаза — вспышка и толчок, как стоп-кадр в аниме
+                if (!introFlash) { introFlash = true; Flash(0.8f); Shake(0.25f); }
+                float u = (t - 2.5f) / 1.0f;
+                Vector3 eye = L + Vector3.up * (head - 0.1f);
+                pos = eye + f * (0.62f - 0.08f * u) + right * 0.04f;
+                rot = Quaternion.LookRotation(eye - pos);
+                fovOut = 26f;
+            }
+            else
+            {   // отъезд от лица к игровой камере
+                float u = Mathf.Clamp01((t - 3.5f) / (IntroLen - 3.5f)); u = u * u * (3f - 2f * u);
+                Vector3 eye = L + Vector3.up * (head - 0.1f), cp = eye + f * 0.54f;
+                pos = Vector3.Lerp(cp, gPos, u);
+                rot = Quaternion.Slerp(Quaternion.LookRotation(eye - cp), gRot, u);
+                fovOut = Mathf.Lerp(26f, fovOut, u);
+            }
+        }
+
         public void Cinematic(Vector3 pos, float duration)
         {
             cine = true; cineT = 0f; cineDur = Mathf.Max(0.6f, duration);
@@ -184,7 +246,21 @@ namespace Tobe.View
                 }
             }
 
-            fov = Mathf.Lerp(fov, targetFov, 1f - Mathf.Exp(-dt * (punch > 0.05f ? 22f : 8f)));
+            bool intro = false;
+            if (introT >= 0f)
+            {
+                if (!haveLocal || view.phase == MatchPhase.End) EndIntro();
+                else
+                {
+                    introT += dt;
+                    bool skip = Controls.Down(Act.Jump) || Controls.Down(Act.Pause) || Controls.Down(Act.Attack);
+                    if (skip && introT < IntroLen - 0.5f) introT = IntroLen - 0.5f;   // пропуск: быстрый отъезд к игре
+                    if (introT >= IntroLen) EndIntro();
+                    else { IntroShot(lpos, team, nPos, nRot, ref pos, ref rot, ref targetFov); intro = true; }
+                }
+            }
+
+            fov = intro ? targetFov : Mathf.Lerp(fov, targetFov, 1f - Mathf.Exp(-dt * (punch > 0.05f ? 22f : 8f)));   // во вступлении — монтажные склейки
             cam.fieldOfView = fov;
 
             // --- shake

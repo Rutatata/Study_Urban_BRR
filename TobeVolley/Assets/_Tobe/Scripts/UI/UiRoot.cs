@@ -20,6 +20,7 @@ namespace Tobe.UI
         public EndScreen End { get; private set; }
 
         public bool EndDismissed;
+        bool vsAfterIntro; Text introHint;
         bool paused, pauseSent;
         MatchPhase prevPhase = MatchPhase.Lobby;
 
@@ -58,6 +59,9 @@ namespace Tobe.UI
             Vs = UiScreen.Create<VsIntroScreen>(t, "VsIntro");
             End = UiScreen.Create<EndScreen>(t, "End");
             Pause = UiScreen.Create<PauseScreen>(t, "Pause");
+            introHint = UiKit.Label(t, "ПРОБЕЛ — ПРОПУСТИТЬ", 26, new Color(1f, 1f, 1f, 0.75f), TextAnchor.LowerRight, FontStyle.BoldAndItalic);
+            UiKit.At(introHint.rectTransform, UiKit.BR, new Vector2(-60, 40), new Vector2(600, 40));
+            introHint.gameObject.SetActive(false);
         }
 
         static void EnsureEventSystem()
@@ -102,21 +106,28 @@ namespace Tobe.UI
             else if (NetApi.InSession && (ph == MatchPhase.Lobby || ph == MatchPhase.Countdown)) target = Lobby;
             else target = Menu;
 
-            if (target == Hud && Controls.Down(Act.Pause)) paused = !paused;
+            if (target == Hud && Controls.Down(Act.Pause) && !Tobe.View.CameraRig.IntroActive) paused = !paused;
             if (target != Hud) paused = false;
 
             Menu.Show(target == Menu);
             Lobby.Show(target == Lobby);
-            Hud.Show(target == Hud);
+            Hud.Show(target == Hud && !Tobe.View.CameraRig.IntroActive);
             End.Show(target == End);
             Pause.Show(paused);
             if (paused != pauseSent) { pauseSent = paused; NetApi.SetPaused?.Invoke(paused); }
-            if ((prevPhase == MatchPhase.Lobby || prevPhase == MatchPhase.Countdown) && ph == MatchPhase.Serve && target == Hud) Vs.Play();
+            if ((prevPhase == MatchPhase.Lobby || prevPhase == MatchPhase.Countdown) && ph == MatchPhase.Serve && target == Hud)
+            {
+                if (NetApi.PauseAllowed) { Tobe.View.CameraRig.PlayIntro(); vsAfterIntro = true; }   // сначала аниме-вступление
+                else Vs.Play();
+            }
+            bool introOn = Tobe.View.CameraRig.IntroActive;
+            if (vsAfterIntro && !introOn) { vsAfterIntro = false; if (target == Hud) Vs.Play(); }
+            if (introHint != null && introHint.gameObject.activeSelf != introOn) introHint.gameObject.SetActive(introOn);
             if (target != Hud && Vs.Visible) Vs.Show(false);
             prevPhase = ph;
             if (target != Menu && Character.Visible) Character.Show(false);
 
-            bool block = target != Hud || paused;
+            bool block = target != Hud || paused || Tobe.View.CameraRig.IntroActive;
             GameHub.UiBlocking = block;
             var wantLock = block ? CursorLockMode.None : CursorLockMode.Locked;
             if (Cursor.lockState != wantLock) Cursor.lockState = wantLock;
