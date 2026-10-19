@@ -68,8 +68,9 @@ namespace Tobe.View
         };
         public static readonly PoseOv SP3 = new PoseOv { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.2f), lL = V(0.1f, -0.95f, 0.2f), spine = V(8, 0, 0), chest = V(10, 0, 0) };
         public static readonly PoseOv BL0 = new PoseOv { uR = V(0.3f, 0.4f, 0.7f), lR = V(0.2f, 0.4f, 0.8f), uL = V(0.3f, 0.4f, 0.7f), lL = V(0.2f, 0.4f, 0.8f), spine = V(6, 0, 0) };
-        public static readonly PoseOv BL1 = new PoseOv { uR = V(0.2f, 0.98f, 0.1f), lR = V(0.18f, 1f, 0.12f), uL = V(0.2f, 0.98f, 0.1f), lL = V(0.18f, 1f, 0.12f), spine = V(4, 0, 0), chest = V(-2, 0, 0), head = V(-10, 0, 0) };
-        public static readonly PoseOv BL2 = new PoseOv { uR = V(0.18f, 0.9f, 0.4f), lR = V(0.15f, 0.88f, 0.45f), uL = V(0.18f, 0.9f, 0.4f), lL = V(0.15f, 0.88f, 0.45f), spine = V(10, 0, 0), chest = V(10, 0, 0), head = V(-6, 0, 0) };
+        // блок по технике: руки параллельно на ширине плеч (щель уже мяча), вытянуты вверх и на пике «проникают» за сетку вперёд ~30°
+        public static readonly PoseOv BL1 = new PoseOv { uR = V(0.06f, 0.95f, 0.30f), lR = V(0.04f, 0.93f, 0.36f), uL = V(0.06f, 0.95f, 0.30f), lL = V(0.04f, 0.93f, 0.36f), spine = V(4, 0, 0), chest = V(-2, 0, 0), head = V(-10, 0, 0) };
+        public static readonly PoseOv BL2 = new PoseOv { uR = V(0.05f, 0.86f, 0.50f), lR = V(0.03f, 0.83f, 0.56f), uL = V(0.05f, 0.86f, 0.50f), lL = V(0.03f, 0.83f, 0.56f), spine = V(8, 0, 0), chest = V(6, 0, 0), head = V(-6, 0, 0) };
         // Приём снизу: прямые руки «платформой», спина около 45° (наклон даёт уже сама низкая стойка), взгляд на мяч
         // руки приёма — в системе тела (armFrame = 1): иначе наклон корпуса добавляется и платформа уходит к бёдрам
         public static readonly PoseOv BP0 = new PoseOv { uR = V(0.0f, -0.62f, 0.78f), lR = V(-0.30f, -0.5f, 0.80f), uL = V(0.0f, -0.62f, 0.78f), lL = V(-0.30f, -0.5f, 0.80f), armFrame = 1f, spine = V(4, 0, 0), chest = V(2, 0, 0), head = V(-10, 0, 0) };
