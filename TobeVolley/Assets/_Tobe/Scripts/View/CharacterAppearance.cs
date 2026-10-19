@@ -31,9 +31,9 @@ namespace Tobe.View
             Color shirt = TeamLook.Kit(profile.kitShirt, libero ? TeamLook.Trim[team] : TeamLook.Shirt[team]);   // своя форма — вкладка «ФОРМА»
             Color trim = libero ? TeamLook.Shirt[team] : TeamLook.Trim[team];
             Color shorts = TeamLook.Kit(profile.kitShorts, TeamLook.Shorts[team]);
-            Color hair = Pick(TeamLook.HairPresets, profile.hair);
-            Color skin = Pick(TeamLook.SkinTones, profile.skin);
-            Color eye = Pick(TeamLook.EyeColors, profile.eyes);
+            Color hair = PlayerProfile.Custom(profile.cHair, Pick(TeamLook.HairPresets, profile.hair));   // свой цвет — поверх палитры
+            Color skin = PlayerProfile.Custom(profile.cSkin, Pick(TeamLook.SkinTones, profile.skin));
+            Color eye = PlayerProfile.Custom(profile.cEye, Pick(TeamLook.EyeColors, profile.eyes));
 
             PaintAll(modelRoot, shirt, shorts, hair, skin, eye);
             StyleMaterials(modelRoot);
@@ -42,6 +42,7 @@ namespace Tobe.View
             BuildGear(rig, state, profile, team, shirt, trim);
             BuildNumber(rig, profile, shirt, trim);
             ApplyBuild(rig, state, profile);
+            ApplyBody(rig, state, profile);
         }
 
         /// <summary>Old quick path (team uniform + hair only). Kept so existing callers keep working.</summary>
@@ -695,6 +696,8 @@ namespace Tobe.View
         {
             foreach (var kv in st.boneScales) if (kv.Key != null) kv.Key.localScale = kv.Value;
             st.boneScales.Clear();
+            foreach (var kv in st.bonePos) if (kv.Key != null) kv.Key.localPosition = kv.Value;
+            st.bonePos.Clear();
         }
 
         static void ScaleAcross(AppearanceState st, Transform bone, Transform child, float k)
@@ -724,6 +727,52 @@ namespace Tobe.View
                 Vector3 s = Vector3.one; s[ax] = 1f + 0.08f * k;
                 if (!st.boneScales.ContainsKey(g.chest)) st.boneScales[g.chest] = g.chest.localScale;
                 g.chest.localScale = Vector3.Scale(g.chest.localScale, s);
+            }
+        }
+
+        // ---------- пропорции (вкладка «ТЕЛО»): каждая в пределах, где модель остаётся правдоподобной (как в редакторах MMO)
+        static void Lengthen(AppearanceState st, Transform bone, float k)
+        {   // удлинить кость: отодвинуть её начало от родителя (сетка тянется между костями, масштаб детей не трогаем)
+            if (bone == null || Mathf.Abs(k - 1f) < 0.002f) return;
+            if (!st.bonePos.ContainsKey(bone)) st.bonePos[bone] = bone.localPosition;
+            bone.localPosition *= k;
+        }
+        static void Widen(AppearanceState st, Rig g, Transform bone, float side, float depth)
+        {   // шире/уже поперёк тела; детям обратный масштаб — меняется только этот участок (кости VRM в покое без поворота)
+            if (bone == null || Mathf.Abs(side - 1f) < 0.002f && Mathf.Abs(depth - 1f) < 0.002f) return;
+            Vector3 right = Vector3.Cross(Vector3.up, g.fwd);
+            Vector3 l = bone.InverseTransformDirection(right), f = bone.InverseTransformDirection(g.fwd);
+            int ax = Mathf.Abs(l.x) >= Mathf.Abs(l.y) && Mathf.Abs(l.x) >= Mathf.Abs(l.z) ? 0 : (Mathf.Abs(l.y) >= Mathf.Abs(l.z) ? 1 : 2);
+            int az = Mathf.Abs(f.x) >= Mathf.Abs(f.y) && Mathf.Abs(f.x) >= Mathf.Abs(f.z) ? 0 : (Mathf.Abs(f.y) >= Mathf.Abs(f.z) ? 1 : 2);
+            Vector3 s = Vector3.one; s[ax] = side; if (az != ax) s[az] = depth;
+            Vector3 inv = new Vector3(1f / s.x, 1f / s.y, 1f / s.z);
+            if (!st.boneScales.ContainsKey(bone)) st.boneScales[bone] = bone.localScale;
+            bone.localScale = Vector3.Scale(bone.localScale, s);
+            for (int i = 0; i < bone.childCount; i++)
+            {
+                var c = bone.GetChild(i); if (InGear(c)) continue;
+                if (!st.boneScales.ContainsKey(c)) st.boneScales[c] = c.localScale;
+                c.localScale = Vector3.Scale(c.localScale, inv);
+            }
+        }
+        static void ApplyBody(Rig g, AppearanceState st, PlayerProfile p)
+        {
+            float T(sbyte v) => Mathf.Clamp(v, -100, 100) / 100f;
+            float sh = 1f + 0.10f * T(p.bShoulders);
+            Lengthen(st, g.uArmL, sh); Lengthen(st, g.uArmR, sh);                                   // ширина плеч — длина ключиц
+            float ch = 1f + 0.08f * T(p.bChest); Widen(st, g, g.chest, ch, ch);                    // объём груди / корпуса
+            float wa = 1f + 0.09f * T(p.bWaist); Widen(st, g, g.spine, wa, 1f + 0.06f * T(p.bWaist));   // талия
+            float hp = 1f + 0.08f * T(p.bHips); Widen(st, g, g.hips, hp, 1f + 0.04f * T(p.bHips));      // таз
+            float ar = 1f + 0.06f * T(p.bArms);
+            Lengthen(st, g.lArmL, ar); Lengthen(st, g.lArmR, ar); Lengthen(st, g.handL, ar); Lengthen(st, g.handR, ar);
+            float lg = 1f + 0.045f * T(p.bLegs);
+            Lengthen(st, g.lLegL, lg); Lengthen(st, g.lLegR, lg); Lengthen(st, g.footL, lg); Lengthen(st, g.footR, lg);
+            Lengthen(st, g.head, 1f + 0.14f * T(p.bNeck));                                          // длина шеи
+            float hd = 1f + 0.07f * T(p.bHead);
+            if (g.head != null && Mathf.Abs(hd - 1f) > 0.002f)
+            {
+                if (!st.boneScales.ContainsKey(g.head)) st.boneScales[g.head] = g.head.localScale;
+                g.head.localScale *= hd;
             }
         }
     }

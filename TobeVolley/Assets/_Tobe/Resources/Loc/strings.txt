@@ -309,3 +309,18 @@
 БЛОК НЕ УСПЕЛ!	BLOCK TOO LATE!	ブロックが間に合わない！
 ПЕРЕДАЧА — НАВЕДИ ПРИЦЕЛ НА НАПАРНИКА	SET — AIM AT A TEAMMATE	トス：仲間に照準を合わせる
 ПЕРЕДАЧА: ТАП — БЫСТРАЯ, ДЕРЖИ — ВЫСОКАЯ	SET: TAP — QUICK, HOLD — HIGH	トス：タップで速攻、長押しで高いトス
+ТЕЛО	BODY	体型
+ПЛЕЧИ	SHOULDERS	肩幅
+ГРУДЬ	CHEST	胸
+ТАЛИЯ	WAIST	ウエスト
+БЁДРА	HIPS	腰回り
+ДЛИНА РУК	ARM LENGTH	腕の長さ
+ДЛИНА НОГ	LEG LENGTH	脚の長さ
+ШЕЯ	NECK	首
+ГОЛОВА	HEAD SIZE	頭の大きさ
+СВОЙ ЦВЕТ	CUSTOM COLOR	カスタムカラー
+ТОН	HUE	色相
+НАСЫЩ.	SAT.	彩度
+ЯРКОСТЬ	BRIGHT.	明るさ
+ПРОПОРЦИИ МОДЕЛИ	DEFAULT PROPORTIONS	標準の体型
+ИГРОК{0}	PLAYER{0}	プレイヤー{0}

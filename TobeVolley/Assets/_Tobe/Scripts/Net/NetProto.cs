@@ -33,11 +33,16 @@ namespace Tobe.Net
         {
             w.Write(p.nick ?? ""); w.Write((byte)p.style); w.Write(p.model); w.Write(p.hair); w.Write(p.number);
             w.Write(p.skin); w.Write(p.height); w.Write(p.build); w.Write(p.eyes); w.Write(p.gear); w.Write(p.kitShirt); w.Write(p.kitShorts); w.Write(p.kitNumber);
+            w.Write(p.bShoulders); w.Write(p.bChest); w.Write(p.bWaist); w.Write(p.bHips); w.Write(p.bArms); w.Write(p.bLegs); w.Write(p.bNeck); w.Write(p.bHead);
+            w.Write(p.cSkin); w.Write(p.cHair); w.Write(p.cEye);
         }
         public static PlayerProfile Profile(this BinaryReader r)
         {
             var p = new PlayerProfile { nick = r.ReadString(), style = (PlayStyle)r.ReadByte(), model = r.ReadByte(), hair = r.ReadByte(), number = r.ReadByte(),
                 skin = r.ReadByte(), height = r.ReadByte(), build = r.ReadByte(), eyes = r.ReadByte(), gear = r.ReadByte(), kitShirt = r.ReadByte(), kitShorts = r.ReadByte(), kitNumber = r.ReadByte() };
+            p.bShoulders = r.ReadSByte(); p.bChest = r.ReadSByte(); p.bWaist = r.ReadSByte(); p.bHips = r.ReadSByte();
+            p.bArms = r.ReadSByte(); p.bLegs = r.ReadSByte(); p.bNeck = r.ReadSByte(); p.bHead = r.ReadSByte();
+            p.cSkin = r.ReadUInt32(); p.cHair = r.ReadUInt32(); p.cEye = r.ReadUInt32();
             if (p.nick.Length > 16) p.nick = p.nick.Substring(0, 16);
             if ((int)p.style > 4) p.style = PlayStyle.Outside;
             return p;

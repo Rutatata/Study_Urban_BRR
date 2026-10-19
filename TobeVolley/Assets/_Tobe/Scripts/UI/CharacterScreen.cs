@@ -15,7 +15,19 @@ namespace Tobe.UI
         }
 
         static readonly string[] StatLabels = { "АТАКА", "ПРЫЖОК", "ПРИЁМ", "ПАС", "БЛОК", "ПОДАЧА", "СКОРОСТЬ" };
-        static readonly string[] TabNames = { "ИГРОК", "ВНЕШНОСТЬ", "ФОРМА", "ЭКИПИРОВКА" };
+        static readonly string[] TabNames = { "ИГРОК", "ВНЕШНОСТЬ", "ТЕЛО", "ФОРМА", "ЭКИПИРОВКА" };
+        // вкладка «ТЕЛО»: пропорции -100..100 (пределы — CharacterAppearance.ApplyBody: модель не превращается в «уродца»)
+        static readonly string[] BodyNames = { "ПЛЕЧИ", "ГРУДЬ", "ТАЛИЯ", "БЁДРА", "ДЛИНА РУК", "ДЛИНА НОГ", "ШЕЯ", "ГОЛОВА" };
+        static sbyte GetBody(in PlayerProfile p, int i) => i switch { 0 => p.bShoulders, 1 => p.bChest, 2 => p.bWaist, 3 => p.bHips, 4 => p.bArms, 5 => p.bLegs, 6 => p.bNeck, _ => p.bHead };
+        static void SetBody(ref PlayerProfile p, int i, sbyte v)
+        {
+            switch (i) { case 0: p.bShoulders = v; break; case 1: p.bChest = v; break; case 2: p.bWaist = v; break; case 3: p.bHips = v; break;
+                         case 4: p.bArms = v; break; case 5: p.bLegs = v; break; case 6: p.bNeck = v; break; default: p.bHead = v; break; }
+        }
+        readonly Slider[] bodySlider = new Slider[8]; readonly Text[] bodyVal = new Text[8];
+        // свой цвет: тон / насыщенность / яркость для кожи (0), волос (1), глаз (2); кожа — только естественные оттенки
+        readonly Slider[,] hsv = new Slider[3, 3];
+        static readonly Vector2[] SkinH = { new Vector2(0.02f, 0.11f), new Vector2(0.08f, 0.62f), new Vector2(0.32f, 1f) };
 
         readonly GearDef[] Gears =
         {
@@ -33,8 +45,8 @@ namespace Tobe.UI
         Text loadingText, plateNick, plateNum, bigNum, savedText, modelText, numberText, heightText, buildText;
         RectTransform plateIcon, plateRoot;
         InputField nick;
-        Button[] tabBtn = new Button[4];
-        RectTransform[] tabRoot = new RectTransform[4];
+        Button[] tabBtn = new Button[5];
+        RectTransform[] tabRoot = new RectTransform[5];
         int tab;
         Button[] styleBtn;
         Text styleName, styleDesc, finName, finQuote;
@@ -134,11 +146,11 @@ namespace Tobe.UI
             var panel = UiKit.MakePanel(Rt, "RightPanel", new Vector2(1020, 800), 0f, UiKit.Panel, UiKit.Cyan);
             UiKit.At(panel.rectTransform, UiKit.TL, new Vector2(830, -140), new Vector2(1020, 800));
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 int idx = i;
-                var b = UiKit.MakeButton(panel.transform, TabNames[i], new Vector2(230, 62), UiKit.Purple, () => SetTab(idx), 24, 16f);
-                UiKit.At(b.GetComponent<RectTransform>(), UiKit.TL, new Vector2(36 + i * 240, -24), new Vector2(230, 62));
+                var b = UiKit.MakeButton(panel.transform, TabNames[i], new Vector2(182, 62), UiKit.Purple, () => SetTab(idx), 20, 14f);
+                UiKit.At(b.GetComponent<RectTransform>(), UiKit.TL, new Vector2(36 + i * 190, -24), new Vector2(182, 62));
                 tabBtn[i] = b;
                 var root = UiKit.NewRect("Tab" + i, panel.transform);
                 UiKit.At(root, UiKit.TL, new Vector2(40, -108), new Vector2(940, 670));
@@ -146,8 +158,9 @@ namespace Tobe.UI
             }
             BuildTabPlayer(tabRoot[0]);
             BuildTabLook(tabRoot[1]);
-            BuildTabKit(tabRoot[2]);
-            BuildTabGear(tabRoot[3]);
+            BuildTabBody(tabRoot[2]);
+            BuildTabKit(tabRoot[3]);
+            BuildTabGear(tabRoot[4]);
         }
 
         static Text Cap(Transform p, string text, Vector2 pos, float w = 500)
@@ -234,18 +247,73 @@ namespace Tobe.UI
             UiKit.At(mNext.GetComponent<RectTransform>(), UiKit.TL, new Vector2(500, -30), new Vector2(64, 60));
 
             Cap(root, "ТОН КОЖИ", new Vector2(0, -108));
-            skinFrame = Swatches(root, TeamLook.SkinTones, -140, i => { draft.skin = (byte)i; Refresh(true); });
-            Cap(root, "ЦВЕТ ВОЛОС", new Vector2(0, -214));
-            hairFrame = Swatches(root, TeamLook.HairPresets, -246, i => { draft.hair = (byte)i; Refresh(true); });
-            Cap(root, "ЦВЕТ ГЛАЗ", new Vector2(0, -320));
-            eyeFrame = Swatches(root, TeamLook.EyeColors, -352, i => { draft.eyes = (byte)i; Refresh(true); });
+            skinFrame = Swatches(root, TeamLook.SkinTones, -140, i => { draft.skin = (byte)i; draft.cSkin = 0; Refresh(true); });
+            Cap(root, "ЦВЕТ ВОЛОС", new Vector2(0, -244));
+            hairFrame = Swatches(root, TeamLook.HairPresets, -276, i => { draft.hair = (byte)i; draft.cHair = 0; Refresh(true); });
+            Cap(root, "ЦВЕТ ГЛАЗ", new Vector2(0, -380));
+            eyeFrame = Swatches(root, TeamLook.EyeColors, -412, i => { draft.eyes = (byte)i; draft.cEye = 0; Refresh(true); });
+            float[] rowY = { -108, -244, -380 };
+            for (int g = 0; g < 3; g++)
+            {   // справа от палитры — свой цвет: три ползунка
+                Cap(root, "СВОЙ ЦВЕТ", new Vector2(590, rowY[g]), 300);
+                string[] hn = { "ТОН", "НАСЫЩ.", "ЯРКОСТЬ" };
+                for (int c = 0; c < 3; c++)
+                {
+                    int gg = g;
+                    var lab = UiKit.Label(root, hn[c], 16, new Color(1, 1, 1, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+                    UiKit.At(lab.rectTransform, UiKit.TL, new Vector2(590, rowY[g] - 30 - c * 30), new Vector2(110, 24));
+                    var sl = UiKit.MakeSlider(root, new Vector2(230, 18), c == 0 ? UiKit.Orange : c == 1 ? UiKit.Cyan : UiKit.Gold, 0f, 1f, false, v => { if (suppress) return; PickHsv(gg); });
+                    UiKit.At(sl.GetComponent<RectTransform>(), UiKit.TL, new Vector2(700, rowY[g] - 33 - c * 30), new Vector2(230, 18));
+                    hsv[g, c] = sl;
+                }
+            }
+        }
 
-            heightText = Cap(root, "РОСТ", new Vector2(0, -430), 700);
-            heightSlider = UiKit.MakeSlider(root, new Vector2(760, 24), UiKit.Orange, 0, 255, true, v => { if (suppress) return; draft.height = (byte)v; Refresh(false); });
-            UiKit.At(heightSlider.GetComponent<RectTransform>(), UiKit.TL, new Vector2(10, -472), new Vector2(760, 24));
-            buildText = Cap(root, "ТЕЛОСЛОЖЕНИЕ", new Vector2(0, -530), 700);
-            buildSlider = UiKit.MakeSlider(root, new Vector2(760, 24), UiKit.Cyan, 0, 255, true, v => { if (suppress) return; draft.build = (byte)v; Refresh(false); });
-            UiKit.At(buildSlider.GetComponent<RectTransform>(), UiKit.TL, new Vector2(10, -572), new Vector2(760, 24));
+        void PickHsv(int g)
+        {
+            float h = hsv[g, 0].value, s = hsv[g, 1].value, v = hsv[g, 2].value;
+            if (g == 0) { h = Mathf.Lerp(SkinH[0].x, SkinH[0].y, h); s = Mathf.Lerp(SkinH[1].x, SkinH[1].y, s); v = Mathf.Lerp(SkinH[2].x, SkinH[2].y, v); }
+            if (g == 2) v = Mathf.Lerp(0.12f, 1f, v);   // глаза не чёрные «дыры»
+            uint c = PlayerProfile.Pack(Color.HSVToRGB(h, s, v));
+            if (g == 0) draft.cSkin = c; else if (g == 1) draft.cHair = c; else draft.cEye = c;
+            Refresh(true);
+        }
+
+        void SyncHsv()
+        {   // ползунки показывают текущий цвет (из палитры или свой)
+            Color[] cur = { PlayerProfile.Custom(draft.cSkin, TeamLook.SkinTones[Mathf.Clamp(draft.skin, 0, TeamLook.SkinTones.Length - 1)]),
+                            PlayerProfile.Custom(draft.cHair, TeamLook.HairPresets[Mathf.Clamp(draft.hair, 0, TeamLook.HairPresets.Length - 1)]),
+                            PlayerProfile.Custom(draft.cEye, TeamLook.EyeColors[Mathf.Clamp(draft.eyes, 0, TeamLook.EyeColors.Length - 1)]) };
+            for (int g = 0; g < 3; g++)
+            {
+                Color.RGBToHSV(cur[g], out float h, out float s, out float v);
+                if (g == 0) { h = Mathf.InverseLerp(SkinH[0].x, SkinH[0].y, h); s = Mathf.InverseLerp(SkinH[1].x, SkinH[1].y, s); v = Mathf.InverseLerp(SkinH[2].x, SkinH[2].y, v); }
+                if (g == 2) v = Mathf.InverseLerp(0.12f, 1f, v);
+                hsv[g, 0].SetValueWithoutNotify(h); hsv[g, 1].SetValueWithoutNotify(s); hsv[g, 2].SetValueWithoutNotify(v);
+            }
+        }
+
+        void BuildTabBody(RectTransform root)
+        {
+            heightText = Cap(root, "РОСТ", new Vector2(0, 0), 440);
+            heightSlider = UiKit.MakeSlider(root, new Vector2(430, 24), UiKit.Orange, 0, 255, true, v => { if (suppress) return; draft.height = (byte)v; Refresh(false); });
+            UiKit.At(heightSlider.GetComponent<RectTransform>(), UiKit.TL, new Vector2(10, -38), new Vector2(430, 24));
+            buildText = Cap(root, "ТЕЛОСЛОЖЕНИЕ", new Vector2(480, 0), 440);
+            buildSlider = UiKit.MakeSlider(root, new Vector2(430, 24), UiKit.Cyan, 0, 255, true, v => { if (suppress) return; draft.build = (byte)v; Refresh(false); });
+            UiKit.At(buildSlider.GetComponent<RectTransform>(), UiKit.TL, new Vector2(490, -38), new Vector2(430, 24));
+            for (int i = 0; i < 8; i++)
+            {
+                int idx = i;
+                float x = (i % 2) * 480f, y = -100f - (i / 2) * 100f;
+                Cap(root, BodyNames[i], new Vector2(x, y), 300);
+                bodyVal[i] = UiKit.Label(root, "", 20, Color.white, TextAnchor.MiddleRight, FontStyle.BoldAndItalic);
+                UiKit.At(bodyVal[i].rectTransform, UiKit.TL, new Vector2(x + 330, y), new Vector2(110, 26));
+                var sl = UiKit.MakeSlider(root, new Vector2(430, 24), i % 2 == 0 ? UiKit.Gold : UiKit.Cyan, -100, 100, true, v => { if (suppress) return; SetBody(ref draft, idx, (sbyte)v); Refresh(false); });
+                UiKit.At(sl.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 10, y - 38), new Vector2(430, 24));
+                bodySlider[i] = sl;
+            }
+            var zero = UiKit.MakeButton(root, "ПРОПОРЦИИ МОДЕЛИ", new Vector2(360, 54), UiKit.Purple, () => { for (int i = 0; i < 8; i++) SetBody(ref draft, i, 0); Refresh(true); }, 22, 12f);
+            UiKit.At(zero.GetComponent<RectTransform>(), UiKit.TL, new Vector2(0, -500), new Vector2(360, 54));
         }
 
         Outline[] Swatches(RectTransform root, Color[] colors, float y, Action<int> pick)
@@ -347,6 +415,8 @@ namespace Tobe.UI
             draft.height = (byte)UnityEngine.Random.Range(30, 226);
             draft.build = (byte)UnityEngine.Random.Range(30, 226);
             draft.gear = (byte)UnityEngine.Random.Range(0, 64);
+            draft.cSkin = draft.cHair = draft.cEye = 0;
+            for (int i = 0; i < 8; i++) SetBody(ref draft, i, (sbyte)UnityEngine.Random.Range(-60, 61));   // в меру — без крайностей
             preview.Play(PoseId.Celebrate, 1.2f);
             Refresh(true);
         }
@@ -439,9 +509,11 @@ namespace Tobe.UI
             var names = GameHub.ModelNames;
             modelText.text = (names != null && names.Length > 0 && draft.model < names.Length ? names[draft.model] : "Модель " + (draft.model + 1)).ToUpperInvariant()
                 + "   " + (draft.model + 1) + "/" + ModelCount();
-            Frames(skinFrame, draft.skin); Frames(hairFrame, draft.hair); Frames(eyeFrame, draft.eyes);
+            Frames(skinFrame, draft.cSkin != 0 ? -1 : draft.skin); Frames(hairFrame, draft.cHair != 0 ? -1 : draft.hair); Frames(eyeFrame, draft.cEye != 0 ? -1 : draft.eyes);   // свой цвет — рамки нет
             Frames(kitShirtFrame, draft.kitShirt); Frames(kitShortsFrame, draft.kitShorts); Frames(kitNumFrame, draft.kitNumber);
             heightSlider.value = draft.height; buildSlider.value = draft.build;
+            for (int i = 0; i < 8; i++) { int bv = GetBody(draft, i); bodySlider[i].value = bv; bodyVal[i].text = bv == 0 ? "0" : (bv > 0 ? "+" : "") + bv; }
+            SyncHsv();
             int cm = Mathf.RoundToInt(180f * draft.HeightScale);
             heightText.text = "РОСТ   " + cm + " СМ";
             buildText.text = "ТЕЛОСЛОЖЕНИЕ   " + (draft.build < 85 ? "ХУДОЩАВОЕ" : draft.build < 170 ? "СПОРТИВНОЕ" : "АТЛЕТИЧНОЕ");

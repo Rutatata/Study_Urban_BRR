@@ -9,5 +9,6 @@ namespace Tobe.View
         public bool hasBase;
         public Vector3 baseScale = Vector3.one;
         public readonly Dictionary<Transform, Vector3> boneScales = new Dictionary<Transform, Vector3>();
+        public readonly Dictionary<Transform, Vector3> bonePos = new Dictionary<Transform, Vector3>();   // пропорции: исходные положения костей
     }
 }

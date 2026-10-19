@@ -185,7 +185,13 @@ namespace Tobe
         public byte gear;       // bitmask of Gear flags
         // --- своя форма (вкладка «ФОРМА»): 0 — цвет команды, иначе 1 + индекс TeamLook.KitColors
         public byte kitShirt, kitShorts, kitNumber;
+        // --- пропорции (вкладка «ТЕЛО»): -100..100, 0 — как у модели; пределы в CharacterAppearance.ApplyBody
+        public sbyte bShoulders, bChest, bWaist, bHips, bArms, bLegs, bNeck, bHead;
+        // --- свой цвет (0 — цвет из палитры по индексу, иначе 0xFFRRGGBB)
+        public uint cSkin, cHair, cEye;
         public float HeightScale => 0.92f + height / 255f * 0.16f;
+        public static Color Custom(uint c, Color fallback) => (c >> 24) == 0 ? fallback : new Color(((c >> 16) & 255) / 255f, ((c >> 8) & 255) / 255f, (c & 255) / 255f);
+        public static uint Pack(Color c) => 0xFF000000u | ((uint)Mathf.RoundToInt(Mathf.Clamp01(c.r) * 255) << 16) | ((uint)Mathf.RoundToInt(Mathf.Clamp01(c.g) * 255) << 8) | (uint)Mathf.RoundToInt(Mathf.Clamp01(c.b) * 255);
     }
 
     [Flags]
