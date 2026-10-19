@@ -320,6 +320,8 @@ T = [
 ("НАСЫЩ.", "SAT.", "彩度"),
 ("ЯРКОСТЬ", "BRIGHT.", "明るさ"),
 ("ПРОПОРЦИИ МОДЕЛИ", "DEFAULT PROPORTIONS", "標準の体型"),
+("ПРИЧЁСКА", "HAIRSTYLE", "髪型"),
+("СВОЯ", "OWN", "そのまま"),
 ("ЗАГРУЗКА ИГРОКОВ...", "LOADING PLAYERS...", "選手を読み込み中..."),
 ]
 DEV = ('PerfProbe', 'AudioManager', 'PlayerAnimator')

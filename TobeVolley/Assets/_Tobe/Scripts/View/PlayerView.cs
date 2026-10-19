@@ -30,7 +30,7 @@ namespace Tobe.View
         float smYaw;
         bool inited, wasAir, isLocal;
         int loadToken;
-        int curModel = -1, curHair = -1, curTeam = -1, curStyle = -1;
+        int curModel = -1, curHair = -1, curTeam = -1, curStyle = -1, curHairStyle = -1;
 
         public static PlayerView Create(Transform parent, in PlayerSnap s)
         {
@@ -88,7 +88,8 @@ namespace Tobe.View
         void ApplyProfileChanges(in PlayerSnap s, bool force)
         {
             int m = s.profile.model, h = s.profile.hair, t = s.team, st = (int)s.profile.style;
-            bool modelChanged = force || m != curModel;
+            bool modelChanged = force || m != curModel || s.profile.hairStyle != curHairStyle;
+            curHairStyle = s.profile.hairStyle;
             bool colorChanged = modelChanged || h != curHair || t != curTeam;
             curModel = m; curHair = h; curTeam = t;
             curProfile = s.profile;
@@ -99,7 +100,7 @@ namespace Tobe.View
                 var main = aura.main;
                 main.startColor = new ParticleSystem.MinMaxGradient(def.c1 * 2f, def.c2 * 2f);
             }
-            if (modelChanged) LoadModelAsync(m);
+            if (modelChanged) LoadModelAsync(m, s.profile.hairStyle);
             else if (colorChanged && model != null) CharacterLibrary.Recolor(model, curTeam, HairColor(curHair));
         }
 
@@ -109,11 +110,11 @@ namespace Tobe.View
             return arr[Mathf.Clamp(i, 0, arr.Length - 1)];
         }
 
-        async void LoadModelAsync(int idx)
+        async void LoadModelAsync(int idx, int hairStyle)
         {
             int token = ++loadToken;
             GameObject go = null;
-            try { go = await CharacterLibrary.LoadModel(idx); }
+            try { go = await CharacterLibrary.LoadModel(idx, hairStyle); }
             catch (Exception e) { Debug.LogWarning("[Tobe] model load error: " + e.Message); }
             if (this == null || token != loadToken)
             {
@@ -207,7 +208,7 @@ namespace Tobe.View
         public void Tick(in PlayerSnap s, bool local, float dt)
         {
             isLocal = local;
-            if (s.profile.model != curModel || s.profile.hair != curHair || s.team != curTeam || (int)s.profile.style != curStyle)
+            if (s.profile.model != curModel || s.profile.hair != curHair || s.team != curTeam || (int)s.profile.style != curStyle || s.profile.hairStyle != curHairStyle)
                 ApplyProfileChanges(s, false);
 
             if (model != null && curAppear != -1 && AppearKey(s.profile, s.team) != curAppear) { curProfile = s.profile; ApplyAppearance(); }

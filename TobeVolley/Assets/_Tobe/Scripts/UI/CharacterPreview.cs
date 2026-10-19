@@ -168,7 +168,7 @@ namespace Tobe.UI
         void Apply()
         {
             dirty = false;
-            if (model == null || shownModel != want.model)
+            if (model == null || shownModel != want.model || shownHairStyle != want.hairStyle)
             {
                 LoadModel(want.model);
                 return;
@@ -177,13 +177,16 @@ namespace Tobe.UI
             CharacterAppearance.Apply(model, model.GetComponentInChildren<Animator>(), want, team);
         }
 
+        int shownHairStyle = -1;
         async void LoadModel(int idx)
         {
             loading = true;
             int token = ++loadToken;
             GameObject go = null;
-            try { go = await CharacterLibrary.LoadModel(idx); }
+            int hs = want.hairStyle;
+            try { go = await CharacterLibrary.LoadModel(idx, hs); }
             catch (Exception e) { Debug.LogWarning("[Tobe] preview model load failed: " + e.Message); }
+            shownHairStyle = hs;
             if (this == null) { if (go != null) Destroy(go); return; }
             if (token != loadToken) { if (go != null) Destroy(go); loading = false; if (active) dirty = true; return; }
             loading = false;

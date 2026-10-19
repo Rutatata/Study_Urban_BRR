@@ -85,6 +85,7 @@ namespace Tobe.UI
                     p.bArms = B("arms"); p.bLegs = B("legs"); p.bNeck = B("neck"); p.bHead = B("head");
                     uint Cl(string k) { uint.TryParse(PlayerPrefs.GetString("tobe.color." + k, "0"), out uint v); return v; }
                     p.cSkin = Cl("skin"); p.cHair = Cl("hair"); p.cEye = Cl("eye");
+                    p.hairStyle = (byte)Mathf.Clamp(PlayerPrefs.GetInt("tobe.hairStyle", 0), 0, 255);
                 }
             }
             catch (Exception) { }
@@ -110,6 +111,7 @@ namespace Tobe.UI
                 PlayerPrefs.SetInt("tobe.body.hips", p.bHips); PlayerPrefs.SetInt("tobe.body.arms", p.bArms); PlayerPrefs.SetInt("tobe.body.legs", p.bLegs);
                 PlayerPrefs.SetInt("tobe.body.neck", p.bNeck); PlayerPrefs.SetInt("tobe.body.head", p.bHead);
                 PlayerPrefs.SetString("tobe.color.skin", p.cSkin.ToString()); PlayerPrefs.SetString("tobe.color.hair", p.cHair.ToString()); PlayerPrefs.SetString("tobe.color.eye", p.cEye.ToString());
+                PlayerPrefs.SetInt("tobe.hairStyle", p.hairStyle);
                 PlayerPrefs.Save();
             }
             catch (Exception) { }

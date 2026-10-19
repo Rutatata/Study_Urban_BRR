@@ -130,11 +130,16 @@ namespace Tobe.View
             return result;
         }
 
-        static GameObject Clone(GameObject template)
+        static GameObject Clone(GameObject template, GameObject hairDonor = null)
         {
             var clone = UnityEngine.Object.Instantiate(template);      // template is inactive -> clone is inactive until fixed up
             clone.name = template.name.Replace("Template_", "Model_");
             clone.transform.SetParent(null, false);
+            if (hairDonor != null)
+            {
+                try { HairGraft.Apply(clone, hairDonor); }
+                catch (Exception e) { Debug.LogWarning("[Tobe] причёска не пересажена: " + e.Message); }
+            }
 
             // resources stay owned by the template: drop the clone's RuntimeGltfInstance so Vrm10Instance uses its prefab-instance path
             var rgi = clone.GetComponent<UniGLTF.RuntimeGltfInstance>();
@@ -168,7 +173,7 @@ namespace Tobe.View
         }
 
         /// <summary>Model #index (a clone of the preloaded VRM template, or the fallback humanoid). Never returns null. The caller owns (and destroys) the result.</summary>
-        public static async Task<GameObject> LoadModel(int index)
+        public static async Task<GameObject> LoadModel(int index, int hairStyle = 0)
         {
             string path = PathOf(index);
             if (path != null)
@@ -176,7 +181,10 @@ namespace Tobe.View
                 try
                 {
                     var template = await GetTemplate(path);
-                    if (template != null) return Clone(template);
+                    GameObject donor = null;
+                    string dp = hairStyle > 0 && hairStyle - 1 != index ? PathOf(hairStyle - 1) : null;
+                    if (dp != null) donor = await GetTemplate(dp);
+                    if (template != null) return Clone(template, donor);
                 }
                 catch (Exception e) { Debug.LogWarning("[Tobe] model clone failed (" + path + "): " + e.Message); }
             }

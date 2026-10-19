@@ -246,6 +246,14 @@ namespace Tobe.UI
             var mNext = UiKit.MakeButton(root, ">", new Vector2(64, 60), UiKit.Purple, () => ChangeModel(1), 32, 10f);
             UiKit.At(mNext.GetComponent<RectTransform>(), UiKit.TL, new Vector2(500, -30), new Vector2(64, 60));
 
+            Cap(root, "ПРИЧЁСКА", new Vector2(590, 0));
+            var hPrev = UiKit.MakeButton(root, "<", new Vector2(56, 60), UiKit.Purple, () => ChangeHairStyle(-1), 32, 10f);
+            UiKit.At(hPrev.GetComponent<RectTransform>(), UiKit.TL, new Vector2(590, -30), new Vector2(56, 60));
+            hairStyleText = UiKit.Label(root, "", 24, Color.white, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic);
+            UiKit.At(hairStyleText.rectTransform, UiKit.TL, new Vector2(652, -30), new Vector2(222, 60));
+            var hNext = UiKit.MakeButton(root, ">", new Vector2(56, 60), UiKit.Purple, () => ChangeHairStyle(1), 32, 10f);
+            UiKit.At(hNext.GetComponent<RectTransform>(), UiKit.TL, new Vector2(880, -30), new Vector2(56, 60));
+
             Cap(root, "ТОН КОЖИ", new Vector2(0, -108));
             skinFrame = Swatches(root, TeamLook.SkinTones, -140, i => { draft.skin = (byte)i; draft.cSkin = 0; Refresh(true); });
             Cap(root, "ЦВЕТ ВОЛОС", new Vector2(0, -244));
@@ -267,6 +275,15 @@ namespace Tobe.UI
                     hsv[g, c] = sl;
                 }
             }
+        }
+
+        Text hairStyleText;
+        void ChangeHairStyle(int d)
+        {   // 0 — своя причёска модели, k — с модели k-1 (своя модель пропускается: это то же самое, что «своя»)
+            int n = ModelCount() + 1, v = draft.hairStyle;
+            do { v = ((v + d) % n + n) % n; } while (v != 0 && v - 1 == draft.model);
+            draft.hairStyle = (byte)v;
+            Refresh(true);
         }
 
         void PickHsv(int g)
@@ -509,6 +526,8 @@ namespace Tobe.UI
             var names = GameHub.ModelNames;
             modelText.text = (names != null && names.Length > 0 && draft.model < names.Length ? names[draft.model] : "Модель " + (draft.model + 1)).ToUpperInvariant()
                 + "   " + (draft.model + 1) + "/" + ModelCount();
+            if (draft.hairStyle - 1 == draft.model || draft.hairStyle > ModelCount()) draft.hairStyle = 0;
+            hairStyleText.text = draft.hairStyle == 0 ? "СВОЯ" : (names != null && draft.hairStyle - 1 < names.Length ? names[draft.hairStyle - 1] : "Модель " + draft.hairStyle).ToUpperInvariant();
             Frames(skinFrame, draft.cSkin != 0 ? -1 : draft.skin); Frames(hairFrame, draft.cHair != 0 ? -1 : draft.hair); Frames(eyeFrame, draft.cEye != 0 ? -1 : draft.eyes);   // свой цвет — рамки нет
             Frames(kitShirtFrame, draft.kitShirt); Frames(kitShortsFrame, draft.kitShorts); Frames(kitNumFrame, draft.kitNumber);
             heightSlider.value = draft.height; buildSlider.value = draft.build;
