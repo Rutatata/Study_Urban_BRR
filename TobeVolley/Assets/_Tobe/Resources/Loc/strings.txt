@@ -333,3 +333,19 @@
 ФАСОН	CUT	デザイン
 ДЛИННЫЙ РУКАВ	LONG SLEEVES	長袖
 ДЛИННЫЕ ШОРТЫ	LONG SHORTS	ロングパンツ
+В ПОЛ!	STRAIGHT DOWN!	叩きつけ！
+НАКАТ!	ROLL SHOT!	ロールショット！
+СРЕЗКА!	CUT SHOT!	カットショット！
+ПУШ!	PUSH!	プッシュ！
+ОБМАНКА ВБОК!	SIDE TIP!	横フェイント！
+ОТСКОК!	REBOUND!	リバウンド！
+ЧЕРЕЗ БЛОК!	BLOCK-OUT!	ブロックアウト！
+СКИДКА!	SETTER DUMP!	ツーアタック！
+ЗА ГОЛОВУ!	BACK SET!	バックトス！
+В ПАДЕНИИ!	SPRAWL DIG!	フライングレシーブ！
+МЯГКИЙ ПРИЁМ	SOFT DIG	柔らかいレシーブ
+ПОДКРУТКА!	CURVE SERVE!	カーブサーブ！
++ удар: W — в пол, S — накат, A/D — срезка; + ПКМ в прыжке: S — отскок от блока, A/D — обманка вбок	+ spike: W — straight down, S — roll shot, A/D — cut; + RMB in the air: S — rebound off the block, A/D — side tip	＋スパイク：W 叩きつけ、S ロール、A/D カット；＋空中で右クリック：S リバウンド、A/D 横フェイント
++ пас: S — за голову, W — скидка; + приём: A/D — в падении, S — мягкий; + подача: A/D — подкрутка	+ set: S — back set, W — dump; + bump: A/D — sprawl, S — soft; + serve: A/D — curve	＋トス：S バックトス、W ツーアタック；＋レシーブ：A/D フライング、S 柔らかく；＋サーブ：A/D カーブ
+W/S/A/D	W/S/A/D	W/S/A/D
+ГРОМКОСТЬ МУЗЫКИ	MUSIC VOLUME	音楽の音量

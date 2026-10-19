@@ -27,6 +27,7 @@ namespace Tobe.Core
             Tobe.Net.NetSession.Create(root);
             Tobe.View.ViewRoot.Create();
             Tobe.UI.AudioManager.Create();
+            Tobe.UI.MusicPlayer.Create();
             Tobe.UI.UiRoot.Create();
         }
 

@@ -45,6 +45,11 @@ namespace Tobe.UI
             UiKit.At(sensText.rectTransform, UiKit.TL, new Vector2(0, yb - 52), new Vector2(420, 34));
             sens = UiKit.MakeSlider(root, new Vector2(420, 24), UiKit.Orange, 0.3f, 3f, false, v => { if (pad) Controls.PadSens = 170f * v; else Controls.MouseSens = 0.1f * v; Save(); Refresh(); });
             UiKit.At(sens.GetComponent<RectTransform>(), UiKit.TL, new Vector2(440, yb - 56), new Vector2(420, 24));
+            var mus = UiKit.Label(root, "ГРОМКОСТЬ МУЗЫКИ", 20, UiKit.Cyan, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiKit.At(mus.rectTransform, UiKit.TL, new Vector2(0, yb - 140), new Vector2(420, 34));
+            var ms = UiKit.MakeSlider(root, new Vector2(420, 24), UiKit.Gold, 0f, 1f, false, v => MusicPlayer.SetVolume(v));
+            UiKit.At(ms.GetComponent<RectTransform>(), UiKit.TL, new Vector2(440, yb - 144), new Vector2(420, 24));
+            ms.SetValueWithoutNotify(MusicPlayer.Volume);
             hint = UiKit.Label(root, "", 22, UiKit.Gold, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic);
             UiKit.At(hint.rectTransform, UiKit.TL, new Vector2(0, yb - 100), new Vector2(width, 36));
             try { Controls.MouseSens = PlayerPrefs.GetFloat("tobe.sens.mouse", 0.1f); Controls.PadSens = PlayerPrefs.GetFloat("tobe.sens.pad", 170f); } catch (System.Exception) { }
