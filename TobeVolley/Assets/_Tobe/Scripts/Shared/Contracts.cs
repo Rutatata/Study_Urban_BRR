@@ -52,7 +52,17 @@ namespace Tobe
             {
                 float dx = x - b.cx, dz = z - b.cz, px = b.hx + r - Mathf.Abs(dx), pz = b.hz + r - Mathf.Abs(dz);
                 if (px <= 0f || pz <= 0f) continue;
-                if (px < pz) x += dx >= 0f ? px : -px; else z += dz >= 0f ? pz : -pz;   // по оси наименьшего проникновения
+                // по оси наименьшего проникновения; если с той стороны щиты (места нет) — на другую сторону предмета
+                if (px < pz)
+                {
+                    float nx = x + (dx >= 0f ? px : -px);
+                    x = nx > HallX1 - r || nx < HallX0 + r ? x + (dx >= 0f ? px - 2f * (b.hx + r) : 2f * (b.hx + r) - px) : nx;
+                }
+                else
+                {
+                    float nz = z + (dz >= 0f ? pz : -pz);
+                    z = nz > HallZ1 - r || nz < HallZ0 + r ? z + (dz >= 0f ? pz - 2f * (b.hz + r) : 2f * (b.hz + r) - pz) : nz;
+                }
             }
         }
 
