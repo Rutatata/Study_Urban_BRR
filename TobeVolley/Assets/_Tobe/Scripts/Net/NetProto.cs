@@ -62,7 +62,7 @@ namespace Tobe.Net
             var w = W0();
             w.Write(c.move.x); w.Write(c.move.y); w.Write(c.sprint); w.W(c.aim);
             w.Write(c.jumpCount); w.Write(c.hitPressCount); w.Write(c.hitReleaseCount); w.Write(c.diveCount); w.Write(c.callCount); w.Write(c.specialCount);
-            w.Write(c.setPressCount); w.Write(c.hitHeld); w.Write(c.setHeld); w.Write(c.serveType); w.Write(c.bumpPressCount); w.Write(c.emoteCount); w.Write(c.blockIntent); w.Write(c.fatigue); w.W(c.clientPos); w.W(c.clientVel); w.Write(c.clientAir); w.Write(c.clientDiving);
+            w.Write(c.setPressCount); w.Write(c.hitHeld); w.Write(c.setHeld); w.Write(c.serveType); w.Write(c.bumpPressCount); w.Write(c.emoteCount); w.Write(c.blockIntent); w.Write(c.fatigue); w.W(c.clientPos); w.W(c.clientVel); w.Write(c.clientAir); w.Write(c.clientDiving); w.Write(c.shotDir);
             return Done();
         }
         public static InputCmd Input(byte[] b)
@@ -71,7 +71,7 @@ namespace Tobe.Net
             var c = new InputCmd();
             c.move = new Vector2(r.ReadSingle(), r.ReadSingle()); c.sprint = r.ReadBoolean(); c.aim = r.V3();
             c.jumpCount = r.ReadUInt16(); c.hitPressCount = r.ReadUInt16(); c.hitReleaseCount = r.ReadUInt16(); c.diveCount = r.ReadUInt16(); c.callCount = r.ReadUInt16(); c.specialCount = r.ReadUInt16();
-            c.setPressCount = r.ReadUInt16(); c.hitHeld = r.ReadBoolean(); c.setHeld = r.ReadBoolean(); c.serveType = r.ReadByte(); c.bumpPressCount = r.ReadUInt16(); c.emoteCount = r.ReadUInt16(); c.blockIntent = r.ReadBoolean(); c.fatigue = r.ReadByte(); c.clientPos = r.V3(); c.clientVel = r.V3(); c.clientAir = r.ReadBoolean(); c.clientDiving = r.ReadBoolean();
+            c.setPressCount = r.ReadUInt16(); c.hitHeld = r.ReadBoolean(); c.setHeld = r.ReadBoolean(); c.serveType = r.ReadByte(); c.bumpPressCount = r.ReadUInt16(); c.emoteCount = r.ReadUInt16(); c.blockIntent = r.ReadBoolean(); c.fatigue = r.ReadByte(); c.clientPos = r.V3(); c.clientVel = r.V3(); c.clientAir = r.ReadBoolean(); c.clientDiving = r.ReadBoolean(); c.shotDir = r.ReadByte();
             return c;
         }
 

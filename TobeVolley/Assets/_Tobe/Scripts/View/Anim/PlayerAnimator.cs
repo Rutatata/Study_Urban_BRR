@@ -791,6 +791,7 @@ namespace Tobe.View
                 case PoseId.Idle: case PoseId.Ready: case PoseId.Run: BuildStance(); break;
                 case PoseId.SpikeWind: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kWind, VolleyKeys.tWind, VolleyKeys.eWind); break;
                 case PoseId.Spike: if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kSpike, VolleyKeys.tSpike, VolleyKeys.eSpike); break;
+                case PoseId.Tip: VolleyKeys.Seq(tgt, pt, VolleyKeys.kTip, VolleyKeys.tTip, VolleyKeys.eTip); break;
                 case PoseId.Block:
                     if (!actWanted) VolleyKeys.Seq(tgt, pt, VolleyKeys.kBlock, VolleyKeys.tBlock, VolleyKeys.eBlock);
                     if (ground) tgt.hips += VolleyKeys.BlockReady.hips * gaitW;

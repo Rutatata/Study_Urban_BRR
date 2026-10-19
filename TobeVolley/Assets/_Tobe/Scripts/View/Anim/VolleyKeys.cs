@@ -88,6 +88,10 @@ namespace Tobe.View
         public static readonly PoseOv SH3 = new PoseOv { uR = V(0.3f, -0.9f, 0.3f), lR = V(0.1f, -0.95f, 0.3f), uL = V(0.3f, -0.9f, 0.1f), lL = V(0.1f, -0.95f, 0.2f), spine = V(6, 0, 0), chest = V(6, 0, 0) };
 
         public static readonly PoseOv[] kWind = { SW0, SW1, SW2 };        public static readonly float[] tWind = { 0f, 0.14f, 0.32f };       public static readonly int[] eWind = { 0, 0, 0 };
+        // мягкий удар кистью (обманка, накат, пуш): рука вытягивается вверх-вперёд, кисть «толкает» мяч, корпус почти не скручивается
+        static readonly PoseOv TP1 = new PoseOv { uR = V(0.15f, 0.95f, 0.28f), lR = V(0.1f, 0.9f, 0.42f), uL = V(0.35f, 0.3f, 0.6f), lL = V(0.15f, 0.2f, 0.8f), spine = V(-4, -6, 0), chest = V(-4, -6, 0), head = V(-14, 0, 0) };
+        static readonly PoseOv TP2 = new PoseOv { uR = V(0.12f, 0.75f, 0.65f), lR = V(0.06f, 0.55f, 0.84f), uL = V(0.3f, -0.2f, 0.6f), lL = V(0.1f, -0.3f, 0.8f), spine = V(6, 0, 0), chest = V(4, 0, 0), head = V(-8, 0, 0) };
+        public static readonly PoseOv[] kTip = { SW2, TP1, TP2 };     public static readonly float[] tTip = { 0f, 0.1f, 0.35f };       public static readonly int[] eTip = { 0, 1, 0 };
         public static readonly PoseOv[] kSpike = { SW2, SP1, SP2, SP3 };  public static readonly float[] tSpike = { 0f, 0.05f, 0.15f, 0.42f }; public static readonly int[] eSpike = { 0, 1, 2, 0 };
         public static readonly PoseOv[] kBlock = { BL0, BL1, BL2 };       public static readonly float[] tBlock = { 0f, 0.1f, 0.3f };        public static readonly int[] eBlock = { 0, 2, 0 };
         // нырок «рыбкой» (0,95 с, вместе с подъёмом) по биомеханике волейбольного нырка: выпад на переднюю ногу и толчок →

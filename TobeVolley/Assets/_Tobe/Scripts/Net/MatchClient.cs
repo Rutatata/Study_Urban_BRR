@@ -200,6 +200,10 @@ namespace Tobe.Net
                 }
                 if (Controls.Down(Act.ServeNext)) ServeType = (byte)((ServeType + 1) % 3);
                 cmd.serveType = ServeType;
+                {   // разные удары: какое направление зажато (W/S/A/D или стик) — относительно камеры
+                    var md = Controls.Move();
+                    cmd.shotDir = md.magnitude < 0.5f ? (byte)0 : Mathf.Abs(md.y) >= Mathf.Abs(md.x) ? (byte)(md.y > 0 ? 1 : 2) : (byte)(md.x < 0 ? 3 : 4);
+                }
                 cmd.fatigue = (byte)Mathf.Clamp(100f - stamina, 0f, 100f);
                 if (Controls.Down(Act.Special)) cmd.specialCount++;
                 bool hitDown = Controls.Down(Act.Attack) || kb != null && kb.jKey.wasPressedThisFrame;
