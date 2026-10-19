@@ -1227,7 +1227,8 @@ namespace Tobe.View
             if (firstFrame) plant.Reset();
             // slow follow: the mocap already carries the right vertical bounce (flight phase of a run, crouch on landing); the plant only
             // removes the slow offset. A fast spring + hard clamp pulled the body down in every flight phase and popped it up at contact.
-            float dy = plant.Step(target, 0.16f, dt, 2.5f);
+            // вверх (стопа ушла в пол) — быстро, вниз — мягко: стопа не тонет, а в фазе полёта бега тело не дёргается
+            float dy = plant.Step(target, target > plant.x ? 0.07f : 0.16f, dt, 2.5f);
             dy = Mathf.Max(dy, target - 0.06f);          // never sink deeper than 6 cm into the floor
             plant.x = dy;
             if (Mathf.Abs(dy) > 1e-4f) hips.t.position += root.TransformVector(0f, dy, 0f);
