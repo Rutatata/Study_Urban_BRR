@@ -296,7 +296,19 @@ namespace Tobe
         public static bool Active;
         public static int Step;
         public const int Steps = 6;
-        public static void Begin() { Active = true; Step = 0; }
+        public static void Begin() { Active = true; Step = 0; Drill.Active = false; }
+    }
+
+    /// <summary>Полигон (как тренировка в Rematch): одно действие повторяется без счёта матча, боты подыгрывают под него
+    /// (та же «подыгровка», что у шагов обучения), считаются удачные попытки. Kind = шаг обучения: 1 приём, 2 передача,
+    /// 3 атака, 4 блок, 5 подача.</summary>
+    public static class Drill
+    {
+        public static bool Active;
+        public static int Kind = 1, Ok, Tries;
+        public static readonly string[] Names = { "", "ПРИЁМ", "ПЕРЕДАЧА", "АТАКА", "БЛОК", "ПОДАЧА" };
+        public static void Begin(int kind) { Active = true; Kind = Mathf.Clamp(kind, 1, 5); Ok = Tries = 0; Tutorial.Active = true; Tutorial.Step = Kind; }
+        public static void Stop() { if (!Active) return; Active = false; Tutorial.Active = false; }
     }
 
     public static class GameHub

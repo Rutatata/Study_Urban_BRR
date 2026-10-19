@@ -54,7 +54,7 @@ namespace Tobe.UI
 
             // buttons
             float x = 110, y = -410, h = 64, gap = 10;
-            btnFind = UiKit.MakeButton(Rt, "НАЙТИ МАТЧ", new Vector2(400, h), UiKit.Orange, () => { if (!NetApi.Busy) Tobe.View.LockerRoom.Exit(OnFind); }, 36);
+            btnFind = UiKit.MakeButton(Rt, "НАЙТИ МАТЧ", new Vector2(400, h), UiKit.Orange, () => { if (!NetApi.Busy) { Drill.Stop(); Tutorial.Active = false; Tobe.View.LockerRoom.Exit(OnFind); } }, 36);
             UiKit.At(btnFind.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(400, h));
             btn3 = UiKit.MakeButton(Rt, "3×3", new Vector2(80, h), UiKit.Purple, () => SetSize(3), 28);
             UiKit.At(btn3.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 410, y), new Vector2(80, h));
@@ -74,14 +74,16 @@ namespace Tobe.UI
             UiKit.At(bj.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 200, y), new Vector2(375, h));
             y -= h + gap;
 
-            var bt = UiKit.MakeButton(Rt, "ТРЕНИРОВКА С БОТАМИ", new Vector2(375, h), UiKit.Purple, () => { Tutorial.Active = false; Tobe.View.LockerRoom.Exit(OnPractice); }, 28);
+            var bt = UiKit.MakeButton(Rt, "ТРЕНИРОВКА С БОТАМИ", new Vector2(375, h), UiKit.Purple, () => { Drill.Stop(); Tutorial.Active = false; Tobe.View.LockerRoom.Exit(OnPractice); }, 28);
             UiKit.At(bt.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(375, h));
             var btut = UiKit.MakeButton(Rt, "ОБУЧЕНИЕ", new Vector2(190, h), UiKit.Orange, () => { Tutorial.Begin(); Tobe.View.LockerRoom.Exit(OnPractice); }, 28);
             UiKit.At(btut.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 385, y), new Vector2(190, h));
             y -= h + gap;
 
-            var bc = UiKit.MakeButton(Rt, "ПЕРСОНАЖ", new Vector2(575, h), UiKit.Purple, () => UiRoot.Instance.OpenCharacter(), 30);
-            UiKit.At(bc.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(575, h));
+            var bc = UiKit.MakeButton(Rt, "ПЕРСОНАЖ", new Vector2(375, h), UiKit.Purple, () => UiRoot.Instance.OpenCharacter(), 30);
+            UiKit.At(bc.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x, y), new Vector2(375, h));
+            var bd = UiKit.MakeButton(Rt, "ПОЛИГОН", new Vector2(190, h), UiKit.Orange, () => { Drill.Begin(1); Tobe.View.LockerRoom.Exit(OnPractice); }, 28);
+            UiKit.At(bd.GetComponent<RectTransform>(), UiKit.TL, new Vector2(x + 385, y), new Vector2(190, h));
             y -= h + gap;
 
             var bk = UiKit.MakeButton(Rt, "УПРАВЛЕНИЕ", new Vector2(375, h), UiKit.Purple, () => controlsPanel.gameObject.SetActive(true), 30);

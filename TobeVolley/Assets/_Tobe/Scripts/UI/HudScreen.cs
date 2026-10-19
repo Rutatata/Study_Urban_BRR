@@ -149,6 +149,13 @@ namespace Tobe.UI
             bool on = Tutorial.Active && inMatch;
             if (tutRoot.gameObject.activeSelf != on) tutRoot.gameObject.SetActive(on);
             if (!on) return;
+            if (Drill.Active)
+            {   // полигон: название, подсказка и счётчик; упражнение меняется в меню паузы
+                tutTitle.text = "ПОЛИГОН · " + Drill.Names[Drill.Kind] + "   УДАЧНО " + Drill.Ok + " ИЗ " + Drill.Tries;
+                tutBody.text = TutText[Drill.Kind];
+                tutShown = -1;
+                return;
+            }
             if (tutDoneT >= 0f) { tutDoneT -= dt; if (tutDoneT < 0f) Tutorial.Step++; }
             if (Tutorial.Step >= Tutorial.Steps)
             {   // финал: показать и через 4 с выключить — дальше обычная тренировка
@@ -174,7 +181,7 @@ namespace Tobe.UI
         void TutEvent(GameEvent e)
         {
             var v = GameHub.View;
-            if (!Tutorial.Active || e.playerId != v.localPlayerId) return;
+            if (!Tutorial.Active || Drill.Active || e.playerId != v.localPlayerId) return;
             if (e.type == GameEventType.Block && Tutorial.Step == 4) { TutDone(); return; }
             if (e.type != GameEventType.Hit) return;
             var pose = (PoseId)e.intArg;

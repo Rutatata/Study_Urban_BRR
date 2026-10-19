@@ -178,6 +178,7 @@ namespace Tobe.Sim
             phase = MatchPhase.Serve; phaseT = 1.8f; slowT = 0;
             var forced = DevServeId >= 0 ? players.Find(q => q.id == DevServeId) : null;
             if (Tutorial.Active && Tutorial.Step == 5) forced = TutorHuman();          // обучение, шаг «подача»: подаёт игрок
+            else if (Tutorial.Active && Tutorial.Step == 4) { var th = TutorHuman(); if (th != null) forced = players.Find(q => q.team == th.team && q.isBot); }   // блок: подаёт своя команда, атакует соперник
             else if (Tutorial.Active && forced == null) { var th = TutorHuman(); if (th != null) forced = players.Find(q => q.team != th.team && q.isBot); }   // иначе подаёт соперник — в игрока
             if (forced != null) servingTeam = forced.team;
             for (int i = 0; i < 2; i++) { touches[i] = 0; plans[i] = null; }
@@ -241,8 +242,21 @@ namespace Tobe.Sim
         }
 
         // ================= rules =================
+        SimPlayer drillWho;   // полигон: чья атака/подача ждёт исхода
+        void DrillTry(SimPlayer who, bool ok, bool pending = false)
+        {
+            if (!Drill.Active || who == null) return;
+            Drill.Tries++;
+            if (ok) Drill.Ok++;
+            drillWho = pending ? who : null;
+        }
         bool RegisterTouch(SimPlayer p, bool isBlock = false)
         {
+            if (drillWho != null && p.team != drillWho.team)
+            {   // мяч принят соперником: подача в площадку — удача, атаку подняли — нет (блок засчитывается в BlockHit)
+                if (Drill.Kind == 5) Drill.Ok++;
+                drillWho = null;
+            }
             int t = p.team;
             if (isBlock) { touches[t] = 0; touches[Other(t)] = 0; }
             else if (ball.lastTeam != t) { touches[t] = 1; touches[Other(t)] = 0; }
@@ -263,7 +277,12 @@ namespace Tobe.Sim
         {
             if (phase != MatchPhase.Rally) return;
             phase = MatchPhase.Point; phaseT = 2.6f; ball.live = false;
-            score[team]++;
+            if (Drill.Active)
+            {   // полигон: без счёта, следующая попытка почти сразу; атака/подача удались, если очко своей команде
+                phaseT = 1.3f;
+                if (drillWho != null) { if (team == drillWho.team && Drill.Kind != 4) Drill.Ok++; drillWho = null; }   // блок засчитывается только блоком
+            }
+            else score[team]++;
             Ev(GameEventType.Point, why, TeamCol(team), ball.pos, hero, team);
             Popup(why, team == 0 ? Gold : Pink, true);
             foreach (var p in players) { p.celebrate = p.team == team ? 1 : -1; p.hasBlockTask = false; p.mate = null; }
@@ -347,6 +366,14 @@ namespace Tobe.Sim
         {
             var th = TutorHuman(team);   // обучение, шаг «атака»: пас всегда игроку
             if (th != null && Tutorial.Step == 3 && th != setter) return th;
+            var thO = Tutorial.Active && Tutorial.Step == 4 ? TutorHuman(Other(team)) : null;
+            if (thO != null)
+            {   // полигон «блок»: атакует тот, кто напротив игрока
+                SimPlayer opp = null; float od = 1e9f;
+                foreach (var p in players)
+                    if (p.team == team && p != setter && p.profile.style != PlayStyle.Libero) { float d = Mathf.Abs(p.pos.x - thO.pos.x); if (d < od) { od = d; opp = p; } }
+                if (opp != null) return opp;
+            }
             SimPlayer caller = null, best = null; float bs = -1e9f;
             foreach (var p in players)
             {
@@ -424,6 +451,7 @@ namespace Tobe.Sim
             float setDist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
             float err = freak ? 0 : (1 - q) * 1.3f * (0.7f + setDist / 9f * 0.6f) * (fast ? 1.3f : high ? 0.8f : 1f);
             if (!freak && !p.isBot && q > 0.92f) Popup("ТОЧНЫЙ ПАС!", Gold);
+            if (!p.isBot && Drill.Kind == 2) DrillTry(p, err < 0.4f);
             target.x += Rnd(-err, err); target.z -= Court.Fwd(tm) * Rnd(0, err * 0.6f);
             Launch(target, T);
             ball.kind = "set";
@@ -466,6 +494,8 @@ namespace Tobe.Sim
                 if (IsBackRow(p) && Court.DistFromNet(p.team, p.pos.z) < Court.AttackLine - 0.1f && !p.isBot) { Fault(p.team, "ОШИБКА ЗАДНЕЙ ЛИНИИ"); return; }
             }
             int tm = p.team, o = Other(tm);
+            if (!p.isBot && Drill.Kind == 3) DrillTry(p, false, true);
+            else if (p.isBot && Drill.Kind == 4) { var th = TutorHuman(o); if (th != null) DrillTry(th, false, true); }
             Vector3 target;
             if (aim.HasValue && Court.OnSide(o, aim.Value.z)) target = new Vector3(aim.Value.x, R, aim.Value.z);
             else
@@ -514,6 +544,7 @@ namespace Tobe.Sim
         }
         void DoServe(SimPlayer p, float power, Vector3? aim, bool special, float late = 0f)
         {
+            if (!p.isBot && Drill.Kind == 5) DrillTry(p, false, true);
             int o = Other(p.team);
             // тип подачи: снизу — медленно и надёжно; планер — мяч гуляет; в прыжке — быстро, но поздний удар уводит в аут или сетку
             int kind = special ? 2 : p.isBot ? (p.st.serve >= 8 ? 2 : 1) : Mathf.Min((int)p.lastCmd.serveType, 2);
@@ -557,6 +588,7 @@ namespace Tobe.Sim
                 else Ev(GameEventType.Recoil, null, null, push, p, 0, 0);
             }
             float q = ReceiveRoll(p, Quality(d, rad)) - (auto ? 0.1f : 0) - penalty;
+            if (!p.isBot && Drill.Kind == 1) DrillTry(p, q >= 0.55f);
             if (p.armed > 0 && p.energy >= 100 && p.Style.finisherKind == FinisherKind.Dig)
             {
                 UseFinisher(p, () => { DoPass(p, 1, toward); Popup(p.Style.finisherName.ToUpper(), p.Style.c1); });
@@ -1107,6 +1139,7 @@ namespace Tobe.Sim
         {
             var b = ball; var attacker = b.lastP; float sp = Hyp(b.vel.x, b.vel.z);
             p.SetPose(PoseId.Block, 0.4f);
+            if (Drill.Active && Drill.Kind == 4 && drillWho != null && p.team == drillWho.team) { Drill.Ok++; drillWho = null; }   // заблокировал
             bool special = p.armed > 0 && p.energy >= 100 && p.Style.finisherKind == FinisherKind.Block;
             if (b.superBy != null && !b.mini && !special)
             {
