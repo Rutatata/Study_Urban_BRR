@@ -27,7 +27,7 @@ namespace Tobe.Net
 
         // local movement state
         Vector3 pos, vel;
-        bool air, diving, hasPos;
+        bool air, diving, hasPos, diveRec;
         float diveT, recT, stamina = 100;
 
         public MatchClient(NetworkManager nm, MatchServer localServer)
@@ -218,9 +218,9 @@ namespace Tobe.Net
             var st = Styles.Get(me.profile.style).stats;
             float spd = 3.6f + st.speed * 0.28f;
             bool stunned = me.pose == PoseId.Stun;
-            if (diveT > 0) { diveT -= dt; float k = Mathf.Exp(-3 * dt); vel.x *= k; vel.z *= k; if (diveT <= 0) { diving = false; recT = 0.45f; } }
+            if (diveT > 0) { diveT -= dt; float k = Mathf.Exp(-3 * dt); vel.x *= k; vel.z *= k; if (diveT <= 0) { diving = false; recT = 0.45f; diveRec = true; } }
             else if (air) { float k = Mathf.Exp(-0.6f * dt); vel.x *= k; vel.z *= k; }
-            else if (recT > 0 || stunned || serving) { recT -= dt; float k = Mathf.Exp(-10 * dt); vel.x *= k; vel.z *= k; }
+            else if (recT > 0 || stunned || serving) { recT -= dt; if (recT <= 0) diveRec = false; float k = Mathf.Exp(-10 * dt); vel.x *= k; vel.z *= k; }
             else
             {
                 bool useSprint = sprint && mv.sqrMagnitude > 0.01f && stamina > 2;
@@ -265,7 +265,7 @@ namespace Tobe.Net
             if (mv.sqrMagnitude < 0.01f) mv = new Vector2(Mathf.Sin(GameHub.CameraYaw * Mathf.Deg2Rad), Mathf.Cos(GameHub.CameraYaw * Mathf.Deg2Rad));
             mv.Normalize();
             stamina = Mathf.Max(0f, stamina - 20f);
-            diveT = 0.5f; diving = true; vel.x = mv.x * 6.5f; vel.z = mv.y * 6.5f;
+            diveT = 0.5f; diving = true; diveRec = false; vel.x = mv.x * 6.5f; vel.z = mv.y * 6.5f;
         }
         void WriteLocal(MatchView v, int id)
         {
@@ -279,7 +279,7 @@ namespace Tobe.Net
                 float face = flat.magnitude > 4.2f && !air ? Mathf.Atan2(vel.x, vel.z) * Mathf.Rad2Deg : GameHub.CameraYaw;
                 p.yaw = Mathf.LerpAngle(p.yaw, face, 1 - Mathf.Exp(-14f * Time.unscaledDeltaTime));
                 // immediate local pose feedback (server pose arrives a bit later)
-                if (diving) p.pose = PoseId.Dive;
+                if (diving || recT > 0 && diveRec) p.pose = PoseId.Dive;   // подъём с пола — продолжение той же анимации
                 else if (air && p.pose != PoseId.Spike && p.pose != PoseId.Block && p.pose != PoseId.SpikeWind) p.pose = PoseId.Jump;
                 else if (!air && flat.sqrMagnitude > 0.4f && (p.pose == PoseId.Idle || p.pose == PoseId.Ready)) p.pose = PoseId.Run;
                 break;

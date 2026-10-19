@@ -777,7 +777,7 @@ namespace Tobe.Sim
                 u.air = c.clientAir && np.y > 0.01f;
                 if (u.air && !wasAir) u.airAt = t;
                 if (u.air && !wasAir) u.blockJump = c.blockIntent && Mathf.Abs(u.pos.z - NY) < 1.4f;   // блок только прыжком на C
-                if (c.clientDiving && u.diveT <= 0) u.diveT = 0.5f;
+                if (c.clientDiving && u.diveT <= 0) { u.diveT = 0.5f; u.SetPose(PoseId.Dive, DiveAnim); }
                 if (!c.clientDiving && u.diveT > 0.1f) u.diveT = 0.1f;
             }
             if (u.vel.sqrMagnitude > 0.3f) u.yaw = Mathf.Atan2(u.vel.x, u.vel.z) * Mathf.Rad2Deg;
@@ -828,10 +828,12 @@ namespace Tobe.Sim
             p.vel.y = Mathf.Sqrt(2 * GP * p.jumpH * k) * (1 + Mathf.Min(run, 6) * 0.012f);
             p.air = true; p.blockJump = false; p.airAt = t;
         }
+        public const float DiveAnim = 0.95f;   // нырок 0,5 с + подъём 0,45 с — одна анимация (VolleyKeys.kDive)
         void Dive(SimPlayer p, float dx, float dz)
         {
             float d = Hyp(dx, dz); if (d < 1e-3f) d = 1;
             p.diveT = 0.5f; p.vel.x = dx / d * 6.5f; p.vel.z = dz / d * 6.5f;
+            p.SetPose(PoseId.Dive, DiveAnim);   // поза держится и на подъёме с пола (recT), без рывка в стойку
             Ev(GameEventType.Sound, "bump", null, p.pos, p, 0, 0.3f);
         }
         void BotThink(SimPlayer p)
