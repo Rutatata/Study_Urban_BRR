@@ -51,6 +51,8 @@ namespace Tobe.Sim
         public float hitT, power;
         public SimPlayer superBy; public bool mini;
         public bool floater;   // подача-планер: мяч «гуляет» в полёте
+        public float curve;    // подача с подкруткой: боковое ускорение, м/с²
+        public bool tool;      // «срезка» рядом с блоком: от рук блокирующих мяч уходит в аут (через блок)
         // вращение (эффект Магнуса) упрощено до своей «гравитации» у каждого удара: верхнее вращение — мяч ныряет.
         // Полёт остаётся параболой, поэтому предсказание падения, маркер и боты считают его точно.
         public float g = Court.BallGravity;
@@ -220,7 +222,7 @@ namespace Tobe.Sim
         {
             ball.g = g;
             ball.vel = new Vector3((target.x - ball.pos.x) / T, (target.y - ball.pos.y + 0.5f * g * T * T) / T, (target.z - ball.pos.z) / T);
-            ball.held = null; ball.live = true; ball.blockChecked = false; ball.hitT = 0;
+            ball.held = null; ball.live = true; ball.blockChecked = false; ball.hitT = 0; ball.curve = 0f; ball.tool = false;
         }
         bool ClearsNet(Vector3 target, float T, float g = GB)
         {
@@ -252,6 +254,7 @@ namespace Tobe.Sim
         }
         bool RegisterTouch(SimPlayer p, bool isBlock = false)
         {
+            RallyTouches++;
             if (drillWho != null && p.team != drillWho.team)
             {   // мяч принят соперником: подача в площадку — удача, атаку подняли — нет (блок засчитывается в BlockHit)
                 if (Drill.Kind == 5) Drill.Ok++;
@@ -262,7 +265,11 @@ namespace Tobe.Sim
             else if (ball.lastTeam != t) { touches[t] = 1; touches[Other(t)] = 0; }
             else
             {
-                if (ball.lastP == p && !ball.blockTouch) { Fault(t, "ДВОЙНОЕ КАСАНИЕ"); return false; }
+                if (ball.lastP == p && !ball.blockTouch)
+                {
+                    if (!p.isBot && ball.hitT < 0.5f) return false;   // дребезг кнопки после своего же приёма — не наказываем
+                    Fault(t, "ДВОЙНОЕ КАСАНИЕ"); return false;
+                }
                 touches[t]++;
                 if (touches[t] > 3) { Fault(t, "ЧЕТЫРЕ КАСАНИЯ"); return false; }
             }
@@ -273,9 +280,14 @@ namespace Tobe.Sim
         }
         void Fault(int team, string why) => AwardPoint(Other(team), why, null);
 
+        /// <summary>Замер баланса (меню разработчика): причины очков и касаний за розыгрыш.</summary>
+        public static readonly Dictionary<string, int> PointWhy = new Dictionary<string, int>();
+        public static int RallyTouches, Rallies;
         void AwardPoint(int team, string why, SimPlayer hero)
         {
             if (phase != MatchPhase.Rally) return;
+            string wk = (why ?? "") + " после " + ball.kind + " #" + (ball.lastTeam >= 0 ? touches[ball.lastTeam] : 0);
+            PointWhy.TryGetValue(wk, out int pw); PointWhy[wk] = pw + 1; Rallies++;
             phase = MatchPhase.Point; phaseT = 2.6f; ball.live = false;
             if (Drill.Active)
             {   // полигон: без счёта, следующая попытка почти сразу; атака/подача удались, если очко своей команде
@@ -284,7 +296,7 @@ namespace Tobe.Sim
             }
             else score[team]++;
             Ev(GameEventType.Point, why, TeamCol(team), ball.pos, hero, team);
-            Popup(why, team == 0 ? Gold : Pink, true);
+            if (why == "ЭЙС!" || why == "ДОБИВАНИЕ!!" || why.Contains("БЛОК")) Popup(why, team == 0 ? Gold : Pink, true);
             foreach (var p in players) { p.celebrate = p.team == team ? 1 : -1; p.hasBlockTask = false; p.mate = null; }
             PairHighFive(team);
             if (hero != null) hero.energy = Mathf.Min(100, hero.energy + 12);
@@ -409,7 +421,7 @@ namespace Tobe.Sim
         // ================= hits =================
         static float Quality(float d, float rad) => Mathf.Clamp01(1 - d / rad);
 
-        void DoPass(SimPlayer p, float q, Vector3? toward)
+        void DoPass(SimPlayer p, float q, Vector3? toward, float tMul = 1f)
         {
             int t = p.team; q = Mathf.Clamp(q, 0.05f, 1f);
             if (toward.HasValue && !Court.OnSide(t, toward.Value.z)) { DoOver(p, toward); return; }
@@ -417,7 +429,7 @@ namespace Tobe.Sim
             float sx = toward.HasValue ? toward.Value.x : 5.8f, sz = toward.HasValue ? toward.Value.z : Court.WorldZ(t, 0.9f);
             float err = (1 - q) * 2.6f;
             var target = new Vector3(Mathf.Clamp(sx + Rnd(-err, err), -1, Court.Width + 1), 2.35f, sz - Court.Fwd(t) * Rnd(0, err));
-            float T = 1.15f + (1 - q) * 0.3f;
+            float T = (1.15f + (1 - q) * 0.3f) * tMul;   // мягкий приём — выше и дольше, у связующего больше времени
             Launch(target, T);
             ball.kind = "pass";
             p.SetPose(PoseId.Bump);
@@ -478,7 +490,7 @@ namespace Tobe.Sim
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Set, 0.2f);
             plans[tm] = new Plan { kind = PlanKind.Attack, p = attacker, point = target, t = t + T, freak = freak };
             Shout(attacker, CallsAttack);
-            PlanBlock(Other(tm), target.x, t + T);
+            PlanBlock(Other(tm), target.x, t + T, !p.isBot, backSet ? 0.55f : 0.3f);
         }
         byte SetTargetId(Plan pl)
         {
@@ -486,7 +498,8 @@ namespace Tobe.Sim
             var m = NearestFree(pl.p.team, pl.p.lastCmd.aim, pl.p);
             return m != null ? m.id : (byte)255;
         }
-        void PlanBlock(int team, float x, float tHit)
+        bool backSet;   // идёт передача за голову (блок читает её дольше)
+        void PlanBlock(int team, float x, float tHit, bool announce = false, float read = 0.3f)
         {
             var front = players.FindAll(p => p.team == team && p.isBot && IsFront(p) && p.profile.style != PlayStyle.Libero);
             front.Sort((a, b) => Mathf.Abs(a.pos.x - x).CompareTo(Mathf.Abs(b.pos.x - x)));
@@ -499,11 +512,11 @@ namespace Tobe.Sim
                 float want = Mathf.Clamp(x + (k > 0 ? 0.5f : -0.25f) * (x < 4.5f ? 1 : -1), 0.3f, Court.Width - 0.3f);
                 p.blockJumpAt = tHit - tPeak + 0.04f + Rnd(-0.06f, 0.08f) / Bots.block;
                 // блокирующий сначала читает передачу (0,3 с), потом бежит приставными; не успел — прыгает где успел
-                float reach = Mathf.Max(0f, p.blockJumpAt - t - 0.3f) * p.spd * 1.1f;
+                float reach = Mathf.Max(0f, p.blockJumpAt - t - read) * p.spd * 1.1f;
                 p.blockX = Mathf.MoveTowards(p.pos.x, want, reach);
                 if (Mathf.Abs(p.blockX - want) < 0.35f) onTime++;
             }
-            if (tasks > 0 && onTime == 0 && plans[Other(team)] != null && plans[Other(team)].p != null) Popup("БЛОК НЕ УСПЕЛ!", Cyan);
+            if (announce && tasks > 0 && onTime == 0) Popup("БЛОК НЕ УСПЕЛ!", Cyan);   // только за свою передачу — иначе это шум
         }
         void DoSpike(SimPlayer p, float q, Vector3? aim, bool special, bool tipBtn = false)
         {
@@ -520,12 +533,13 @@ namespace Tobe.Sim
             else
             {
                 Vector2[] cands = { new Vector2(0.9f, 7.7f), new Vector2(8.1f, 7.7f), new Vector2(0.9f, 4.5f), new Vector2(8.1f, 4.5f), new Vector2(4.5f, 7.9f), new Vector2(2.2f, 2.4f), new Vector2(6.8f, 2.4f) };
-                float bs = -1e9f; target = new Vector3(4.5f, R, Court.WorldZ(o, 6));
+                float bs = -1e9f; target = new Vector3(4.5f, R, Court.WorldZ(o, 6)); bool gapShot = Random.value < 0.6f;
                 foreach (var c in cands)
                 {
                     var cp = new Vector3(c.x, R, Court.WorldZ(o, c.y));
                     float md = 1e9f; foreach (var d in players) if (d.team == o && d.pos.y < 0.3f) md = Mathf.Min(md, FlatDist(d, cp));
-                    float sc = md + Rnd(0, 1.5f);
+                    // 60 % — в просвет, 40 % — в зону защитника (1–2,5 м от него): в 3×3 удар в пустоту почти всегда очко, розыгрышей нет
+                    float sc = gapShot ? md + Rnd(0, 1.5f) : -Mathf.Abs(md - 1.8f) + Rnd(0, 1f);
                     if (sc > bs) { bs = sc; target = cp; }
                 }
                 float e = (1 - Bots.acc) * 1.6f;
@@ -534,15 +548,35 @@ namespace Tobe.Sim
             float S = (12.5f + p.st.spike * 1.25f) * (0.7f + 0.35f * q) * (special ? 1.35f : 1f);
             bool tip = tipBtn || p.isBot && !special && Random.value < 0.08f;   // игрок: ПКМ в прыжке; бот: изредка сам
             if (tip) { target = new Vector3(Mathf.Clamp(p.pos.x + Rnd(-2, 2), 0.5f, 8.5f), R, Court.WorldZ(o, Rnd(1.2f, 2.2f))); S = 6; }
+            // разные удары по зажатому направлению (как в «Haikyuu»): W — в пол, S — накат за блок, A/D — срезка (у блока — через блок в аут);
+            // с ПКМ: W — пуш в глубину, S — отскок от блока (мяч возвращается своим), A/D — обманка в сторону за блокирующего
+            int sd = p.isBot || special ? 0 : p.lastCmd.shotDir;
+            float side = sd == 3 ? -1f : 1f, rx = Court.Fwd(tm);   // «вправо» атакующего, смотрящего на сетку
+            string shot = null; bool soft = tip, overBlock = false, tool = false, rebound = false;
+            if (sd == 1 && !tip) { target = new Vector3(Mathf.Clamp(target.x, 0.6f, 8.4f), R, Court.WorldZ(o, Rnd(2.0f, 3.2f))); S *= 1.08f; shot = "В ПОЛ!"; }
+            else if (sd == 2 && !tip) { target = new Vector3(Mathf.Clamp(target.x, 0.8f, 8.2f), R, Court.WorldZ(o, Rnd(7.0f, 8.3f))); S = 8.5f; soft = true; overBlock = true; shot = "НАКАТ!"; }
+            else if (sd >= 3 && !tip) { target = new Vector3(Mathf.Clamp(p.pos.x + rx * side * 4.5f, 0.4f, 8.6f), R, Court.WorldZ(o, Rnd(2.5f, 4.5f))); S *= 0.96f; tool = true; shot = "СРЕЗКА!"; }
+            else if (sd == 1 && tip) { target = new Vector3(Mathf.Clamp(target.x, 0.8f, 8.2f), R, Court.WorldZ(o, Rnd(5.5f, 7f))); S = 8f; shot = "ПУШ!"; }
+            else if (sd >= 3 && tip) { target = new Vector3(Mathf.Clamp(p.pos.x + rx * side * 3f, 0.4f, 8.6f), R, Court.WorldZ(o, Rnd(1.0f, 2.0f))); S = 6f; shot = "ОБМАНКА ВБОК!"; }
+            else if (sd == 2 && tip)
+            {   // отскок от блока: если соперник в блоке — мягко в его руки, мяч возвращается на свою сторону, у команды снова три касания
+                bool blockUp = players.Exists(q2 => q2.team == o && q2.air && Mathf.Abs(q2.pos.x - p.pos.x) < 1.3f && Court.DistFromNet(o, q2.pos.z) < 1f);
+                if (blockUp) { rebound = true; target = new Vector3(Mathf.Clamp(p.pos.x, 1f, 8f), R, Court.WorldZ(tm, 2.4f)); shot = "ОТСКОК!"; }
+                else { target = new Vector3(Mathf.Clamp(target.x, 0.8f, 8.2f), R, Court.WorldZ(o, Rnd(5.5f, 7f))); S = 8f; shot = "ПУШ!"; }
+            }
             float dist = Hyp(target.x - ball.pos.x, target.z - ball.pos.z);
             if (p.isBot && !special && TutorTarget(o, out var tt2)) { target = tt2; S = Mathf.Min(S, 13f); }   // обучение: атака в нужного игрока, без жести
-            float gs = tip ? GB : 15f;   // атака с верхним вращением ныряет за блок
-            float T = SafeT(target, Mathf.Max(0.12f, dist / S), gs);
+            float gs = soft ? GB : 15f;   // атака с верхним вращением ныряет за блок
+            float T = rebound ? 1.15f : SafeT(target, Mathf.Max(0.12f, dist / S), gs);
             Launch(target, T, gs);
-            ball.power = S; ball.kind = tip ? "tip" : "spike";
-            p.SetPose(PoseId.Spike, 0.4f);
-            Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Spike, tip ? 0.2f : 0.6f + q * 0.4f);
-            if (tip) Popup("ОБМАНКА!", Cyan);
+            ball.tool = tool;
+            if (overBlock) ball.blockChecked = true;   // накат идёт дугой над руками блока
+            ball.power = S; ball.kind = rebound ? "pass" : soft ? "tip" : "spike";
+            if (rebound) { ball.lastTeam = o; touches[tm] = 0; plans[tm] = null; Replan(); }   // как будто коснулся блок соперника
+            p.SetPose(soft ? PoseId.Tip : PoseId.Spike, 0.4f);
+            Ev(GameEventType.Hit, null, null, ball.pos, p, (int)(soft ? PoseId.Tip : PoseId.Spike), soft ? 0.2f : 0.6f + q * 0.4f);
+            if (shot != null) Popup(shot, soft ? Cyan : Orange);
+            else if (tip) Popup("ОБМАНКА!", Cyan);
             if (special) { ball.superBy = p; ball.mini = false; }
             else if (q > 0.82f && !tip)
             {
@@ -551,6 +585,7 @@ namespace Tobe.Sim
                 Ev(GameEventType.Cinematic, null, null, p.pos + Vector3.up * 2, p, 0, 0.9f);
                 ball.superBy = p; ball.mini = true;
             }
+            Replan();   // защита соперника сразу получает план приёма (раньше его не было — удары не поднимали вовсе)
         }
         void DoOver(SimPlayer p, Vector3? aim)
         {
@@ -560,6 +595,7 @@ namespace Tobe.Sim
             ball.kind = "free";
             p.SetPose(ball.pos.y > 1.6f ? PoseId.Set : PoseId.Bump);
             Ev(GameEventType.Hit, null, null, ball.pos, p, (int)PoseId.Bump, 0.3f);
+            Replan();
         }
         void DoServe(SimPlayer p, float power, Vector3? aim, bool special, float late = 0f)
         {
@@ -577,7 +613,12 @@ namespace Tobe.Sim
             float gs = kind == 2 ? 13.5f : GB;   // подача в прыжке — с верхним вращением
             if (kind == 2 && late > 0.8f) { target = new Vector3(ball.pos.x, NH * 0.5f, NY + Court.Fwd(p.team) * 0.6f); T = 0.35f; }
             else T = SafeT(target, T, gs);
+            int sdv = p.isBot || special ? 0 : p.lastCmd.shotDir;
+            float curve = sdv >= 3 ? (sdv == 3 ? -1f : 1f) * Court.Fwd(p.team) * 6f : 0f;
+            if (curve != 0f) target.x -= 0.5f * curve * T * T;   // старт в сторону, дуга возвращает к цели
             Launch(target, T, gs);
+            ball.curve = curve;
+            if (curve != 0f) Popup("ПОДКРУТКА!", Cyan);
             ball.floater = kind == 1 && !special;
             ball.kind = "serve"; ball.power = Hyp(target.x - ball.pos.x, target.z - ball.pos.z) / T;
             ball.lastP = p; ball.lastTeam = p.team; touches[p.team] = 0; touches[o] = 0;
@@ -629,7 +670,10 @@ namespace Tobe.Sim
                 return;
             }
             if (p.diveT > 0 && Random.value < 0.5f) Popup("ВЫТАЩИЛ!", new Color(0.25f, 1f, 0.7f));
-            DoPass(p, Mathf.Clamp(q, 0.1f, 1f), toward);
+            bool softDig = !p.isBot && p.lastCmd.shotDir == 2;
+            if (!p.isBot && p.lastCmd.shotDir >= 3 && d > rad / 1.25f) Popup("В ПАДЕНИИ!", new Color(0.25f, 1f, 0.7f));
+            DoPass(p, Mathf.Clamp(q, 0.1f, 1f), toward, softDig ? 1.35f : 1f);
+            if (softDig) Popup("МЯГКИЙ ПРИЁМ", Grey);
         }
         // ---------------- тайминг (спецификация, 4.2) ----------------
         /// <summary>Идеальная высота контакта: приём снизу — у пояса, передача — над головой.</summary>
@@ -687,7 +731,9 @@ namespace Tobe.Sim
                 float ar = p.isBot ? 0.85f : 1.0f;
                 return d < ar ? new Reach { ok = true, air = true, d = d, rad = ar } : default;
             }
-            float hd = Hyp(p.pos.x - b.x, p.pos.z - b.z), rad = (p.diveT > 0 ? 1.6f : 1.0f) * (p.isBot ? 1f : 1.15f);
+            float hd = Hyp(p.pos.x - b.x, p.pos.z - b.z), rad = (p.diveT > 0 ? 1.75f : 1.1f) * (p.isBot ? 1f : 1.15f);
+            if (ball.vel.sqrMagnitude > 196f) rad *= 1.2f;
+            if (!p.isBot && p.hitBump && p.lastCmd.shotDir >= 3) rad *= 1.25f;   // приём в падении вбок   // сильный удар/подача: защитник тянется выпадом и рывком
             if (hd < rad && b.y > 0.12f && b.y < p.reach + 0.35f && (p.diveT <= 0 || b.y < 1f)) return new Reach { ok = true, d = hd, rad = rad };
             return default;
         }
@@ -759,6 +805,22 @@ namespace Tobe.Sim
                 float run = Hyp(u.vel.x, u.vel.z);   // связующий должен успеть под мяч и остановиться
                 if (run > 1.6f) { q *= Mathf.Lerp(1f, 0.65f, Mathf.Clamp01((run - 1.6f) / 3f)); if (run > 3f) Popup("НА ХОДУ", Grey); }
                 SimPlayer mate = aimOwn ? NearestFree(tm, aim, u) : null;
+                int sdS = u.lastCmd.shotDir;
+                if (sdS == 1 && n == 2 && IsFront(u) && by > 1.9f && Court.DistFromNet(tm, u.pos.z) < 1.6f)
+                {   // скидка: связующий в передней линии мягко перекидывает вторым касанием
+                    var keep = u.lastCmd; u.lastCmd.shotDir = 0;   // это не «пуш» — обычная мягкая скидка за сетку
+                    DoSpike(u, 0.8f, new Vector3(Mathf.Clamp(u.pos.x + Rnd(-1.5f, 1.5f), 0.8f, 8.2f), R, Court.WorldZ(Other(tm), 1.6f)), false, true);
+                    u.lastCmd = keep;
+                    Popup("СКИДКА!", Cyan); u.SetPose(PoseId.Tip); return;
+                }
+                if (sdS == 2 && n < 3)
+                {   // передача за голову: тому, кто за спиной (по направлению прицела), блок читает её дольше
+                    Vector3 look = aim - u.pos; look.y = 0f; look = look.sqrMagnitude > 0.01f ? look.normalized : new Vector3(Court.Fwd(tm), 0, 0);
+                    SimPlayer back = null; float bd2 = 1e9f;
+                    foreach (var q2 in players)
+                        if (q2.team == tm && q2 != u && q2.profile.style != PlayStyle.Libero && Vector3.Dot(q2.pos - u.pos, look) < -0.3f) { float d2 = FlatDist(q2, u.pos); if (d2 < bd2) { bd2 = d2; back = q2; } }
+                    if (back != null) { backSet = true; DoSet(u, q * 0.92f, back, false); backSet = false; Popup("ЗА ГОЛОВУ!", Cyan); u.SetPose(PoseId.Set); return; }
+                }
                 if (n < 3 && aimOwn)
                 {
                     if (special && u.Style.finisherKind == FinisherKind.Set) { var m = mate; UseFinisher(u, () => DoSet(u, 1, m, true)); return; }
@@ -923,7 +985,7 @@ namespace Tobe.Sim
                 {
                     Seek(p, plan.point.x, plan.point.z - f * 0.25f, 0.25f); p.sprint = true;
                     float d = Hyp(p.pos.x - ball.pos.x, p.pos.z - ball.pos.z);
-                    if (ball.live && ball.held == null && ball.pos.y < 0.9f && ball.vel.y < 0 && d > 0.95f && d < 2.6f && p.diveT <= 0 && Court.OnSide(tm, ball.pos.z))
+                    if (ball.live && ball.held == null && ball.pos.y < 1.1f && ball.vel.y < 0 && d > 0.95f && d < 3.0f && p.diveT <= 0 && Court.OnSide(tm, ball.pos.z))
                         Dive(p, ball.pos.x - p.pos.x, ball.pos.z - p.pos.z);
                 }
                 BotContact(p, plan);
@@ -936,6 +998,12 @@ namespace Tobe.Sim
             if (ourBall && IsFront(p)) hu = 2.6f;
             if (!ourBall && IsFront(p) && Court.OnSide(Other(tm), ball.pos.z)) hu = 1.0f;
             if (p.profile.style == PlayStyle.Setter && ourBall) { hx = 6; hu = 1.2f; }
+            var opp = plans[Other(tm)];
+            if (!ourBall && opp != null && opp.kind == PlanKind.Attack && (!IsFront(p) || teamSize < 6) && !p.hasBlockTask)
+            {   // защита против атаки: один по линии удара, другой по диагонали, в 5,5 м от сетки
+                float ax = Mathf.Clamp(opp.point.x, 1f, Court.Width - 1f);
+                hx = p.slot % 2 == 0 ? ax : Court.Width - ax; hu = 5.5f;
+            }
             Seek(p, hx, Court.WorldZ(tm, hu), 0.6f);
         }
         void BotContact(SimPlayer p, Plan plan)
@@ -1051,6 +1119,7 @@ namespace Tobe.Sim
             b.hitT += dt;
             b.vel.y -= b.g * dt;
             if (b.floater && b.kind == "serve") b.vel.x += Mathf.Sin(b.hitT * 9f) * 10f * dt;   // планер: боковое «дрожание»
+            if (b.curve != 0f && b.kind == "serve") b.vel.x += b.curve * dt;               // подкрутка: мяч уходит дугой
             b.pos += b.vel * dt;
 
             if ((pz - NY) * (b.pos.z - NY) <= 0 && pz != b.pos.z)
@@ -1168,6 +1237,14 @@ namespace Tobe.Sim
                 return;
             }
             RegisterTouch(p, true);
+            if (b.tool && !special)
+            {   // «через блок»: срезка от кончиков пальцев блокирующего — в аут, очко атакующему (Хината)
+                b.tool = false;
+                b.vel = new Vector3((b.pos.x < 4.5f ? -1 : 1) * Rnd(6, 9), 3.5f, b.vel.z * 0.4f);
+                Ev(GameEventType.Block, null, Color.white, b.pos, p);
+                Popup("ЧЕРЕЗ БЛОК!", Orange);
+                return;
+            }
             float pk = special ? 1 : Mathf.Clamp(0.32f + p.st.block * 0.045f * Bots.block - (sp - 14) * 0.02f + wall * 0.12f, 0.08f, 0.92f);
             float r = Random.value;
             Ev(GameEventType.Block, null, Color.white, b.pos, p);

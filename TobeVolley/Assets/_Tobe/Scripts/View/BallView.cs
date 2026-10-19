@@ -260,10 +260,11 @@ namespace Tobe.View
                 {
                     halo.position = smPos; halo.rotation = hc.transform.rotation;
                     float dist = Vector3.Distance(hc.transform.position, smPos);
-                    float hs = Mathf.Max(0.42f, dist * 0.032f) * (1f + 0.06f * Mathf.Sin(Time.time * 6f));
+                    float hs = Mathf.Max(0.42f, dist * 0.04f) * (1f + 0.06f * Mathf.Sin(Time.time * 6f));   // не мельче ~2,5 % экрана
                     halo.localScale = new Vector3(hs, hs, 1f);
                     float near = Mathf.Clamp01((dist - 3f) / 6f);   // вплотную — слабее, чтобы не мешал смотреть на мяч
-                    Mats.SetColor(haloMat, new Color(1f, 0.95f, 0.75f, 1f) * (0.35f + 0.55f * near));
+                    float far = Mathf.Clamp01((dist - 12f) / 10f);   // далеко — ярче
+                    Mats.SetColor(haloMat, new Color(1f, 0.95f, 0.75f, 1f) * (0.35f + 0.55f * near + 0.35f * far));
                 }
             }
             bool showAura = power > 0f;

@@ -203,6 +203,7 @@ namespace Tobe.View
 
             // --- aim ray from the (unshaken, non-cinematic) screen center
             if (!haveLocal && Tobe.View.LockerRoom.TryCamera(out var lrPos, out var lrRot)) { nPos = lrPos; nRot = lrRot; }   // меню: раздевалка
+            nPos = KeepCameraInHall(nPos);
             ComputeAim(nPos, nRot, haveLocal, lpos);
 
             Vector3 pos = nPos; Quaternion rot = nRot;
@@ -286,6 +287,17 @@ namespace Tobe.View
             prevPhase = view.phase;
             float dk = dip * dip * (3f - 2f * dip);
             if (ArenaBuilder.Adjust != null) ArenaBuilder.Adjust.postExposure.Override(ArenaBuilder.BaseExposure + flash * 2.5f - dk * 6f + LockerRoom.Whiteout * 5f);   // + уход в свет двери раздевалки
+        }
+
+        /// <summary>Камера не заходит за рекламные щиты и внутрь предметов у площадки (скамейки, стол, вышка) — поднимается над ними.</summary>
+        static Vector3 KeepCameraInHall(Vector3 p)
+        {
+            const float m = 0.25f;
+            if (p.y < 1.4f) { p.x = Mathf.Clamp(p.x, Court.HallX0 + m, Court.HallX1 - m); p.z = Mathf.Clamp(p.z, Court.HallZ0 + m, Court.HallZ1 - m); }
+            else { p.x = Mathf.Clamp(p.x, Court.HallX0 - 1.5f, Court.HallX1 + 1.5f); p.z = Mathf.Clamp(p.z, Court.HallZ0 - 1.5f, Court.HallZ1 + 1.5f); }   // выше щитов можно чуть дальше
+            foreach (var b in Court.Obstacles)
+                if (Mathf.Abs(p.x - b.cx) < b.hx + m && Mathf.Abs(p.z - b.cz) < b.hz + m && p.y < b.top + m) p.y = b.top + m;
+            return p;
         }
 
         float Noise(float t, float seedOff) => (Mathf.PerlinNoise(t, noiseSeed + seedOff * 17.3f) - 0.5f) * 2f;

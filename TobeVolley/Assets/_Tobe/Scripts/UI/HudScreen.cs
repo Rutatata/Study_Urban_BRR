@@ -411,9 +411,17 @@ namespace Tobe.UI
             if (string.IsNullOrEmpty(e.text) || e.intArg == 2) return;   // 2 — реплика над головой игрока (NameplateLayer)
             bool big = e.intArg == 1;
             if (big)
+            {   // большая надпись (очко) убирает всё мелкое — не наслаивается
+                for (int i = pops.Count - 1; i >= 0; i--) { Destroy(pops[i].text.gameObject); pops.RemoveAt(i); }
+            }
+            else
             {
+                if (pointT >= 0f) return;   // во время плашки очка мелкие надписи не нужны
+                int small = 0;
                 for (int i = pops.Count - 1; i >= 0; i--)
-                    if (pops[i].big) { Destroy(pops[i].text.gameObject); pops.RemoveAt(i); }
+                    if (!pops[i].big && ++small >= 2) { Destroy(pops[i].text.gameObject); pops.RemoveAt(i); }   // не больше двух
+                for (int i = pops.Count - 1; i >= 0; i--)
+                    if (!pops[i].big && pops[i].text.text == e.text.ToUpperInvariant()) { Destroy(pops[i].text.gameObject); pops.RemoveAt(i); }
             }
             Color c = e.color; if (c.a < 0.05f) c = Color.white; c.a = 1f;
             var t = UiKit.Label(popRoot, e.text.ToUpperInvariant(), big ? 150 : 46, c, TextAnchor.MiddleCenter, FontStyle.BoldAndItalic, true);
